@@ -1,6 +1,7 @@
 package io.github.lastnyx.hermesclient.data.chat
 
 import io.github.lastnyx.hermesclient.data.live.LinkEvent
+import io.github.lastnyx.hermesclient.data.live.ServerRequest
 
 enum class ToolStatus { Running, Done }
 
@@ -24,6 +25,8 @@ data class ChatState(
     val items: List<ChatItem> = emptyList(),
     val running: Boolean = false,
     val error: String? = null,
+    /** Pending approval/clarify prompts the gateway still holds; the screen for them is a later ticket. */
+    val openRequests: List<ServerRequest> = emptyList(),
 )
 
 /** Pure: applies one live-link event for this chat's session. */

@@ -54,6 +54,75 @@ class ChatControllerTest {
         """{"jsonrpc":"2.0","method":"event","params":{"type":"$type","session_id":"rt2","payload":$payload,"seq":$seq}}"""
 
     @Test
+    fun reconnectWithSameEpochReplaysMissedEventsWithoutDuplicates() = runBlocking {
+        val sinceParams = Collections.synchronizedList(mutableListOf<String>())
+        val listener = object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                webSocket.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"gateway.ready","payload":{"heartbeat":true,"replay_epoch":"ep1"}}}""")
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                val frame = JSONObject(text)
+                val id = frame.optString("id")
+                val params = frame.optJSONObject("params") ?: JSONObject()
+                fun result(body: String) = webSocket.send("""{"jsonrpc":"2.0","id":"$id","result":$body}""")
+                when (frame.optString("method")) {
+                    "client.capabilities" -> result("{}")
+                    "session.resume" -> result("""{"session_id":"rt2","stored_session_id":"stored-1","running":false}""")
+                    "prompt.submit" -> {
+                        result("""{"status":"streaming"}""")
+                        webSocket.send(event("message.delta", """{"text":"Hel"}""", 1))
+                        webSocket.send(event("message.delta", """{"text":"lo"}""", 2))
+                        webSocket.close(1001, "")
+                    }
+                    "session.events.since" -> {
+                        sinceParams += params.toString().let { p -> JSONObject(p).let { "${it.getString("session_id")} ${it.getInt("last_seen")} ${it.length()}" } }
+                        result(
+                            """{"events":[{"type":"message.delta","session_id":"rt2","payload":{"text":"lo"},"seq":2},""" +
+                                """{"type":"message.delta","session_id":"rt2","payload":{"text":"!"},"seq":3}],""" +
+                                """"latest_seq":3,"truncated":false,"count":2,"epoch":"ep1",""" +
+                                """"open_requests":[{"id":"srq-1","method":"approval","params":{"command":"ls"}}]}""",
+                        )
+                    }
+                }
+            }
+        }
+        val gateway = MockWebServer()
+        gateway.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.path == "/api/auth/ws-ticket" -> MockResponse().setBody("""{"ticket":"t","ttl_seconds":30}""")
+                request.path!!.startsWith("/api/ws") -> MockResponse().withWebSocketUpgrade(listener)
+                request.path!!.startsWith("/api/sessions/stored-1/messages") ->
+                    MockResponse().setBody("""{"session_id":"stored-1","messages":[{"role":"user","content":"hi"}]}""")
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val http = OkHttpClient()
+        val authed = AuthedHttp(http, tokens, "gw-1", base, now = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val link = LiveLink(http, authed, base, scope, FakeNetwork(), random = { 0.0 })
+        link.start()
+        awaitTrue { link.state.value == LinkState.Connected }
+
+        val chat = ChatController(link, SessionsRepository(authed, base), "stored-1", scope)
+        chat.open()
+        chat.send("go")
+        awaitTrue { chat.state.value.openRequests.isNotEmpty() && sinceParams.isNotEmpty() }
+        awaitTrue { chat.state.value.items.size == 3 && (chat.state.value.items.last() as ChatItem.Message).text == "Hello!" }
+
+        assertEquals(listOf("rt2 2 2"), sinceParams.toList())
+        assertEquals("srq-1", chat.state.value.openRequests.single().id)
+
+        link.stop()
+        scope.coroutineContext[Job]!!.cancel()
+        gateway.shutdown()
+    }
+
+    @Test
     fun chatOpensStreamsSteersStopsAndResumesOn4001() = runBlocking {
         val calls = Collections.synchronizedList(mutableListOf<String>())
         var resumes = 0
