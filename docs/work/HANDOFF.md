@@ -21,6 +21,6 @@ first ticket whose Status is `todo` and whose blockers are `done`.
 |---|---|
 | Feature branch | `feature/v1` (tickets in `.scratch/v1/issues/`, 12 tickets incl. 02b) |
 | Last done ticket | 03 (review, 6f25566) |
-| Next ticket | 04 session list (todo, not started) |
+| Next ticket | 04 session list (in progress) |
 | Phone checkpoints | 1 after 03: PASSED 2026-10-12 (sign-in on WorkLab works); 2 after 06 (chat); 3 at the end |
 | Notes | Toolchain + skeleton verified on Windows: `./build.sh test` and `assembleDebug` pass. |
