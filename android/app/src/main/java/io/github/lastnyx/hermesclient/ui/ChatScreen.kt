@@ -1,5 +1,11 @@
 package io.github.lastnyx.hermesclient.ui
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import io.github.lastnyx.hermesclient.data.watch.WatchHub
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -65,11 +71,31 @@ fun ChatHost(storedId: String?, link: LiveLink, repo: SessionsRepository, modifi
         models.load()
         slash.load()
     }
-    ChatScreen(controller, models, slash, modifier)
+    val context = LocalContext.current
+    val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    val onSend: suspend (String) -> Unit = { text ->
+        val current = controller.state.value
+        if (!current.running) {
+            // Denied permission only silences notifications; the service and chat still work.
+            if (Build.VERSION.SDK_INT >= 33 && !WatchHub.askedForNotifications) {
+                WatchHub.askedForNotifications = true
+                askPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            (current.storedId ?: current.sessionId)?.let { WatchHub.track(context, it, controller.state, link) }
+        }
+        controller.send(text)
+    }
+    ChatScreen(controller, models, slash, modifier, onSend)
 }
 
 @Composable
-fun ChatScreen(controller: ChatController, models: ModelsController, slash: SlashCommands, modifier: Modifier = Modifier) {
+fun ChatScreen(
+    controller: ChatController,
+    models: ModelsController,
+    slash: SlashCommands,
+    modifier: Modifier = Modifier,
+    onSend: suspend (String) -> Unit = { controller.send(it) },
+) {
     val state by controller.state.collectAsState()
     val modelState by models.state.collectAsState()
     val commands by slash.commands.collectAsState()
@@ -115,7 +141,7 @@ fun ChatScreen(controller: ChatController, models: ModelsController, slash: Slas
                 placeholder = { Text(if (state.running) "Steer the reply" else "Message") },
             )
             if (draft.isNotBlank()) {
-                Button(onClick = { val text = draft; draft = ""; scope.launch { controller.send(text) } }, modifier = Modifier.padding(start = 8.dp)) {
+                Button(onClick = { val text = draft; draft = ""; scope.launch { onSend(text) } }, modifier = Modifier.padding(start = 8.dp)) {
                     Text(if (state.running) "Steer" else "Send")
                 }
             } else if (state.running) {

@@ -41,6 +41,7 @@ import androidx.compose.runtime.key
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import io.github.lastnyx.hermesclient.data.watch.WatchHub
 import io.github.lastnyx.hermesclient.data.live.AndroidNetworkMonitor
 import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
@@ -175,7 +176,13 @@ private fun relativeTime(epochSeconds: Double, nowMs: Long = System.currentTimeM
 
 /** Active gateway's list; beside the chat placeholder on screens 720 dp wide or more. */
 @Composable
-fun SessionsHost(gateway: Gateway, http: OkHttpClient, tokens: TokenStore, onGateways: () -> Unit) {
+fun SessionsHost(
+    gateway: Gateway,
+    http: OkHttpClient,
+    tokens: TokenStore,
+    onGateways: () -> Unit,
+    openSessionId: String? = null,
+) {
     val authed = remember(gateway.id, gateway.url) { AuthedHttp(http, tokens, gateway.id, gateway.url) }
     val model = remember(authed) { SessionListModel(SessionsRepository(authed, gateway.url), Dispatchers.IO) }
     val auth by authed.state.collectAsState()
@@ -185,6 +192,7 @@ fun SessionsHost(gateway: Gateway, http: OkHttpClient, tokens: TokenStore, onGat
     var chatKey by remember(gateway.id) { mutableStateOf(0) }
     val open = { id: String? -> chatId = id; chatKey++; chatOpen = true }
     BackHandler(enabled = chatOpen && !wide) { chatOpen = false }
+    LaunchedEffect(openSessionId) { if (openSessionId != null) open(openSessionId) }
 
     val linkScope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -197,7 +205,14 @@ fun SessionsHost(gateway: Gateway, http: OkHttpClient, tokens: TokenStore, onGat
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(link, lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START) link.start() else if (event == Lifecycle.Event.ON_STOP) link.stop()
+            if (event == Lifecycle.Event.ON_START) {
+                WatchHub.foreground = true
+                link.start()
+            } else if (event == Lifecycle.Event.ON_STOP) {
+                WatchHub.foreground = false
+                // The Watch service keeps the link open while a phone-started turn is running or waiting.
+                if (!WatchHub.active) link.stop()
+            }
         }
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer); link.stop() }
