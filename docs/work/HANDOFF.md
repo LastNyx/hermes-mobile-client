@@ -19,7 +19,8 @@ first ticket whose Status is `todo` and whose blockers are `done`.
 
 | Field | Value |
 |---|---|
-| Feature branch | (set when tickets are cut) |
+| Feature branch | `feature/v1` (tickets in `.scratch/v1/issues/`, 11 tickets) |
 | Last done ticket | none |
-| Next ticket | none |
+| Next ticket | 01 gateway registry |
+| Phone checkpoints | after 03 (sign-in on WorkLab), after 06 (chat), at the end |
 | Notes | Toolchain + skeleton verified on Windows: `./build.sh test` and `assembleDebug` pass. |
