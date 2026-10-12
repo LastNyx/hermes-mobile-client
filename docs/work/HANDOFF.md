@@ -37,7 +37,8 @@ after all tickets; only then do tickets become `done`).
 | Field | Value |
 |---|---|
 | Feature branch | `feature/v1` (tickets in `.scratch/v1/issues/`, 15 tickets incl. 02b, 04b, 05b, 05c) |
-| Last done ticket | 10 (review, 8c5835a; WatchPolicy + WatchHub + WatchService (dataSync) + notifications; JVM-tested policy only, needs phone test) |
+| Last done ticket | 11 (review, d0a4bf2; Updater + UpdateController + SettingsScreen + PackageInstaller glue; app side only, tested against fixtures, never run against a real release) |
+| Last done ticket (also) | 10 (review, 8c5835a; WatchPolicy + WatchHub + WatchService (dataSync) + notifications; JVM-tested policy only, needs phone test) |
 | Last done ticket (also) | 09 (review, 1466f67; model/reasoning dialog + slash suggestions in ChatScreen; command.dispatch send/skill/prefill/alias not handled) |
 | Last done ticket (also) | 08 (review, eec2de7; approval + clarify cards in ChatScreen, sudo/secret declined; clarify answers first question only; JVM-tested only, not device-tested: approvals are off on WorkLab) |
 | Last done ticket (also) | 07 (review, b12e6e2; replay by seq, epoch/truncated reload, open_requests exposed; no new screen) |
@@ -47,7 +48,7 @@ after all tickets; only then do tickets become `done`).
 | Last done ticket (also) | 05 (review, d31b2f1; `LiveLink` + Connected/Connecting/Offline indicator in `SessionsHost`) |
 | Last done ticket (also) | 04b (review, 64db4a2) |
 | Last done ticket (also) | 04 (review, 76f8781; data layer only) |
-| Next ticket | 11 self-updater (todo, needs planner work first: releases repo, keystore, release.yml) |
+| Next ticket | none. All tickets are in review. Next: release plumbing (planner: releases repo, keystore, release.yml), then the reviewer round, then docs |
 | Phone checkpoints | 1 after 03: PASSED 2026-10-12 (sign-in on WorkLab works); 2 after 06 (chat): PASSED 2026-10-12 (text-only UI, polish ticket not written yet); 3 at the end |
 | APK delivery | After every ticket that passes: build the debug APK and send it to the user on Telegram, until the in-app updater (ticket 11) works. Use the Bot API `sendDocument` directly (curl `-F document=@<apk>`, bot token + first `TELEGRAM_ALLOWED_USERS` id from the Hermes `.env`, `--max-time 600`) and confirm `ok:true` with the file size. `hermes send` with `MEDIA:` times out on a 16 MB APK and only reports it as a warning. |
 | Notes | Toolchain + skeleton verified on Windows: `./build.sh test` and `assembleDebug` pass. |
