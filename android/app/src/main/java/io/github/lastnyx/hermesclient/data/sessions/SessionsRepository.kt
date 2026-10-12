@@ -19,7 +19,7 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
             "$base/api/sessions".toHttpUrl().newBuilder()
                 .addQueryParameter("order", "recent")
                 // Human chats only: Desktop hides scheduled/automated sources from recents.
-                .addQueryParameter("exclude_sources", "cron,tool,api")
+                .addQueryParameter("exclude_sources", "cron")
                 .build(),
         ).build(),
     ) { parse(it.getJSONArray("sessions"), "id") }.map { it.sortedByDescending(Session::lastActive) }

@@ -10,7 +10,13 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import io.github.lastnyx.hermesclient.data.auth.SignInState
+import io.github.lastnyx.hermesclient.ui.SessionsHost
 import io.github.lastnyx.hermesclient.data.auth.CustomTabBrowserLauncher
 import io.github.lastnyx.hermesclient.data.auth.FileTokenStorage
 import io.github.lastnyx.hermesclient.data.auth.KeystoreSecretCipher
@@ -30,9 +36,10 @@ class MainActivity : ComponentActivity() {
         val registry = GatewayRegistry(PrefsGatewayStorage(applicationContext))
         val http = OkHttpClient()
         val client = GatewayClient(http)
+        val tokens = TokenStore(FileTokenStorage(applicationContext), KeystoreSecretCipher())
         val signIn = SignInController(
             http,
-            TokenStore(FileTokenStorage(applicationContext), KeystoreSecretCipher()),
+            tokens,
             CustomTabBrowserLauncher(this),
             onFinished = {
                 startActivity(
@@ -43,7 +50,17 @@ class MainActivity : ComponentActivity() {
         )
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
-                Surface(Modifier.fillMaxSize().safeDrawingPadding()) { GatewaysScreen(registry, client, signIn) }
+                Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
+                    var showGateways by remember {
+                        mutableStateOf(registry.active()?.let { signIn.stateOf(it.id) } !is SignInState.SignedIn)
+                    }
+                    val active = registry.active()
+                    if (showGateways || active == null) {
+                        GatewaysScreen(registry, client, signIn, onOpenSessions = { showGateways = false })
+                    } else {
+                        SessionsHost(active, http, tokens, onGateways = { showGateways = true })
+                    }
+                }
             }
         }
     }

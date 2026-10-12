@@ -36,7 +36,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun GatewaysScreen(registry: GatewayRegistry, client: GatewayClient, signIn: SignInController) {
+fun GatewaysScreen(
+    registry: GatewayRegistry,
+    client: GatewayClient,
+    signIn: SignInController,
+    onOpenSessions: () -> Unit = {},
+) {
     val signStates by signIn.states.collectAsState()
     var gateways by remember { mutableStateOf(registry.list()) }
     var activeId by remember { mutableStateOf(registry.active()?.id) }
@@ -51,6 +56,10 @@ fun GatewaysScreen(registry: GatewayRegistry, client: GatewayClient, signIn: Sig
 
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Gateways", style = MaterialTheme.typography.headlineMedium)
+        val activeState = activeId?.let { signStates[it] ?: signIn.stateOf(it) }
+        if (activeState is SignInState.SignedIn) {
+            Button(onClick = onOpenSessions) { Text("Open sessions") }
+        }
         if (adding || editing != null) {
             GatewayForm(
                 initial = editing,
