@@ -27,6 +27,13 @@ import io.github.lastnyx.hermesclient.data.gateway.GatewayClient
 import io.github.lastnyx.hermesclient.data.gateway.GatewayRegistry
 import io.github.lastnyx.hermesclient.data.gateway.PrefsGatewayStorage
 import io.github.lastnyx.hermesclient.ui.GatewaysScreen
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import io.github.lastnyx.hermesclient.data.update.ApkInstaller
+import io.github.lastnyx.hermesclient.data.update.UpdateController
+import io.github.lastnyx.hermesclient.data.update.Updater
+import io.github.lastnyx.hermesclient.ui.SettingsScreen
+import kotlinx.coroutines.Dispatchers
 import okhttp3.OkHttpClient
 
 /** Opens on the Gateways screen; later tickets add navigation past it. */
@@ -58,15 +65,31 @@ class MainActivity : ComponentActivity() {
                 )
             },
         )
+        val updates = UpdateController(
+            Updater(http, "https://api.github.com", BuildConfig.RELEASES_REPO, BuildConfig.VERSION_NAME),
+            cacheDir,
+            Dispatchers.IO,
+            install = { ApkInstaller.install(applicationContext, it) },
+        )
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) {
                 Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
                     var showGateways by remember {
                         mutableStateOf(registry.active()?.let { signIn.stateOf(it.id) } !is SignInState.SignedIn)
                     }
+                    var showSettings by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { updates.check(silent = true) }
+                    val updateUi by updates.state.collectAsState()
                     val active = registry.active()
-                    if (showGateways || active == null) {
-                        GatewaysScreen(registry, client, signIn, onOpenSessions = { showGateways = false })
+                    if (showSettings) {
+                        SettingsScreen(updates, BuildConfig.VERSION_NAME, onBack = { showSettings = false })
+                    } else if (showGateways || active == null) {
+                        GatewaysScreen(
+                            registry, client, signIn,
+                            onOpenSessions = { showGateways = false },
+                            onOpenSettings = { showSettings = true },
+                            updateStatus = updateUi.status,
+                        )
                     } else {
                         SessionsHost(active, http, tokens, onGateways = { showGateways = true }, openSessionId = requestedSession)
                     }

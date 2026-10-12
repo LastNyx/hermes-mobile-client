@@ -41,6 +41,8 @@ fun GatewaysScreen(
     client: GatewayClient,
     signIn: SignInController,
     onOpenSessions: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
+    updateStatus: String = "",
 ) {
     val signStates by signIn.states.collectAsState()
     var gateways by remember { mutableStateOf(registry.list()) }
@@ -56,6 +58,8 @@ fun GatewaysScreen(
 
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Gateways", style = MaterialTheme.typography.headlineMedium)
+        TextButton(onClick = onOpenSettings) { Text("Settings") }
+        if (updateStatus.startsWith("Update available")) Text(updateStatus)
         val activeState = activeId?.let { signStates[it] ?: signIn.stateOf(it) }
         if (activeState is SignInState.SignedIn) {
             Button(onClick = onOpenSessions) { Text("Open sessions") }

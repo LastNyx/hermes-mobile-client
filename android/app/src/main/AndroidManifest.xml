@@ -32,6 +32,10 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".data.update.InstallStatusReceiver"
+            android:exported="false" />
+
         <service
             android:name=".data.watch.WatchService"
             android:exported="false"
