@@ -37,9 +37,10 @@ after all tickets; only then do tickets become `done`).
 | Field | Value |
 |---|---|
 | Feature branch | `feature/v1` (tickets in `.scratch/v1/issues/`, 13 tickets incl. 02b, 04b) |
-| Last done ticket | 04b (review, 64db4a2) |
+| Last done ticket | 05 (review, d31b2f1; `LiveLink` + Connected/Connecting/Offline indicator in `SessionsHost`) |
+| Last done ticket (also) | 04b (review, 64db4a2) |
 | Last done ticket (also) | 04 (review, 76f8781; data layer only) |
-| Next ticket | 05 live link (todo, not started) |
+| Next ticket | 06 chat (todo, not started) |
 | Phone checkpoints | 1 after 03: PASSED 2026-10-12 (sign-in on WorkLab works); 2 after 06 (chat); 3 at the end |
 | APK delivery | After every ticket that passes: build the debug APK and send it to the user on Telegram, until the in-app updater (ticket 11) works. Use the Bot API `sendDocument` directly (curl `-F document=@<apk>`, bot token + first `TELEGRAM_ALLOWED_USERS` id from the Hermes `.env`, `--max-time 600`) and confirm `ok:true` with the file size. `hermes send` with `MEDIA:` times out on a 16 MB APK and only reports it as a warning. |
 | Notes | Toolchain + skeleton verified on Windows: `./build.sh test` and `assembleDebug` pass. |
