@@ -12,8 +12,25 @@ scripts/setup-toolchain.sh        # JDK 17 + Android SDK into C:/home/tools or ~
 ```
 
 Tickets live in `.scratch/<feature>/issues/` and are committed (only `.scratch/runs*` is ignored),
-so ticket Status travels with the branch. The planner (Hermes + `orchestrate` skill) reads the
-first ticket whose Status is `todo` and whose blockers are `done`.
+so ticket Status travels with the branch. The planner (Hermes + `orchestrate` skill) picks the
+next `todo` ticket whose blockers are `review` or `done` (`review` counts until the reviewer round
+after all tickets; only then do tickets become `done`).
+
+## Working agreement with the user
+
+- One ticket at a time. After each ticket: verify (`git log --stat -1`, `./build.sh test`,
+  `assembleDebug`, check the screen part was really built), set Status, update this file, push,
+  send the APK, then **report and wait for the user's go** before dispatching the next ticket.
+- Dev worker: `python <hermes-dev-team>/kit/run-worker.py dev "ticket: .scratch/v1/issues/<NN>-<slug>.md"`
+  (Windows: `C:/home/project/hermes-dev-team/kit`). Never two workers at once.
+- If a worker skips part of a ticket, do not mark it done: write a `<NN>b` follow-up ticket, have the
+  user approve it, then dispatch.
+- Known pattern for the reviewer round: workers write one test per ticket, so failure paths in
+  02, 02b, 03, 04 are implemented but not separately tested.
+- Ticket 11 needs planner work the worker cannot do: the public repo
+  `LastNyx/hermes-mobile-client-releases` (user creates it), a release keystore (user keeps the
+  backup outside git), repo secrets, and `.github/workflows/release.yml` (protected file, planner
+  writes it with the user's yes).
 
 ## State
 
