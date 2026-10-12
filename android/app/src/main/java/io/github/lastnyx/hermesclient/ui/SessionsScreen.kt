@@ -37,6 +37,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.key
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -181,7 +182,8 @@ fun SessionsHost(gateway: Gateway, http: OkHttpClient, tokens: TokenStore, onGat
     var chatOpen by remember(gateway.id) { mutableStateOf(false) }
     var chatId by remember(gateway.id) { mutableStateOf<String?>(null) }
     val wide = LocalConfiguration.current.screenWidthDp >= 720
-    val open = { id: String? -> chatId = id; chatOpen = true }
+    var chatKey by remember(gateway.id) { mutableStateOf(0) }
+    val open = { id: String? -> chatId = id; chatKey++; chatOpen = true }
     BackHandler(enabled = chatOpen && !wide) { chatOpen = false }
 
     val linkScope = rememberCoroutineScope()
@@ -206,7 +208,11 @@ fun SessionsHost(gateway: Gateway, http: OkHttpClient, tokens: TokenStore, onGat
         LiveLinkIndicator(link, Modifier.padding(horizontal = 12.dp))
         val linkState by link.state.collectAsState()
         val offline = linkState == LinkState.Offline || linkState == LinkState.Connecting
-        Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, chatId, auth, model, open, onGateways, offline) }
+        val repo = remember(authed) { SessionsRepository(authed, gateway.url) }
+        val chat: @Composable (Modifier) -> Unit = { m ->
+            key(chatId, chatKey) { ChatHost(chatId, link, repo, m) }
+        }
+        Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, auth, model, open, onGateways, offline, chat) }
     }
 }
 
@@ -214,29 +220,29 @@ fun SessionsHost(gateway: Gateway, http: OkHttpClient, tokens: TokenStore, onGat
 private fun SessionsBody(
     wide: Boolean,
     chatOpen: Boolean,
-    chatId: String?,
     auth: AuthState,
     model: SessionListModel,
     open: (String?) -> Unit,
     onGateways: () -> Unit,
     offline: Boolean,
+    chat: @Composable (Modifier) -> Unit,
 ) {
     if (wide) {
         Row(Modifier.fillMaxSize()) {
             SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.width(360.dp).fillMaxHeight(), offline)
-            ChatPlaceholder(if (chatOpen) chatId else null, Modifier.weight(1f))
+            if (chatOpen) chat(Modifier.weight(1f)) else ChatPlaceholder(Modifier.weight(1f))
         }
     } else if (chatOpen) {
-        ChatPlaceholder(chatId)
+        chat(Modifier.fillMaxSize())
     } else {
         SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.fillMaxSize(), offline)
     }
 }
 
-/** Stand-in until the real chat ticket. */
+/** Shown beside the list on wide screens until a chat is opened. */
 @Composable
-fun ChatPlaceholder(sessionId: String?, modifier: Modifier = Modifier) {
+fun ChatPlaceholder(modifier: Modifier = Modifier) {
     Column(modifier.padding(16.dp)) {
-        Text(sessionId ?: "New chat", style = MaterialTheme.typography.titleMedium)
+        Text("Select or start a chat", style = MaterialTheme.typography.titleMedium)
     }
 }
