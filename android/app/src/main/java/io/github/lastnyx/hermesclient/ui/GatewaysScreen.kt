@@ -15,6 +15,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +25,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.lastnyx.hermesclient.data.auth.SignInController
+import io.github.lastnyx.hermesclient.data.auth.SignInState
 import io.github.lastnyx.hermesclient.data.gateway.Gateway
 import io.github.lastnyx.hermesclient.data.gateway.GatewayClient
 import io.github.lastnyx.hermesclient.data.gateway.GatewayRegistry
@@ -32,13 +36,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun GatewaysScreen(registry: GatewayRegistry, client: GatewayClient) {
+fun GatewaysScreen(registry: GatewayRegistry, client: GatewayClient, signIn: SignInController) {
+    val signStates by signIn.states.collectAsState()
     var gateways by remember { mutableStateOf(registry.list()) }
     var activeId by remember { mutableStateOf(registry.active()?.id) }
     var editing by remember { mutableStateOf<Gateway?>(null) }
     var adding by remember { mutableStateOf(gateways.isEmpty()) }
     val testResults = remember { mutableStateMapOf<String, String>() }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(gateways) { gateways.forEach { signIn.refreshName(it.id, it.url) } }
 
     fun refresh() { gateways = registry.list(); activeId = registry.active()?.id }
 
@@ -69,7 +76,23 @@ fun GatewaysScreen(registry: GatewayRegistry, client: GatewayClient) {
                             }
                         }
                         testResults[gateway.id]?.let { Text(it) }
+                        val state = signStates[gateway.id] ?: signIn.stateOf(gateway.id)
+                        Text(
+                            when (state) {
+                                is SignInState.SignedIn -> if (state.name == "Signed in") state.name else "Signed in as ${state.name}"
+                                SignInState.SigningIn -> "Signing in…"
+                                is SignInState.SignedOut -> state.message?.let { "Signed out: $it" } ?: "Signed out"
+                            },
+                        )
                         Row {
+                            if (state is SignInState.SignedIn) {
+                                TextButton(onClick = { signIn.signOut(gateway.id) }) { Text("Sign out") }
+                            } else {
+                                TextButton(
+                                    enabled = state != SignInState.SigningIn,
+                                    onClick = { scope.launch { signIn.signIn(gateway.id, gateway.url) } },
+                                ) { Text("Sign in") }
+                            }
                             TextButton(onClick = {
                                 testResults[gateway.id] = "Testing…"
                                 scope.launch {
