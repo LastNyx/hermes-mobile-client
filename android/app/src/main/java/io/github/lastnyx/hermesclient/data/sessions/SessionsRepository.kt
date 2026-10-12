@@ -9,6 +9,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
 
+const val CANT_REACH_GATEWAY = "Can't reach the gateway. Check your connection."
+
 data class Session(val id: String, val title: String, val preview: String, val lastActive: Double)
 
 /** Sessions of one gateway over REST. Blocking; call off the main thread. */
@@ -67,7 +69,7 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
         )
     } catch (e: IOException) {
         // Never surface OkHttp's text ("failed to connect to ... after 10000ms").
-        Result.failure(Exception("Can't reach the gateway. Check your connection."))
+        Result.failure(Exception(CANT_REACH_GATEWAY))
     } catch (e: Exception) {
         Result.failure(e)
     }

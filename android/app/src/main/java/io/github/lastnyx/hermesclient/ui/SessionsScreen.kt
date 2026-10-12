@@ -48,6 +48,7 @@ import io.github.lastnyx.hermesclient.data.auth.AuthState
 import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
 import io.github.lastnyx.hermesclient.data.auth.TokenStore
 import io.github.lastnyx.hermesclient.data.gateway.Gateway
+import io.github.lastnyx.hermesclient.data.sessions.CANT_REACH_GATEWAY
 import io.github.lastnyx.hermesclient.data.sessions.Session
 import io.github.lastnyx.hermesclient.data.sessions.SessionListModel
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
@@ -64,6 +65,7 @@ fun SessionsScreen(
     onOpen: (String?) -> Unit,
     onGateways: () -> Unit,
     modifier: Modifier = Modifier,
+    offline: Boolean = false,
 ) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -90,7 +92,13 @@ fun SessionsScreen(
         OutlinedTextField(
             query, { query = it }, label = { Text("Search") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
         )
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        state.error?.let {
+            if (offline && it == CANT_REACH_GATEWAY) {
+                Text("Offline", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Text(it, color = MaterialTheme.colorScheme.error)
+            }
+        }
         PullToRefreshBox(
             isRefreshing = state.loading,
             onRefresh = { scope.launch { model.refresh() } },
@@ -196,7 +204,9 @@ fun SessionsHost(gateway: Gateway, http: OkHttpClient, tokens: TokenStore, onGat
 
     Column(Modifier.fillMaxSize()) {
         LiveLinkIndicator(link, Modifier.padding(horizontal = 12.dp))
-        Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, chatId, auth, model, open, onGateways) }
+        val linkState by link.state.collectAsState()
+        val offline = linkState == LinkState.Offline
+        Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, chatId, auth, model, open, onGateways, offline) }
     }
 }
 
@@ -209,16 +219,17 @@ private fun SessionsBody(
     model: SessionListModel,
     open: (String?) -> Unit,
     onGateways: () -> Unit,
+    offline: Boolean,
 ) {
     if (wide) {
         Row(Modifier.fillMaxSize()) {
-            SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.width(360.dp).fillMaxHeight())
+            SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.width(360.dp).fillMaxHeight(), offline)
             ChatPlaceholder(if (chatOpen) chatId else null, Modifier.weight(1f))
         }
     } else if (chatOpen) {
         ChatPlaceholder(chatId)
     } else {
-        SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.fillMaxSize())
+        SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.fillMaxSize(), offline)
     }
 }
 
