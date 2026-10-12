@@ -36,8 +36,9 @@ after all tickets; only then do tickets become `done`).
 
 | Field | Value |
 |---|---|
-| Feature branch | `feature/v1` (tickets in `.scratch/v1/issues/`, 13 tickets incl. 02b, 04b) |
-| Last done ticket | 05 (review, d31b2f1; `LiveLink` + Connected/Connecting/Offline indicator in `SessionsHost`) |
+| Feature branch | `feature/v1` (tickets in `.scratch/v1/issues/`, 14 tickets incl. 02b, 04b, 05b) |
+| Last done ticket | 05b (review, aa52403; network monitor, list reload on reconnect, friendly offline error; awaiting phone re-test) |
+| Last done ticket (also) | 05 (review, d31b2f1; `LiveLink` + Connected/Connecting/Offline indicator in `SessionsHost`) |
 | Last done ticket (also) | 04b (review, 64db4a2) |
 | Last done ticket (also) | 04 (review, 76f8781; data layer only) |
 | Next ticket | 06 chat (todo, not started) |
