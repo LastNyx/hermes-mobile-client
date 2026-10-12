@@ -97,7 +97,7 @@ class ChatController(
 
     private suspend fun resume() {
         val stored = _state.value.storedId ?: throw IOException("Chat not ready")
-        adopt(link.call("session.resume", JSONObject().put("session_id", stored).put("inline_images", false).put("omit_messages", true)))
+        adopt(link.call("session.resume", JSONObject().put("session_id", stored)))
     }
 
     private fun adopt(result: JSONObject) {
