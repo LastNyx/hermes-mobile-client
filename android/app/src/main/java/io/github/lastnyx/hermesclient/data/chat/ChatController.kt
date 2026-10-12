@@ -218,6 +218,11 @@ class ChatController(
         }
     }
 
+    /** Puts local text (e.g. slash command output) into the chat without sending it. */
+    fun addNote(text: String) {
+        _state.update { it.copy(items = it.items + ChatItem.Note("n${it.items.size}", text)) }
+    }
+
     suspend fun stop() {
         try {
             sessionCall("session.interrupt") { it }
@@ -231,7 +236,7 @@ class ChatController(
     }
 
     /** Session-scoped call; 4001 means the runtime id is stale, so resume by stored id and retry once. */
-    private suspend fun sessionCall(method: String, build: (JSONObject) -> JSONObject): JSONObject {
+    internal suspend fun sessionCall(method: String, build: (JSONObject) -> JSONObject): JSONObject {
         fun params() = build(JSONObject().put("session_id", _state.value.sessionId ?: throw IOException("Chat not ready")))
         return try {
             link.call(method, params())

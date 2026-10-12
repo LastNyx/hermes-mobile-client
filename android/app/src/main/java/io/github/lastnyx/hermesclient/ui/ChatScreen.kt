@@ -10,8 +10,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.TextButton
+import io.github.lastnyx.hermesclient.data.chat.ModelsController
+import io.github.lastnyx.hermesclient.data.chat.ModelsState
+import io.github.lastnyx.hermesclient.data.chat.REASONING_LEVELS
+import io.github.lastnyx.hermesclient.data.chat.SlashCommands
 import androidx.compose.material3.OutlinedButton
 import io.github.lastnyx.hermesclient.data.chat.Prompt
 import androidx.compose.material3.MaterialTheme
@@ -49,24 +57,33 @@ fun ChatHost(storedId: String?, link: LiveLink, repo: SessionsRepository, modifi
     val scope = remember(storedId) { CoroutineScope(SupervisorJob() + Dispatchers.Main) }
     DisposableEffect(scope) { onDispose { scope.cancel() } }
     val controller = remember(scope) { ChatController(link, repo, storedId, scope) }
+    val models = remember(controller) { ModelsController(controller) }
+    val slash = remember(controller) { SlashCommands(controller) }
     LaunchedEffect(controller) {
         link.state.first { it == LinkState.Connected }
         controller.open()
+        models.load()
+        slash.load()
     }
-    ChatScreen(controller, modifier)
+    ChatScreen(controller, models, slash, modifier)
 }
 
 @Composable
-fun ChatScreen(controller: ChatController, modifier: Modifier = Modifier) {
+fun ChatScreen(controller: ChatController, models: ModelsController, slash: SlashCommands, modifier: Modifier = Modifier) {
     val state by controller.state.collectAsState()
+    val modelState by models.state.collectAsState()
+    val commands by slash.commands.collectAsState()
     val scope = rememberCoroutineScope()
     var draft by remember { mutableStateOf("") }
+    var picking by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     LaunchedEffect(state.items.size, state.items.lastOrNull()) {
         if (state.items.isNotEmpty()) listState.scrollToItem(state.items.size - 1)
     }
+    if (picking) ModelPicker(modelState, models, onDismiss = { picking = false })
 
     Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+        TextButton(onClick = { picking = true }) { Text(modelState.model.ifBlank { "Model" }) }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(state.items, key = { it.key }) { item ->
                 when (item) {
@@ -83,6 +100,15 @@ fun ChatScreen(controller: ChatController, modifier: Modifier = Modifier) {
             }
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        if (draft.startsWith("/") && ' ' !in draft) {
+            slash.filter(draft).take(6).forEach { cmd ->
+                Text(
+                    "/${cmd.name}  ${cmd.description}",
+                    Modifier.fillMaxWidth().clickable { draft = ""; scope.launch { slash.run(cmd.name) } }.padding(vertical = 6.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 draft, { draft = it }, modifier = Modifier.weight(1f),
@@ -99,6 +125,42 @@ fun ChatScreen(controller: ChatController, modifier: Modifier = Modifier) {
             }
         }
     }
+}
+
+@Composable
+private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        title = { Text("Model") },
+        text = {
+            LazyColumn {
+                item {
+                    Text("Reasoning", style = MaterialTheme.typography.titleSmall)
+                    Row(Modifier.horizontalScroll(rememberScrollState())) {
+                        REASONING_LEVELS.forEach { level ->
+                            TextButton(onClick = { scope.launch { models.selectReasoning(level) } }) {
+                                Text(if (level == state.reasoningEffort) "[$level]" else level)
+                            }
+                        }
+                    }
+                }
+                state.groups.forEach { group ->
+                    item { Text(group.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)) }
+                    items(group.models) { model ->
+                        val current = model == state.model && group.slug == state.provider
+                        Text(
+                            if (current) "• $model" else model,
+                            Modifier.fillMaxWidth().clickable { scope.launch { models.selectModel(group.slug, model) } }.padding(vertical = 6.dp),
+                        )
+                    }
+                }
+                state.confirmMessage?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
+                state.error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
+            }
+        },
+    )
 }
 
 @Composable
