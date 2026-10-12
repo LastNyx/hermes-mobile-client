@@ -205,7 +205,7 @@ fun SessionsHost(gateway: Gateway, http: OkHttpClient, tokens: TokenStore, onGat
     Column(Modifier.fillMaxSize()) {
         LiveLinkIndicator(link, Modifier.padding(horizontal = 12.dp))
         val linkState by link.state.collectAsState()
-        val offline = linkState == LinkState.Offline
+        val offline = linkState == LinkState.Offline || linkState == LinkState.Connecting
         Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, chatId, auth, model, open, onGateways, offline) }
     }
 }
