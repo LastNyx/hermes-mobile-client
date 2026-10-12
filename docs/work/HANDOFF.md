@@ -37,7 +37,7 @@ after all tickets; only then do tickets become `done`).
 | Field | Value |
 |---|---|
 | Feature branch | `feature/v1` (tickets in `.scratch/v1/issues/`, 15 tickets incl. 02b, 04b, 05b, 05c) |
-| Last done ticket | 08 (review, eec2de7; approval + clarify cards in ChatScreen, sudo/secret declined; clarify answers first question only) |
+| Last done ticket | 08 (review, eec2de7; approval + clarify cards in ChatScreen, sudo/secret declined; clarify answers first question only; JVM-tested only, not device-tested: approvals are off on WorkLab) |
 | Last done ticket (also) | 07 (review, b12e6e2; replay by seq, epoch/truncated reload, open_requests exposed; no new screen) |
 | Last done ticket (also) | 06 (review, bee4ca0; ChatController + reducer + ChatScreen wired in SessionsHost; phone checkpoint 2 pending) |
 | Last done ticket (also) | 05c (review, af906e8; network monitor ignores the Tailscale VPN network; awaiting phone re-test) |
