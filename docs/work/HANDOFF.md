@@ -4,6 +4,8 @@ Where the build stands, so work can continue on another PC (Windows or Arch Linu
 
 ## Resume on another machine
 
+What the machine needs first (tools, secrets, keystore, workers): `docs/work/PREREQUISITES.md`.
+
 ```bash
 git clone https://github.com/LastNyx/hermes-mobile-client.git && cd hermes-mobile-client
 git checkout <feature branch below>
