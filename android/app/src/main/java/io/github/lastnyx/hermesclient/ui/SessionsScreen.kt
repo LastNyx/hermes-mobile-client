@@ -40,7 +40,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import io.github.lastnyx.hermesclient.data.live.AndroidNetworkMonitor
+import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
+import androidx.compose.ui.platform.LocalContext
 import io.github.lastnyx.hermesclient.data.auth.AuthState
 import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
 import io.github.lastnyx.hermesclient.data.auth.TokenStore
@@ -174,7 +177,13 @@ fun SessionsHost(gateway: Gateway, http: OkHttpClient, tokens: TokenStore, onGat
     BackHandler(enabled = chatOpen && !wide) { chatOpen = false }
 
     val linkScope = rememberCoroutineScope()
-    val link = remember(authed) { LiveLink(http, authed, gateway.url, linkScope) }
+    val context = LocalContext.current
+    val network = remember { AndroidNetworkMonitor(context) }
+    DisposableEffect(network) { onDispose { network.close() } }
+    val link = remember(authed) { LiveLink(http, authed, gateway.url, linkScope, network) }
+    LaunchedEffect(link, model) {
+        link.state.collect { if (it == LinkState.Connected && !model.state.value.loading) model.refresh() }
+    }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(link, lifecycle) {
         val observer = LifecycleEventObserver { _, event ->

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,6 +51,7 @@ class LiveLink(
     private val authed: AuthedHttp,
     baseUrl: String,
     private val scope: CoroutineScope,
+    private val network: NetworkMonitor,
     private val heartbeatMs: Long = 15_000,
     private val silenceMs: Long = 45_000,
     private val connectTimeoutMs: Long = 15_000,
@@ -76,8 +78,20 @@ class LiveLink(
 
     @Synchronized
     fun start() {
-        if (job?.isActive == true) return
-        job = scope.launch { run() }
+        // After a terminal state the loop has ended but the network collector is still alive; restart it.
+        val terminal = _state.value is LinkState.Error || _state.value == LinkState.SignedOut
+        if (job?.isActive == true && !terminal) return
+        job?.cancel()
+        // collectLatest cancels the running connection loop (closing its socket) the moment the network drops,
+        // and starts a fresh loop with a reset backoff when it returns.
+        job = scope.launch {
+            network.online.collectLatest { online ->
+                if (online) run() else {
+                    socket?.cancel()
+                    _state.value = LinkState.Offline
+                }
+            }
+        }
     }
 
     @Synchronized

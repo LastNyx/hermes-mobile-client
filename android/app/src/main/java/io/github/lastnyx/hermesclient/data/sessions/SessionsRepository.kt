@@ -7,6 +7,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 
 data class Session(val id: String, val title: String, val preview: String, val lastActive: Double)
 
@@ -53,14 +54,21 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
         )
     }
 
-    private fun <T> call(request: Request, map: (JSONObject) -> T): Result<T> = runCatching {
-        http.execute(request).use { response ->
-            val text = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                val detail = runCatching { JSONObject(text).optString("detail") }.getOrDefault("")
-                throw Exception(detail.ifEmpty { "Gateway returned ${response.code}" })
-            }
-            map(JSONObject(text))
-        }
+    private fun <T> call(request: Request, map: (JSONObject) -> T): Result<T> = try {
+        Result.success(
+            http.execute(request).use { response ->
+                val text = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    val detail = runCatching { JSONObject(text).optString("detail") }.getOrDefault("")
+                    throw Exception(detail.ifEmpty { "Gateway returned ${response.code}" })
+                }
+                map(JSONObject(text))
+            },
+        )
+    } catch (e: IOException) {
+        // Never surface OkHttp's text ("failed to connect to ... after 10000ms").
+        Result.failure(Exception("Can't reach the gateway. Check your connection."))
+    } catch (e: Exception) {
+        Result.failure(e)
     }
 }

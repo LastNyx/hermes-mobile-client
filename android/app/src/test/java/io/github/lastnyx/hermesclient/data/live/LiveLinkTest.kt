@@ -11,6 +11,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -108,7 +109,7 @@ class LiveLinkTest {
         val http = OkHttpClient()
         val authed = AuthedHttp(http, tokens, "gw-1", base, now = { 1000 })
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        val link = LiveLink(http, authed, base, scope, heartbeatMs = 50, silenceMs = 150, random = { 0.0 })
+        val link = LiveLink(http, authed, base, scope, FakeNetwork(true), heartbeatMs = 50, silenceMs = 150, random = { 0.0 })
 
         link.start()
         awaitTrue("connected") { link.state.value == LinkState.Connected }
@@ -151,6 +152,61 @@ class LiveLinkTest {
 
         link.start()
         awaitTrue("silence reconnect") { connections.get() >= 4 }
+        link.stop()
+        scope.coroutineContext[kotlinx.coroutines.Job]!!.cancel()
+        gateway.shutdown()
+    }
+
+    private class FakeNetwork(initial: Boolean) : NetworkMonitor {
+        override val online = MutableStateFlow(initial)
+    }
+
+    @Test
+    fun linkFollowsNetworkMonitor() = runBlocking {
+        val tickets = AtomicInteger()
+        val closed = AtomicInteger()
+        val gateway = MockWebServer()
+        gateway.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.path == "/api/auth/ws-ticket" ->
+                    MockResponse().setBody("""{"ticket":"t${tickets.incrementAndGet()}","ttl_seconds":30}""")
+                request.path!!.startsWith("/api/ws") -> MockResponse().withWebSocketUpgrade(object : WebSocketListener() {
+                    override fun onOpen(webSocket: WebSocket, response: Response) { webSocket.send(ready(true)) }
+                    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { closed.incrementAndGet() }
+                    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { closed.incrementAndGet() }
+                })
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val http = OkHttpClient()
+        val authed = AuthedHttp(http, tokens, "gw-1", base, now = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val network = FakeNetwork(false)
+        // random = 1.0 makes any backoff sleep non-zero, so an instant reconnect proves no sleep happened.
+        val link = LiveLink(http, authed, base, scope, network, random = { 1.0 })
+
+        link.start()
+        delay(300)
+        assertEquals(LinkState.Offline, link.state.value)
+        assertEquals(0, gateway.requestCount)
+
+        network.online.value = true
+        withTimeout(1000) { while (link.state.value != LinkState.Connected) delay(10) }
+
+        network.online.value = false
+        withTimeout(1000) { while (link.state.value != LinkState.Offline) delay(10) }
+        awaitTrue("socket closed") { closed.get() >= 1 }
+        delay(300)
+        assertEquals(1, tickets.get())
+
+        network.online.value = true
+        withTimeout(1000) { while (link.state.value != LinkState.Connected) delay(10) }
+        assertEquals(2, tickets.get())
+
         link.stop()
         scope.coroutineContext[kotlinx.coroutines.Job]!!.cancel()
         gateway.shutdown()
