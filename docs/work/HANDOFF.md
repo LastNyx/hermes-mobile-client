@@ -24,4 +24,5 @@ first ticket whose Status is `todo` and whose blockers are `done`.
 | Last done ticket (also) | 04 (review, 76f8781; data layer only) |
 | Next ticket | 05 live link (todo, not started) |
 | Phone checkpoints | 1 after 03: PASSED 2026-10-12 (sign-in on WorkLab works); 2 after 06 (chat); 3 at the end |
+| APK delivery | After every ticket that passes: build debug APK and send it to the user on Telegram (`hermes send --to telegram:<first TELEGRAM_ALLOWED_USERS id>` with `MEDIA:<path>`), until the in-app updater (ticket 11) works. |
 | Notes | Toolchain + skeleton verified on Windows: `./build.sh test` and `assembleDebug` pass. |
