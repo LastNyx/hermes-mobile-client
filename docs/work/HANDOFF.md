@@ -50,7 +50,8 @@ after all tickets; only then do tickets become `done`).
 | Last done ticket (also) | 05 (review, d31b2f1; `LiveLink` + Connected/Connecting/Offline indicator in `SessionsHost`) |
 | Last done ticket (also) | 04b (review, 64db4a2) |
 | Last done ticket (also) | 04 (review, 76f8781; data layer only) |
-| Next ticket | none. All tickets are in review. Next: release plumbing (planner: releases repo, keystore, release.yml), then the reviewer round, then docs |
+| Release | v0.1.0 published 2026-10-12 to LastNyx/hermes-mobile-client-releases (CI run 38273513159 green; APK 1,295,762 bytes, sha256 f375bc3e..., cert 63369fbf...). R8-minified release build NOT yet run on a device. |
+| Next ticket | none. All tickets are in review. Release plumbing done. Next: phone test of the release build, then the reviewer round, then docs |
 | Phone checkpoints | 1 after 03: PASSED 2026-10-12 (sign-in on WorkLab works); 2 after 06 (chat): PASSED 2026-10-12 (text-only UI, polish ticket not written yet); 3 at the end |
 | APK delivery | After every ticket that passes: build the debug APK and send it to the user on Telegram, until the in-app updater (ticket 11) works. Use the Bot API `sendDocument` directly (curl `-F document=@<apk>`, bot token + first `TELEGRAM_ALLOWED_USERS` id from the Hermes `.env`, `--max-time 600`) and confirm `ok:true` with the file size. `hermes send` with `MEDIA:` times out on a 16 MB APK and only reports it as a warning. |
 | Notes | Toolchain + skeleton verified on Windows: `./build.sh test` and `assembleDebug` pass. |
