@@ -1,0 +1,7 @@
+{
+  "test": "./build.sh test",
+  "models": {"dev": "sonnet", "reviewer": "sonnet", "docs": "haiku"},
+  "protected": ["build.sh", "*.gradle.kts", "libs.versions.toml", "gradle-wrapper.properties", "gradlew",
+                "gradle.properties", "local.properties", "keystore.properties", "proguard-rules.pro",
+                "setup-toolchain.sh", "*.yml"]
+}

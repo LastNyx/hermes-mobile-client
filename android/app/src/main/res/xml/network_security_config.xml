@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Design decision Q4: the user may enter any gateway URL, HTTP or HTTPS, so cleartext is
+  permitted app-wide. The UI warns on http:// URLs that are not tailnet (100.64.0.0/10) or
+  loopback addresses. See docs/SECURITY.md.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

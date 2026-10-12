@@ -1,0 +1,12 @@
+build/
+.gradle/
+.kotlin/
+local.properties
+keystore.properties
+*.jks
+*.keystore
+*.apk
+.idea/
+*.iml
+.scratch/runs/
+.scratch/runs.log
