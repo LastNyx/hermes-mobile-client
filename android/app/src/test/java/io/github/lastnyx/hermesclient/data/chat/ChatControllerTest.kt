@@ -123,6 +123,75 @@ class ChatControllerTest {
     }
 
     @Test
+    fun approvalsAndQuestionsAreAnsweredWithdrawnOrDeclined() = runBlocking {
+        val replies = Collections.synchronizedList(mutableListOf<String>())
+        val listener = object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                webSocket.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"gateway.ready","payload":{"heartbeat":true,"replay_epoch":"ep1"}}}""")
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                val frame = JSONObject(text)
+                val id = frame.optString("id")
+                if (id.startsWith("srq-")) { replies += "$id ${frame.getJSONObject("result")}"; return }
+                fun result(body: String) = webSocket.send("""{"jsonrpc":"2.0","id":"$id","result":$body}""")
+                when (frame.optString("method")) {
+                    "client.capabilities" -> result("{}")
+                    "session.resume" -> {
+                        result("""{"session_id":"rt1","stored_session_id":"stored-1","running":false,"open_requests":[{"id":"srq-a","method":"approval","params":{"session_id":"rt1","request_id":"ap_1","command":"rm -rf build","description":"recursive delete","choices":["once","session","always","deny"],"tool_name":"terminal"}}]}""")
+                        webSocket.send("""{"jsonrpc":"2.0","id":"srq-a","method":"approval","params":{"session_id":"rt1","request_id":"ap_1","command":"rm -rf build"}}""")
+                        webSocket.send("""{"jsonrpc":"2.0","id":"srq-c","method":"clarify","params":{"session_id":"rt1","questions":[{"qid":"q1","question":"Which?","choices":["red","blue"],"multi_select":false}]}}""")
+                        webSocket.send("""{"jsonrpc":"2.0","id":"srq-w","method":"approval","params":{"session_id":"rt1","request_id":"ap_2","command":"ls"}}""")
+                        webSocket.send("""{"jsonrpc":"2.0","id":"srq-s","method":"sudo","params":{"session_id":"rt1","command":"apt"}}""")
+                        webSocket.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"request.cancel","payload":{"id":"srq-w","method":"approval","reason":"resolved"}}}""")
+                    }
+                }
+            }
+        }
+        val gateway = MockWebServer()
+        gateway.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.path == "/api/auth/ws-ticket" -> MockResponse().setBody("""{"ticket":"t","ttl_seconds":30}""")
+                request.path!!.startsWith("/api/ws") -> MockResponse().withWebSocketUpgrade(listener)
+                request.path!!.startsWith("/api/sessions/stored-1/messages") -> MockResponse().setBody("""{"session_id":"stored-1","messages":[]}""")
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val http = OkHttpClient()
+        val authed = AuthedHttp(http, tokens, "gw-1", base, now = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val link = LiveLink(http, authed, base, scope, FakeNetwork(), random = { 0.0 })
+        link.start()
+        awaitTrue { link.state.value == LinkState.Connected }
+
+        val chat = ChatController(link, SessionsRepository(authed, base), "stored-1", scope)
+        chat.open()
+        awaitTrue { replies.size == 1 && chat.state.value.prompts.map { it.id } == listOf("srq-a", "srq-c") }
+        assertEquals("srq-s {\"value\":\"\"}", replies.single())
+        val approval = chat.state.value.prompts[0] as Prompt.Approval
+        assertEquals("rm -rf build", approval.command)
+        assertEquals(listOf("once", "session", "always", "deny"), approval.choices)
+
+        chat.answerApproval("srq-a", "session")
+        chat.answerClarify("srq-c", mapOf("q1" to "blue"))
+        awaitTrue { replies.size == 3 }
+        assertEquals(listOf("srq-s {\"value\":\"\"}", "srq-a {\"choice\":\"session\"}", "srq-c {\"answers\":{\"q1\":\"blue\"}}"), replies.toList())
+        assertEquals(emptyList<Prompt>(), chat.state.value.prompts)
+        assertEquals(
+            listOf("Answer this on the PC", "You allowed for this session", "You answered: blue"),
+            chat.state.value.items.map { (it as ChatItem.Note).text },
+        )
+
+        link.stop()
+        scope.coroutineContext[Job]!!.cancel()
+        gateway.shutdown()
+    }
+
+    @Test
     fun chatOpensStreamsSteersStopsAndResumesOn4001() = runBlocking {
         val calls = Collections.synchronizedList(mutableListOf<String>())
         var resumes = 0
@@ -200,6 +269,7 @@ class ChatControllerTest {
             when (it) {
                 is ChatItem.Message -> "${it.role}:${it.text}"
                 is ChatItem.Tool -> "tool:${it.name}:${it.status}"
+                is ChatItem.Note -> "note:${it.text}"
             }
         }
 

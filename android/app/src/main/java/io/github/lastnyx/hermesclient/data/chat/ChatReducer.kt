@@ -17,6 +17,52 @@ sealed interface ChatItem {
         val status: ToolStatus,
         val detail: String = "",
     ) : ChatItem
+
+    /** Short line left behind by an answered prompt ("You allowed once"). */
+    data class Note(override val key: String, val text: String) : ChatItem
+}
+
+data class ClarifyQuestion(val qid: String, val question: String, val choices: List<String>, val multiSelect: Boolean)
+
+/** What a pending prompt card needs; derived from the raw server request. */
+sealed interface Prompt {
+    val id: String
+
+    data class Approval(
+        override val id: String,
+        val command: String,
+        val description: String,
+        val choices: List<String>,
+        val toolName: String,
+    ) : Prompt
+
+    data class Clarify(override val id: String, val questions: List<ClarifyQuestion>) : Prompt
+}
+
+fun ServerRequest.toPrompt(): Prompt? = when (method) {
+    "approval" -> Prompt.Approval(
+        id,
+        params.optString("command"),
+        params.optString("description"),
+        params.optJSONArray("choices")?.let { a -> (0 until a.length()).map { a.getString(it) } }
+            ?: listOf("once", "session", "always", "deny"),
+        params.optString("tool_name"),
+    )
+    "clarify" -> Prompt.Clarify(
+        id,
+        params.optJSONArray("questions")?.let { qs ->
+            (0 until qs.length()).map { i ->
+                val q = qs.getJSONObject(i)
+                ClarifyQuestion(
+                    q.optString("qid"),
+                    q.optString("question"),
+                    q.optJSONArray("choices")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList(),
+                    q.optBoolean("multi_select"),
+                )
+            }
+        } ?: emptyList(),
+    )
+    else -> null
 }
 
 data class ChatState(
@@ -25,9 +71,11 @@ data class ChatState(
     val items: List<ChatItem> = emptyList(),
     val running: Boolean = false,
     val error: String? = null,
-    /** Pending approval/clarify prompts the gateway still holds; the screen for them is a later ticket. */
+    /** Pending approval/clarify requests (replayed and live, keyed by `srq-` id). */
     val openRequests: List<ServerRequest> = emptyList(),
-)
+) {
+    val prompts: List<Prompt> get() = openRequests.mapNotNull { it.toPrompt() }
+}
 
 /** Pure: applies one live-link event for this chat's session. */
 fun reduceChat(state: ChatState, event: LinkEvent): ChatState {

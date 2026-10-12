@@ -35,14 +35,31 @@ class ChatController(
     private var heldEpoch: String? = null
     private var replaying = false
     private val held = mutableListOf<LinkEvent>()
+    private val withdrawn = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val declined = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     init {
         // Subscribe before any call so no event between a reply and the first collect is lost.
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             link.events.collect { event ->
+                // request.cancel carries no session id; srq- ids are unique, so matching on id is enough.
+                if (event.type == "request.cancel") withdraw(event.payload?.optString("id").orEmpty())
+                if (event.type == "approval.cancelled" && event.sessionId == _state.value.sessionId) {
+                    val ids = event.payload?.optJSONArray("request_ids")
+                    val cancelled = ids?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty()
+                    _state.update { s -> s.copy(openRequests = s.openRequests.filterNot { it.method == "approval" && it.params.optString("request_id") in cancelled }) }
+                }
                 if (event.sessionId != null && event.sessionId == _state.value.sessionId) {
                     synchronized(lock) { if (replaying) held += event else apply(event) }
                 }
+            }
+        }
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            link.serverRequests.collect { request ->
+                // Right after resume a request can beat the reply that tells us our runtime session id.
+                val forSession = request.params.optString("session_id")
+                val mine = _state.value.sessionId
+                if (forSession.isEmpty() || mine == null || forSession == mine) admit(listOf(request))
             }
         }
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
@@ -115,7 +132,56 @@ class ChatController(
         val requests = (0 until array.length()).map { array.getJSONObject(it) }.map {
             ServerRequest(it.optString("id"), it.optString("method"), it.optJSONObject("params") ?: JSONObject())
         }
-        _state.update { it.copy(openRequests = requests) }
+        admit(requests)
+    }
+
+    /** Merges requests into the pending list by id; sudo/secret are declined on the spot. */
+    private fun admit(requests: List<ServerRequest>) {
+        for (request in requests) {
+            if (request.id in withdrawn) continue
+            if (request.method == "sudo" || request.method == "secret") {
+                if (declined.add(request.id)) {
+                    link.respond(request.id, JSONObject().put("value", ""))
+                    _state.update { it.copy(items = it.items + ChatItem.Note("n${it.items.size}", "Answer this on the PC")) }
+                }
+            } else if (request.method == "approval" || request.method == "clarify") {
+                _state.update { s -> if (s.openRequests.any { it.id == request.id }) s else s.copy(openRequests = s.openRequests + request) }
+            }
+        }
+    }
+
+    private fun withdraw(id: String) {
+        // The request and its cancel travel on separate flows, so the cancel can be seen first.
+        withdrawn.add(id)
+        _state.update { s -> s.copy(openRequests = s.openRequests.filterNot { it.id == id }) }
+    }
+
+    private fun resolve(id: String, result: JSONObject, note: String) {
+        if (_state.value.openRequests.none { it.id == id }) return
+        link.respond(id, result)
+        _state.update { s ->
+            s.copy(
+                openRequests = s.openRequests.filterNot { it.id == id },
+                items = s.items + ChatItem.Note("n${s.items.size}", note),
+            )
+        }
+    }
+
+    /** [choice] is one of once, session, always, deny. */
+    fun answerApproval(id: String, choice: String) {
+        val note = when (choice) {
+            "once" -> "You allowed once"
+            "session" -> "You allowed for this session"
+            "always" -> "You always allowed this"
+            else -> "You denied this"
+        }
+        resolve(id, JSONObject().put("choice", choice), note)
+    }
+
+    fun answerClarify(id: String, answers: Map<String, String>) {
+        val body = JSONObject()
+        answers.forEach { (qid, answer) -> body.put(qid, answer) }
+        resolve(id, JSONObject().put("answers", body), "You answered: " + answers.values.joinToString(", "))
     }
 
     suspend fun open() {

@@ -11,6 +11,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedButton
+import io.github.lastnyx.hermesclient.data.chat.Prompt
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -69,6 +72,13 @@ fun ChatScreen(controller: ChatController, modifier: Modifier = Modifier) {
                 when (item) {
                     is ChatItem.Message -> MessageBubble(item)
                     is ChatItem.Tool -> ToolRow(item)
+                    is ChatItem.Note -> Text(item.text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            items(state.prompts, key = { it.id }) { prompt ->
+                when (prompt) {
+                    is Prompt.Approval -> ApprovalCard(prompt) { controller.answerApproval(prompt.id, it) }
+                    is Prompt.Clarify -> ClarifyCard(prompt) { controller.answerClarify(prompt.id, it) }
                 }
             }
         }
@@ -87,6 +97,37 @@ fun ChatScreen(controller: ChatController, modifier: Modifier = Modifier) {
             } else {
                 Button(onClick = {}, enabled = false, modifier = Modifier.padding(start = 8.dp)) { Text("Send") }
             }
+        }
+    }
+}
+
+@Composable
+private fun ApprovalCard(prompt: Prompt.Approval, onChoose: (String) -> Unit) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(prompt.toolName.ifBlank { "Approval needed" }, style = MaterialTheme.typography.titleSmall)
+            if (prompt.description.isNotBlank()) Text(prompt.description, style = MaterialTheme.typography.bodyMedium)
+            Text(prompt.command, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+            val labels = listOf("once" to "Allow once", "session" to "Allow for session", "always" to "Always allow", "deny" to "Deny")
+            labels.filter { it.first in prompt.choices }.forEach { (choice, label) ->
+                if (choice == "deny") OutlinedButton(onClick = { onChoose(choice) }) { Text(label) }
+                else Button(onClick = { onChoose(choice) }) { Text(label) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) -> Unit) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // One question at a time is enough for v1: the first one carries the answer.
+            val q = prompt.questions.firstOrNull() ?: return@Column
+            var text by remember(prompt.id) { mutableStateOf("") }
+            Text(q.question, style = MaterialTheme.typography.bodyMedium)
+            q.choices.forEach { choice -> OutlinedButton(onClick = { onAnswer(mapOf(q.qid to choice)) }) { Text(choice) } }
+            OutlinedTextField(text, { text = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Your answer") })
+            Button(onClick = { onAnswer(mapOf(q.qid to text.trim())) }, enabled = text.isNotBlank()) { Text("Answer") }
         }
     }
 }
