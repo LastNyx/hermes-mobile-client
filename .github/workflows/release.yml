@@ -1,0 +1,57 @@
+name: release
+
+# Push a tag like v0.1.0: tests, build a signed APK, publish it to the public releases repo.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  RELEASES_REPO: LastNyx/hermes-mobile-client-releases
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Unit tests
+        working-directory: android
+        run: ./gradlew --no-daemon -q testDebugUnitTest
+
+      - name: Decode keystore
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Build signed APK
+        working-directory: android
+        run: ./gradlew --no-daemon -q assembleRelease
+        env:
+          APP_VERSION: ${{ github.ref_name }}
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Name the asset and write its checksum
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk HermesClient.apk
+          sha256sum HermesClient.apk | awk '{print $1"  HermesClient.apk"}' > HermesClient.apk.sha256
+          cat HermesClient.apk.sha256
+
+      - name: Publish to the releases repo
+        run: |
+          gh release create "$GITHUB_REF_NAME" HermesClient.apk HermesClient.apk.sha256 \
+            --repo "$RELEASES_REPO" --title "$GITHUB_REF_NAME" \
+            --notes "Signed build of Hermes Mobile Client $GITHUB_REF_NAME. See CHANGELOG.md for what changed. SHA-256 is in the asset digest and in HermesClient.apk.sha256."
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
