@@ -61,8 +61,9 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
         val rows = body.getJSONArray("messages")
         (0 until rows.length()).map { rows.getJSONObject(it) }.mapNotNull { row ->
             val role = row.optString("role")
-            val text = if (row.isNull("text")) "" else row.optString("text")
-            if ((role == "user" || role == "assistant") && text.isNotBlank()) HistoryMessage(role, text) else null
+            val text = rowText(row)
+            val hidden = row.optString("display_kind") == "hidden"
+            if (!hidden && (role == "user" || role == "assistant") && text.isNotBlank()) HistoryMessage(role, text) else null
         }
     }
 
@@ -74,6 +75,23 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
             preview = if (row.isNull("preview")) "" else row.optString("preview"),
             lastActive = row.optDouble("last_active", 0.0),
         )
+    }
+
+    /** REST rows are raw DB rows: the body is `content` (string or list of parts); `text` only exists on RPC snapshots. */
+    private fun rowText(row: JSONObject): String {
+        if (!row.isNull("text")) return row.optString("text")
+        return when (val content = row.opt("content")) {
+            is String -> content
+            is JSONArray -> (0 until content.length()).joinToString("\n") { i ->
+                val part = content.optJSONObject(i)
+                when (part?.optString("type")) {
+                    "text", "input_text", "output_text" -> part.optString("text")
+                    "image_url", "input_image", "image" -> "[image]"
+                    else -> ""
+                }
+            }.trim()
+            else -> ""
+        }
     }
 
     private fun <T> call(request: Request, map: (JSONObject) -> T): Result<T> = try {

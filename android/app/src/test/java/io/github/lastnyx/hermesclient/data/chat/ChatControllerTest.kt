@@ -110,7 +110,7 @@ class ChatControllerTest {
                 request.path!!.startsWith("/api/ws") -> MockResponse().withWebSocketUpgrade(listener)
                 request.path!!.startsWith("/api/sessions/stored-1/messages") ->
                     MockResponse().setBody(
-                        """{"session_id":"stored-1","messages":[{"role":"user","text":"hi"},{"role":"assistant","text":"yo"}]}""",
+                        """{"session_id":"stored-1","messages":[{"role":"user","content":"hi"},{"role":"assistant","content":[{"type":"text","text":"yo"}]},{"role":"tool","content":"x"}]}""",
                     )
                 else -> MockResponse().setResponseCode(404)
             }
