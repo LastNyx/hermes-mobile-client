@@ -35,6 +35,12 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import io.github.lastnyx.hermesclient.data.live.LiveLink
 import io.github.lastnyx.hermesclient.data.auth.AuthState
 import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
 import io.github.lastnyx.hermesclient.data.auth.TokenStore
@@ -167,6 +173,34 @@ fun SessionsHost(gateway: Gateway, http: OkHttpClient, tokens: TokenStore, onGat
     val open = { id: String? -> chatId = id; chatOpen = true }
     BackHandler(enabled = chatOpen && !wide) { chatOpen = false }
 
+    val linkScope = rememberCoroutineScope()
+    val link = remember(authed) { LiveLink(http, authed, gateway.url, linkScope) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(link, lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) link.start() else if (event == Lifecycle.Event.ON_STOP) link.stop()
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer); link.stop() }
+    }
+    LaunchedEffect(auth) { if (auth == AuthState.Expired) link.stop() }
+
+    Column(Modifier.fillMaxSize()) {
+        LiveLinkIndicator(link, Modifier.padding(horizontal = 12.dp))
+        Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, chatId, auth, model, open, onGateways) }
+    }
+}
+
+@Composable
+private fun SessionsBody(
+    wide: Boolean,
+    chatOpen: Boolean,
+    chatId: String?,
+    auth: AuthState,
+    model: SessionListModel,
+    open: (String?) -> Unit,
+    onGateways: () -> Unit,
+) {
     if (wide) {
         Row(Modifier.fillMaxSize()) {
             SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.width(360.dp).fillMaxHeight())
