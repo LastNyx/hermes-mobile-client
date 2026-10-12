@@ -1,0 +1,66 @@
+package io.github.lastnyx.hermesclient.data.sessions
+
+import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+
+data class Session(val id: String, val title: String, val preview: String, val lastActive: Double)
+
+/** Sessions of one gateway over REST. Blocking; call off the main thread. */
+class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
+    private val base = baseUrl.trimEnd('/')
+
+    fun list(): Result<List<Session>> = call(
+        Request.Builder().url(
+            "$base/api/sessions".toHttpUrl().newBuilder()
+                .addQueryParameter("order", "recent")
+                // Human chats only: Desktop hides scheduled/automated sources from recents.
+                .addQueryParameter("exclude_sources", "cron,tool,api")
+                .build(),
+        ).build(),
+    ) { parse(it.getJSONArray("sessions"), "id") }.map { it.sortedByDescending(Session::lastActive) }
+
+    fun search(query: String): Result<List<Session>> = call(
+        Request.Builder().url(
+            "$base/api/sessions/search".toHttpUrl().newBuilder()
+                .addQueryParameter("q", query)
+                .addQueryParameter("limit", "20")
+                .build(),
+        ).build(),
+    ) { parse(it.getJSONArray("results"), "session_id") }
+
+    fun rename(id: String, title: String): Result<Unit> = call(
+        Request.Builder().url("$base/api/sessions/$id")
+            .patch(JSONObject().put("title", title).toString().toRequestBody("application/json".toMediaType()))
+            .build(),
+    ) { }
+
+    fun delete(id: String): Result<Unit> = call(
+        Request.Builder().url("$base/api/sessions/$id").delete().build(),
+    ) { }
+
+    private fun parse(rows: JSONArray, idKey: String): List<Session> = List(rows.length()) { i ->
+        val row = rows.getJSONObject(i)
+        Session(
+            id = row.getString(idKey),
+            title = row.optString("title", "").takeIf { !row.isNull("title") } ?: "",
+            preview = if (row.isNull("preview")) "" else row.optString("preview"),
+            lastActive = row.optDouble("last_active", 0.0),
+        )
+    }
+
+    private fun <T> call(request: Request, map: (JSONObject) -> T): Result<T> = runCatching {
+        http.execute(request).use { response ->
+            val text = response.body?.string().orEmpty()
+            if (!response.isSuccessful) {
+                val detail = runCatching { JSONObject(text).optString("detail") }.getOrDefault("")
+                throw Exception(detail.ifEmpty { "Gateway returned ${response.code}" })
+            }
+            map(JSONObject(text))
+        }
+    }
+}
