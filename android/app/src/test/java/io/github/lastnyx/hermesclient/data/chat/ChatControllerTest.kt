@@ -29,6 +29,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 
 class ChatControllerTest {
     private class XorCipher : SecretCipher {
@@ -116,6 +117,104 @@ class ChatControllerTest {
 
         assertEquals(listOf("rt2 2 2"), sinceParams.toList())
         assertEquals("srq-1", chat.state.value.openRequests.single().id)
+
+        link.stop()
+        scope.coroutineContext[Job]!!.cancel()
+        gateway.shutdown()
+    }
+
+    @Test
+    fun newEpochOrTruncatedSinceReplyReloadsHistoryAndResumesBySessionIdOnly() = runBlocking {
+        val connections = AtomicInteger(0)
+        val submits = AtomicInteger(0)
+        val histories = AtomicInteger(0)
+        val resumeKeys = Collections.synchronizedList(mutableListOf<String>())
+        val sinceCalls = AtomicInteger(0)
+        val listener = object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                val epoch = if (connections.incrementAndGet() == 1) "ep1" else "ep2"
+                webSocket.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"gateway.ready","payload":{"heartbeat":true,"replay_epoch":"$epoch"}}}""")
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                val frame = JSONObject(text)
+                val id = frame.optString("id")
+                fun result(body: String) = webSocket.send("""{"jsonrpc":"2.0","id":"$id","result":$body}""")
+                when (frame.optString("method")) {
+                    "client.capabilities" -> result("{}")
+                    "session.resume" -> {
+                        resumeKeys += frame.getJSONObject("params").keys().asSequence().sorted().joinToString(",")
+                        result("""{"session_id":"rt2","stored_session_id":"stored-1","running":false}""")
+                    }
+                    "session.events.since" -> {
+                        sinceCalls.incrementAndGet()
+                        result(
+                            """{"events":[{"type":"message.delta","session_id":"rt2","payload":{"text":"X"},"seq":8}],""" +
+                                """"latest_seq":9,"truncated":true,"count":1,"epoch":"ep2"}""",
+                        )
+                    }
+                    "prompt.submit" -> {
+                        result("""{"status":"streaming"}""")
+                        when (submits.incrementAndGet()) {
+                            1 -> {
+                                webSocket.send(event("message.delta", """{"text":"Hel"}""", 5))
+                                webSocket.send(event("message.delta", """{"text":"lo"}""", 6))
+                                webSocket.close(1001, "")
+                            }
+                            2 -> {
+                                webSocket.send(event("message.delta", """{"text":"A"}""", 1))
+                                webSocket.close(1001, "")
+                            }
+                            else -> {
+                                webSocket.send(event("message.delta", """{"text":"dup"}""", 9))
+                                webSocket.send(event("message.delta", """{"text":"ok"}""", 10))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        val gateway = MockWebServer()
+        gateway.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.path == "/api/auth/ws-ticket" -> MockResponse().setBody("""{"ticket":"t","ttl_seconds":30}""")
+                request.path!!.startsWith("/api/ws") -> MockResponse().withWebSocketUpgrade(listener)
+                request.path!!.startsWith("/api/sessions/stored-1/messages") ->
+                    MockResponse().setBody("""{"session_id":"stored-1","messages":[{"role":"user","content":"h${histories.incrementAndGet()}"}]}""")
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val http = OkHttpClient()
+        val authed = AuthedHttp(http, tokens, "gw-1", base, now = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val link = LiveLink(http, authed, base, scope, FakeNetwork(), random = { 0.0 })
+        link.start()
+        awaitTrue { link.state.value == LinkState.Connected }
+
+        val chat = ChatController(link, SessionsRepository(authed, base), "stored-1", scope)
+        chat.open()
+        chat.send("go")
+
+        // New epoch: history is fetched again, session resumed, no since-call.
+        awaitTrue { histories.get() == 2 && resumeKeys.size == 2 && chat.state.value.items.map { (it as ChatItem.Message).text } == listOf("h2") }
+        assertEquals(0, sinceCalls.get())
+
+        // Events with low seq numbers still count after a new epoch.
+        chat.send("go2")
+        awaitTrue { (chat.state.value.items.last() as? ChatItem.Message)?.text == "A" }
+
+        // Same epoch, truncated reply: reload, reply events dropped, watermark = latest_seq.
+        awaitTrue { histories.get() == 3 && resumeKeys.size == 3 && chat.state.value.items.map { (it as ChatItem.Message).text } == listOf("h3") }
+        assertEquals(1, sinceCalls.get())
+        chat.send("go3")
+        awaitTrue { (chat.state.value.items.last() as? ChatItem.Message)?.text == "ok" }
+
+        assertEquals(listOf("h3", "go3", "ok"), chat.state.value.items.map { (it as ChatItem.Message).text })
+        assertEquals(listOf("session_id", "session_id", "session_id"), resumeKeys.toList())
 
         link.stop()
         scope.coroutineContext[Job]!!.cancel()
