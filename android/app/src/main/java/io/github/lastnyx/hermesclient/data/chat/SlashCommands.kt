@@ -84,6 +84,7 @@ class SlashCommands(private val chat: ChatController) {
                         return null
                     }
                     parsed.notice?.let { chat.addNote(it) }
+                    if (parsed.display == null) chat.addNote("The gateway answered /$name with a prompt for the agent, so it was sent.")
                     chat.sendWithDisplay(parsed.message, parsed.display ?: ("/" + line.name + if (line.arg.isEmpty()) "" else " " + line.arg))
                     return null
                 }
