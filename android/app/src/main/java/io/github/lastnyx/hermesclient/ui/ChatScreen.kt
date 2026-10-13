@@ -8,6 +8,8 @@ import androidx.compose.ui.platform.LocalContext
 import io.github.lastnyx.hermesclient.data.watch.WatchHub
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
@@ -128,25 +130,29 @@ fun ChatScreen(
 
     Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         TextButton(onClick = { picking = true }) { Text(modelState.model.ifBlank { "Model" }) }
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(state.items, key = { it.key }) { item ->
-                when (item) {
-                    is ChatItem.Message -> MessageBubble(item)
-                    is ChatItem.Reasoning -> ReasoningRow(item)
-                    is ChatItem.Tool -> ToolRow(item)
-                    is ChatItem.Note -> Text(
-                        item.text,
-                        Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
+            itemsIndexed(state.items, key = { _, it -> it.key }) { index, item ->
+                Box(Modifier.padding(top = itemGapBefore(state.items.getOrNull(index - 1), item).dp)) {
+                    when (item) {
+                        is ChatItem.Message -> MessageBubble(item)
+                        is ChatItem.Reasoning -> ReasoningRow(item)
+                        is ChatItem.Tool -> ToolRow(item)
+                        is ChatItem.Note -> Text(
+                            item.text,
+                            Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
             items(state.prompts, key = { it.id }) { prompt ->
-                when (prompt) {
-                    is Prompt.Approval -> ApprovalCard(prompt) { controller.answerApproval(prompt.id, it) }
-                    is Prompt.Clarify -> ClarifyCard(prompt) { controller.answerClarify(prompt.id, it) }
+                Box(Modifier.padding(top = INSIDE_TURN_GAP.dp)) {
+                    when (prompt) {
+                        is Prompt.Approval -> ApprovalCard(prompt) { controller.answerApproval(prompt.id, it) }
+                        is Prompt.Clarify -> ClarifyCard(prompt) { controller.answerClarify(prompt.id, it) }
+                    }
                 }
             }
         }
@@ -264,11 +270,23 @@ private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) 
     }
 }
 
+internal const val INSIDE_TURN_GAP = 6
+private const val PROMPT_TO_REPLY_GAP = 16
+
+// A turn is a prompt plus the reply's parts: air after the prompt and before the next
+// prompt, tight between the reply's own parts.
+internal fun itemGapBefore(previous: ChatItem?, item: ChatItem): Int = when {
+    previous == null -> 0
+    item is ChatItem.Message && item.role == "user" -> PROMPT_TO_REPLY_GAP
+    previous is ChatItem.Message && previous.role == "user" -> PROMPT_TO_REPLY_GAP
+    else -> INSIDE_TURN_GAP
+}
+
 @Composable
 private fun MessageBubble(item: ChatItem.Message) {
     val mine = item.role == "user"
     if (mine) {
-        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.CenterEnd) {
+        BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             Surface(
                 Modifier.widthIn(max = maxWidth * 0.85f),
                 shape = RoundedCornerShape(16.dp),
