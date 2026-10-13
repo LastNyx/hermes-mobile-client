@@ -43,3 +43,16 @@ The app runs Compose 1.7.6 (BOM 2024.12.01). 0.37.0 and newer call `Composer.sho
 `BasicText` overload with `TextAutoSize`; neither exists in 1.7.6, so the chat crashed at runtime (`NoSuchMethodError`).
 Unit tests and `assembleDebug` do not see this. Raising the version needs a Compose BOM bump first, decided by the planner.
 Check any change with `python3 -I <scratch>/tools/linkcheck.py app-debug.apk` (planner tool) and a run on a device.
+
+## Spacing: `markdownPadding` and `markdownDimens` (0.33.0, read from the library's sources jar)
+
+Both are `@Composable` builders in `com.mikepenz.markdown.model`; pass the result as `padding =` / `dimens =` to `Markdown(...)`.
+Use named arguments only and change only what you need.
+
+`markdownPadding(block: Dp = 2.dp, list: Dp = 4.dp, listItemTop: Dp = 4.dp, listItemBottom: Dp = 4.dp, listIndent: Dp = 8.dp,
+codeBlock: PaddingValues = PaddingValues(8.dp), blockQuote: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+blockQuoteText: PaddingValues = PaddingValues(vertical = 4.dp), blockQuoteBar: PaddingValues.Absolute = ...)`
+(`block` is the space between blocks such as paragraphs; `list` is the space above and below a list.)
+
+`markdownDimens(dividerThickness: Dp = 1.dp, codeBackgroundCornerSize: Dp = 8.dp, blockQuoteThickness: Dp = 2.dp,
+tableMaxWidth: Dp = Dp.Unspecified, tableCellWidth: Dp = 160.dp, tableCellPadding: Dp = 16.dp, tableCornerSize: Dp = 8.dp)`
