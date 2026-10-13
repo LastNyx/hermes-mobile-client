@@ -92,6 +92,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.markdown.renderer.m3)
     implementation(libs.okhttp)
 
     testImplementation(libs.junit)
