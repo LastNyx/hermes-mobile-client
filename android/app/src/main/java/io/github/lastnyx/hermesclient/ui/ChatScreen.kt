@@ -4,55 +4,46 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.platform.LocalContext
-import io.github.lastnyx.hermesclient.data.watch.WatchHub
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.IconButton
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.TextButton
-import io.github.lastnyx.hermesclient.data.chat.ModelsController
-import io.github.lastnyx.hermesclient.data.chat.ModelsState
-import io.github.lastnyx.hermesclient.data.chat.REASONING_LEVELS
-import io.github.lastnyx.hermesclient.data.chat.SlashCommands
-import androidx.compose.material3.OutlinedButton
-import io.github.lastnyx.hermesclient.data.chat.Prompt
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -65,14 +56,23 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.chat.ChatController
 import io.github.lastnyx.hermesclient.data.chat.ChatItem
+import io.github.lastnyx.hermesclient.data.chat.ModelsController
+import io.github.lastnyx.hermesclient.data.chat.ModelsState
+import io.github.lastnyx.hermesclient.data.chat.Prompt
+import io.github.lastnyx.hermesclient.data.chat.REASONING_LEVELS
+import io.github.lastnyx.hermesclient.data.chat.SlashCommands
 import io.github.lastnyx.hermesclient.data.chat.ToolStatus
 import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
+import io.github.lastnyx.hermesclient.data.watch.WatchHub
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -87,7 +87,7 @@ fun ChatHost(
     link: LiveLink,
     repo: SessionsRepository,
     modifier: Modifier = Modifier,
-    title: String = "New chat",
+    title: String,
     onBack: (() -> Unit)? = null,
 ) {
     val scope = remember(storedId) { CoroutineScope(SupervisorJob() + Dispatchers.Main) }
@@ -128,7 +128,7 @@ fun ChatScreen(
     slash: SlashCommands,
     modifier: Modifier = Modifier,
     onSend: suspend (String) -> Unit = { controller.send(it) },
-    title: String = "New chat",
+    title: String,
     onBack: (() -> Unit)? = null,
 ) {
     val state by controller.state.collectAsState()
