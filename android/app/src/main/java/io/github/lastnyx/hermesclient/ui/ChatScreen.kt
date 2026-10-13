@@ -247,13 +247,8 @@ private fun MessageBubble(item: ChatItem.Message) {
     val mine = item.role == "user"
     Column(Modifier.fillMaxWidth(), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
         Column(Modifier.padding(vertical = 2.dp)) {
-            splitCode(item.text).forEach { (code, text) ->
-                if (code) {
-                    Text(text, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 4.dp))
-                } else if (text.isNotEmpty()) {
-                    Text(text, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
+            if (mine) Text(item.text, style = MaterialTheme.typography.bodyMedium)
+            else if (item.text.isNotEmpty()) MarkdownText(item.text)
         }
     }
 }
@@ -272,7 +267,3 @@ private fun ToolRow(item: ChatItem.Tool) {
         }
     }
 }
-
-/** Basic Markdown: fenced ``` blocks become monospace; everything else stays plain text. */
-private fun splitCode(text: String): List<Pair<Boolean, String>> =
-    text.split("```").mapIndexed { i, part -> (i % 2 == 1) to (if (i % 2 == 1) part.substringAfter('\n', part).trimEnd() else part.trim('\n')) }
