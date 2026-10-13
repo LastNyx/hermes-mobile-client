@@ -113,6 +113,8 @@ class LiveLinkTest {
 
         link.start()
         awaitTrue("connected") { link.state.value == LinkState.Connected }
+        awaitTrue("first upgrade path") { upgradePaths.size >= 1 }
+        awaitTrue("first client frame") { clientFrames.size >= 1 }
         assertEquals("/api/ws?ticket=ticket-1", upgradePaths[0])
         assertEquals("client.capabilities", clientFrames[0].getString("method"))
         assertTrue(clientFrames[0].getJSONObject("params").getBoolean("server_requests"))
@@ -144,6 +146,7 @@ class LiveLinkTest {
         link.respond(srq.id, JSONObject().put("choice", "once"))
 
         awaitTrue("4401 reconnect") { connections.get() == 2 }
+        awaitTrue("second upgrade path") { upgradePaths.size >= 2 }
         assertEquals("/api/ws?ticket=ticket-2", upgradePaths[1])
         awaitTrue("4403 error") { link.state.value is LinkState.Error }
         delay(300)
