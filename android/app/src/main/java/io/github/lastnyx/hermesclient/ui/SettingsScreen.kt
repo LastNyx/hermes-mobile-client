@@ -1,29 +1,29 @@
 package io.github.lastnyx.hermesclient.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.Text
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.update.UpdateController
 import kotlinx.coroutines.launch
@@ -44,24 +44,24 @@ fun SettingsScreen(
     ) {
         ScreenTopBar("Settings", onBack)
         Section("Text size") {
-        Column(Modifier.selectableGroup()) {
-            TextScale.entries.forEach { option ->
-                Row(
-                    Modifier.fillMaxWidth().selectable(
-                        selected = option == textScale,
-                        role = Role.RadioButton,
-                        onClick = { onTextScale(option) },
-                    ),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    RadioButton(selected = option == textScale, onClick = null)
-                    Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
-                        Text(option.label)
-                        Text("The quick brown fox", style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.selectableGroup()) {
+                TextScale.entries.forEach { option ->
+                    Row(
+                        Modifier.fillMaxWidth().selectable(
+                            selected = option == textScale,
+                            role = Role.RadioButton,
+                            onClick = { onTextScale(option) },
+                        ),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = option == textScale, onClick = null)
+                        Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
+                            Text(option.label)
+                            Text("The quick brown fox", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
-        }
         }
         Section("About") {
             Text("Version $versionName")
