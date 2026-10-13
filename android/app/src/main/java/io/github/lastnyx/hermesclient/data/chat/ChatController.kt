@@ -209,16 +209,28 @@ class ChatController(
 
     suspend fun send(text: String) {
         val trimmed = text.trim()
-        if (trimmed.isEmpty()) return
+        deliver(trimmed, trimmed)
+    }
+
+    /** [message] goes to the model; the bubble shows [display] (message may be hidden scaffolding). */
+    suspend fun sendWithDisplay(message: String, display: String) = deliver(message, display)
+
+    /** Reloads the stored transcript, e.g. after /undo removed turns on the gateway. */
+    internal suspend fun reloadHistory() {
+        loadHistory(_state.value.storedId ?: throw IOException("Chat not ready"))
+    }
+
+    private suspend fun deliver(message: String, display: String) {
+        if (message.isEmpty()) return
         val wasRunning = _state.value.running
-        _state.update { it.copy(items = it.items + ChatItem.Message("m${it.items.size}", "user", trimmed), running = true, error = null) }
+        _state.update { it.copy(items = it.items + ChatItem.Message("m${it.items.size}", "user", display), running = true, error = null) }
         try {
             if (wasRunning) {
-                val reply = sessionCall("session.steer") { it.put("text", trimmed) }
+                val reply = sessionCall("session.steer") { it.put("text", message) }
                 // Turn ended between tap and call: the text is a normal prompt then.
-                if (reply.optString("status") == "rejected") submit(trimmed)
+                if (reply.optString("status") == "rejected") submit(message)
             } else {
-                submit(trimmed)
+                submit(message)
             }
         } catch (e: Exception) {
             fail(e)

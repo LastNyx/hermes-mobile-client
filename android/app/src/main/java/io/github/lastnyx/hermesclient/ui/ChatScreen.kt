@@ -76,6 +76,7 @@ import io.github.lastnyx.hermesclient.data.chat.Prompt
 import io.github.lastnyx.hermesclient.data.chat.REASONING_LEVELS
 import io.github.lastnyx.hermesclient.data.chat.SlashCommands
 import io.github.lastnyx.hermesclient.data.chat.ToolStatus
+import io.github.lastnyx.hermesclient.data.chat.parseSlashLine
 import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
@@ -219,7 +220,15 @@ fun ChatScreen(
             val label = if (sendable) (if (state.running) "Steer" else "Send") else if (state.running) "Stop" else "Send"
             FilledIconButton(
                 onClick = {
-                    if (sendable) { val text = draft; draft = ""; scope.launch { onSend(text) } }
+                    if (sendable) {
+                        val text = draft
+                        draft = ""
+                        if (parseSlashLine(text) != null) {
+                            scope.launch { slash.runLine(text)?.let { draft = it } }
+                        } else {
+                            scope.launch { onSend(text) }
+                        }
+                    }
                     else if (state.running) scope.launch { controller.stop() }
                 },
                 enabled = sendable || state.running,

@@ -5,6 +5,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import org.json.JSONObject
+
+private const val MAX_ALIAS_HOPS = 5
 
 data class SlashCommand(val name: String, val description: String)
 
@@ -57,23 +60,83 @@ class SlashCommands(private val chat: ChatController) {
 
     /** [command] has no leading slash, e.g. "status" or "goal pause". */
     suspend fun run(command: String) {
-        val text = command.removePrefix("/").trim()
-        try {
+        runLine("/" + command.removePrefix("/"))
+    }
+
+    /** Runs a typed slash line. Returns composer text for `prefill`; null for no text or a non-command line. */
+    suspend fun runLine(text: String): String? {
+        var line = parseSlashLine(text) ?: return null
+        var hops = 0
+        while (true) {
+            val name = line.name
+            if (_catalog.value.unavailable(name)) {
+                chat.addNote("/$name isn't available in this app.")
+                return null
+            }
             val result = try {
-                chat.sessionCall("slash.exec") { it.put("command", text) }
-            } catch (e: RpcError) {
-                if (e.code == 4001) throw e
-                chat.sessionCall("command.dispatch") {
-                    it.put("name", text.substringBefore(' '))
-                    val arg = text.substringAfter(' ', "")
-                    if (arg.isNotEmpty()) it.put("arg", arg)
-                    it
+                exec(line)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                chat.addNote(slashErrorText(e, name))
+                return null
+            }
+            when (val parsed = parseSlashResult(result)) {
+                null -> {
+                    chat.addNote("/$name didn't work. Try again.")
+                    return null
+                }
+                is SlashResult.Output -> {
+                    chat.addNote(if (parsed.warning.isEmpty()) parsed.text else parsed.warning + "\n\n" + parsed.text)
+                    return null
+                }
+                is SlashResult.Alias -> {
+                    if (++hops > MAX_ALIAS_HOPS) {
+                        chat.addNote("/$name loops back on itself.")
+                        return null
+                    }
+                    line = SlashLine(parsed.target.removePrefix("/").lowercase(), line.arg)
+                }
+                is SlashResult.Send -> {
+                    if (chat.state.value.running) {
+                        chat.addNote("A reply is running. Stop it or wait, then run /$name again.")
+                        return null
+                    }
+                    parsed.notice?.let { chat.addNote(it) }
+                    chat.sendWithDisplay(parsed.message, parsed.display ?: ("/" + line.name + if (line.arg.isEmpty()) "" else " " + line.arg))
+                    return null
+                }
+                is SlashResult.Prefill -> {
+                    try {
+                        chat.reloadHistory()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        chat.addNote(slashErrorText(e, name))
+                    }
+                    parsed.notice?.let { chat.addNote(it) }
+                    return parsed.message
                 }
             }
-            val shown = result.optString("output").ifEmpty { result.optString("warning") }.ifEmpty { result.optString("notice") }
-            chat.addNote(shown.ifEmpty { "/$text done" })
-        } catch (e: Exception) {
-            chat.addNote(e.message ?: "Command failed")
+        }
+    }
+
+    private suspend fun exec(line: SlashLine): JSONObject {
+        val whole = if (line.arg.isEmpty()) line.name else line.name + " " + line.arg
+        return try {
+            chat.sessionCall("slash.exec") { it.put("command", whole) }
+        } catch (first: RpcError) {
+            if (first.code == 4001) throw first
+            try {
+                chat.sessionCall("command.dispatch") {
+                    it.put("name", line.name)
+                    if (line.arg.isNotEmpty()) it.put("arg", line.arg)
+                    it
+                }
+            } catch (second: RpcError) {
+                if (second.code == 4018 && second.message.orEmpty().startsWith("not a ")) throw first
+                throw second
+            }
         }
     }
 }
