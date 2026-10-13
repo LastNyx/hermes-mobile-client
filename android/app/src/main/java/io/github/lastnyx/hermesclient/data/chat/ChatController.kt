@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 
 /** One open chat: history, live events, submit / steer / stop. [storedId] is null for a new chat. */
 class ChatController(
@@ -35,8 +36,8 @@ class ChatController(
     private var heldEpoch: String? = null
     private var replaying = false
     private val held = mutableListOf<LinkEvent>()
-    private val withdrawn = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-    private val declined = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+    private val withdrawn = ConcurrentHashMap.newKeySet<String>()
+    private val declined = ConcurrentHashMap.newKeySet<String>()
 
     init {
         // Subscribe before any call so no event between a reply and the first collect is lost.
@@ -121,10 +122,14 @@ class ChatController(
 
     private suspend fun reload(watermark: Long?) {
         val stored = _state.value.storedId ?: throw IOException("Chat not ready")
-        val history = withContext(io) { repo.messages(stored) }.getOrThrow()
-        _state.update { it.copy(items = history.mapIndexed { i, m -> ChatItem.Message("m$i", m.role, m.text) }) }
+        loadHistory(stored)
         resume()
         synchronized(lock) { held.clear(); lastSeen = watermark }
+    }
+
+    private suspend fun loadHistory(stored: String) {
+        val history = withContext(io) { repo.messages(stored) }.getOrThrow()
+        _state.update { it.copy(items = history.mapIndexed { i, m -> ChatItem.Message("m$i", m.role, m.text) }) }
     }
 
     private fun readRequests(result: JSONObject) {
@@ -194,8 +199,7 @@ class ChatController(
                 val result = link.call("session.create", JSONObject())
                 adopt(result)
             } else {
-                val history = withContext(io) { repo.messages(stored) }.getOrThrow()
-                _state.update { it.copy(items = history.mapIndexed { i, m -> ChatItem.Message("m$i", m.role, m.text) }) }
+                loadHistory(stored)
                 resume()
             }
         } catch (e: Exception) {
