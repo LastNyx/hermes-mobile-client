@@ -304,6 +304,9 @@ private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) 
 }
 
 internal const val INSIDE_TURN_GAP = 4
+internal const val REASONING_VERTICAL_PADDING = 10
+internal const val TOOL_HEADER_VERTICAL_PADDING = 6
+internal const val TOOL_DETAIL_VERTICAL_PADDING = 8
 private const val PROMPT_TO_REPLY_GAP = 12
 
 // A turn is a prompt plus the reply's parts: air after the prompt and before the next
@@ -353,7 +356,7 @@ private fun ReasoningRow(item: ChatItem.Reasoning) {
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
-        Column(Modifier.clickable { open = !open }.padding(horizontal = 12.dp, vertical = 6.dp)) {
+        Column(Modifier.clickable { open = !open }.padding(horizontal = 12.dp, vertical = REASONING_VERTICAL_PADDING.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     if (item.streaming) "Thinking…" else "Thought",
@@ -382,7 +385,7 @@ private fun ToolRow(item: ChatItem.Tool) {
     ) {
         Column {
             Row(
-                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = 6.dp),
+                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = TOOL_HEADER_VERTICAL_PADDING.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -399,7 +402,7 @@ private fun ToolRow(item: ChatItem.Tool) {
                 Text(
                     toolDetailPreview(item.detail, 4000),
                     Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .padding(horizontal = 12.dp, vertical = TOOL_DETAIL_VERTICAL_PADDING.dp),
                     fontFamily = FontFamily.Monospace,
                     style = MaterialTheme.typography.bodySmall,
                 )
