@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -117,6 +118,7 @@ fun ChatScreen(
             items(state.items, key = { it.key }) { item ->
                 when (item) {
                     is ChatItem.Message -> MessageBubble(item)
+                    is ChatItem.Reasoning -> ReasoningRow(item)
                     is ChatItem.Tool -> ToolRow(item)
                     is ChatItem.Note -> Text(item.text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -249,6 +251,22 @@ private fun MessageBubble(item: ChatItem.Message) {
         Column(Modifier.padding(vertical = 2.dp)) {
             if (mine) Text(item.text, style = MaterialTheme.typography.bodyMedium)
             else if (item.text.isNotEmpty()) MarkdownText(item.text)
+        }
+    }
+}
+
+@Composable
+private fun ReasoningRow(item: ChatItem.Reasoning) {
+    // Saveable so the expanded state survives the row leaving the lazy list.
+    var open by rememberSaveable(item.key) { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 4.dp)) {
+        Text(
+            if (item.streaming) "Thinking…" else "Thought",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (open) {
+            Text(item.text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

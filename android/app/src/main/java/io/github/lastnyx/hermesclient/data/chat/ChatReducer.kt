@@ -18,6 +18,8 @@ sealed interface ChatItem {
         val detail: String = "",
     ) : ChatItem
 
+    data class Reasoning(override val key: String, val text: String, val streaming: Boolean = false) : ChatItem
+
     /** Short line left behind by an answered prompt ("You allowed once"). */
     data class Note(override val key: String, val text: String) : ChatItem
 }
@@ -91,6 +93,26 @@ fun reduceChat(state: ChatState, event: LinkEvent): ChatState {
                 state.copy(items = sealed(state.items) + ChatItem.Message("m${state.items.size}", "assistant", text, true), running = true)
             }
         }
+        "reasoning.delta", "thinking.delta" -> {
+            val text = payload?.optString("text").orEmpty()
+            val last = state.items.lastOrNull()
+            when {
+                text.isEmpty() -> state
+                last is ChatItem.Reasoning && last.streaming ->
+                    state.copy(items = state.items.dropLast(1) + last.copy(text = last.text + text), running = true)
+                else -> state.copy(items = sealed(state.items) + ChatItem.Reasoning("r${state.items.size}", text, true), running = true)
+            }
+        }
+        "reasoning.available" -> {
+            val text = payload?.optString("text").orEmpty()
+            val last = state.items.lastOrNull()
+            when {
+                text.isEmpty() -> state
+                last is ChatItem.Reasoning && last.streaming ->
+                    state.copy(items = state.items.dropLast(1) + last.copy(text = text, streaming = false))
+                else -> state.copy(items = sealed(state.items) + ChatItem.Reasoning("r${state.items.size}", text))
+            }
+        }
         "tool.start" -> {
             val id = payload?.optString("tool_id").orEmpty()
             state.copy(
@@ -126,4 +148,10 @@ fun reduceChat(state: ChatState, event: LinkEvent): ChatState {
 }
 
 private fun sealed(items: List<ChatItem>): List<ChatItem> =
-    items.map { if (it is ChatItem.Message && it.streaming) it.copy(streaming = false) else it }
+    items.map {
+        when {
+            it is ChatItem.Message && it.streaming -> it.copy(streaming = false)
+            it is ChatItem.Reasoning && it.streaming -> it.copy(streaming = false)
+            else -> it
+        }
+    }
