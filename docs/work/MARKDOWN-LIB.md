@@ -9,7 +9,8 @@ Do not add other libraries (no syntax highlighter, no TeX, no image loader): `ne
 
 `Markdown(content: String, colors, typography, modifier, padding, dimens, flavour, parser, imageTransformer,
 annotator, extendedSpans, inlineContent, components, animations, referenceLinkHandler, loading, success, error)`.
-Every parameter after `content` has a default; the m3 variant reads colours and text styles from `MaterialTheme`.
+The compiled signature has default-argument masks, and the m3 variant is meant to read colours and text styles from
+`MaterialTheme`; the compiler is the check, so if a call does not compile, FAIL with the reason.
 Pass only `content`, `modifier`, and what a ticket needs (`components`, `typography`, `colors`).
 
 - `markdownColor(...)` and `markdownTypography(...)` (same package) build `MarkdownColors` / `MarkdownTypography`;
