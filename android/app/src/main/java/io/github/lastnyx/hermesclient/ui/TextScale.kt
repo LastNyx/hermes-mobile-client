@@ -4,6 +4,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.isSpecified
+import io.github.lastnyx.hermesclient.data.settings.TextScaleStorage
 
 enum class TextScale(val key: String, val factor: Float, val label: String) {
     Small("small", 0.9f, "Small"),
@@ -14,11 +15,6 @@ enum class TextScale(val key: String, val factor: Float, val label: String) {
     companion object {
         fun fromKey(key: String?): TextScale = entries.firstOrNull { it.key == key } ?: Default
     }
-}
-
-interface TextScaleStorage {
-    fun load(): String?
-    fun save(key: String)
 }
 
 class TextScaleStore(private val storage: TextScaleStorage) {

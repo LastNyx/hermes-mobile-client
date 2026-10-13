@@ -1,7 +1,6 @@
 package io.github.lastnyx.hermesclient.data.settings
 
 import android.content.Context
-import io.github.lastnyx.hermesclient.ui.TextScaleStorage
 
 class PrefsTextScaleStorage(context: Context) : TextScaleStorage {
     private val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)

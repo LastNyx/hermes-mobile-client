@@ -4,6 +4,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
+import io.github.lastnyx.hermesclient.data.settings.TextScaleStorage
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
