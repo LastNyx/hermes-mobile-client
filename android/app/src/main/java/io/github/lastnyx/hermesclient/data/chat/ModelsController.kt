@@ -43,6 +43,18 @@ class ModelsController(private val chat: ChatController) {
         }
     }
 
+    private var pending: Pair<String, String>? = null
+
+    suspend fun confirmPending() {
+        val (provider, model) = pending ?: return
+        selectModel(provider, model, confirmExpensive = true)
+    }
+
+    fun cancelConfirm() {
+        pending = null
+        _state.update { it.copy(confirmMessage = null) }
+    }
+
     suspend fun selectModel(provider: String, model: String, confirmExpensive: Boolean = false) {
         try {
             val result = chat.sessionCall("config.set") {
@@ -51,9 +63,11 @@ class ModelsController(private val chat: ChatController) {
                 it
             }
             if (result.optBoolean("confirm_required")) {
+                pending = provider to model
                 _state.update { it.copy(confirmMessage = result.optString("confirm_message").ifEmpty { "Use this model?" }) }
                 return
             }
+            pending = null
             _state.update { it.copy(model = model, provider = provider, confirmMessage = null, error = null) }
         } catch (e: Exception) {
             fail(e)

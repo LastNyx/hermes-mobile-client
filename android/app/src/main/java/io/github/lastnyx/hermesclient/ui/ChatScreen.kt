@@ -185,7 +185,15 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
                         )
                     }
                 }
-                state.confirmMessage?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
+                state.confirmMessage?.let { message ->
+                    item {
+                        Text(message, color = MaterialTheme.colorScheme.error)
+                        Row {
+                            Button(onClick = { scope.launch { models.confirmPending() } }) { Text("Confirm") }
+                            OutlinedButton(onClick = { models.cancelConfirm() }, modifier = Modifier.padding(start = 8.dp)) { Text("Cancel") }
+                        }
+                    }
+                }
                 state.error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
             }
         },
