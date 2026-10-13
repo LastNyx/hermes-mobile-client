@@ -33,6 +33,11 @@ class WatchPolicy {
         watched.getOrPut(sessionId) { Watched() }
     }
 
+    /** The chat's state flow stops with its screen, so leaving ends the watch instead of leaving it stuck. */
+    @Synchronized
+    fun chatClosed(sessionId: String): List<WatchAction> =
+        if (watched.remove(sessionId) != null) listOf(WatchAction.Clear(sessionId)) else emptyList()
+
     @Synchronized
     fun onState(sessionId: String, state: ChatState): List<WatchAction> {
         val entry = watched[sessionId] ?: return emptyList()

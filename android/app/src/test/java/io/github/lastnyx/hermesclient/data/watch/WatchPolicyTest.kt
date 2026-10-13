@@ -43,6 +43,17 @@ class WatchPolicyTest {
     }
 
     @Test
+    fun leavingTheChatEndsTheWatchWithAClear() {
+        val policy = WatchPolicy()
+        policy.turnStarted("s1")
+        policy.onState("s1", ChatState(storedId = "s1", running = true))
+
+        assertEquals(listOf<WatchAction>(WatchAction.Clear("s1")), policy.chatClosed("s1"))
+        assertFalse(policy.shouldRun)
+        assertEquals(emptyList<WatchAction>(), policy.chatClosed("s1"))
+    }
+
+    @Test
     fun turnsNotStartedOnThePhoneAreIgnored() {
         val policy = WatchPolicy()
         assertEquals(emptyList<WatchAction>(), policy.onState("s9", ChatState(storedId = "s9", running = false, error = "x")))

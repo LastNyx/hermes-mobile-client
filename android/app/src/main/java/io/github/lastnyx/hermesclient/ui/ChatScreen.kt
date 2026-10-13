@@ -72,6 +72,9 @@ fun ChatHost(storedId: String?, link: LiveLink, repo: SessionsRepository, modifi
         slash.load()
     }
     val context = LocalContext.current
+    DisposableEffect(controller) {
+        onDispose { controller.state.value.let { s -> (s.storedId ?: s.sessionId)?.let { WatchHub.chatClosed(context, it) } } }
+    }
     val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val onSend: suspend (String) -> Unit = { text ->
         val current = controller.state.value
