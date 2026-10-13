@@ -21,17 +21,19 @@ Status travels with the branch.
 
 ## Where we are
 
-- Branch `feature/v1`, pushed to origin up to `2badbf5` on 2026-10-13 with the user's go.
-  Nothing has been merged to main, and nothing has been tagged since v0.1.0.
-- Tickets 01-17 plus fixes in `.scratch/v1/issues/` are `Status: done`.
-- `./build.sh test`: 50 tests, 0 failures. A flaky LiveLinkTest race was fixed by `05-fix-flaky-livelink-test`.
+- Branch `feature/v1`, pushed to origin up to `dd13d53`. Nothing merged to main, nothing tagged since v0.1.0.
+- Tickets 01-22 plus fixes (45 tickets) in `.scratch/v1/issues/` are `Status: done`.
+- `./build.sh test`: 59 tests, 0 failures. A flaky LiveLinkTest race was fixed by `05-fix-flaky-livelink-test`.
 - Kotlin upgraded from 2.1.0 to 2.4.21 (batch 5). `jvmTarget` moved to `kotlin { compilerOptions }`.
 - Phase 2 Markdown chat is done (batch 6: tickets 13 Markdown replies, 14 code cards and Copy, 15 reasoning rows,
   16 chat look, 16-fix turn spacing, 17 Markdown library version fix).
 - Markdown library is `com.mikepenz:multiplatform-markdown-renderer-m3` **0.33.0**; see `docs/work/MARKDOWN-LIB.md`.
   On the Realme RMX1921 (Android 11) the debug build with 0.33.0 opens a chat with a Markdown reply (bold, bullets,
   inline code) and does not crash. That is the only device check of the Markdown work so far.
-- Phone feedback: the UI looks minimalist, "okay, not great enough". A design ticket comes next, then Phase 3.
+- Phase 2b design polish is done (batches 7 to 9: tickets 18 to 22 plus fixes; see `docs/ROADMAP.md`).
+  Phone feedback drove it: "UI minimalist, not great enough", then "compact, font size setting, all pages consistent",
+  then "effort and model selection not nice, default reasoning not selected". The debug build with these changes is
+  installed on the Realme RMX1921. The user said they are satisfied with the design "for now". Next is Phase 3.
 - Test device: Realme RMX1921, Android 11, USB debugging on. `adb` is in `~/tools/android-sdk/platform-tools`.
 - v0.1.0 is published (tag `v0.1.0`). All of the fixes below are NOT in the published v0.1.0.
 - Machine now: Arch Linux PC. Repo at `~/Proyek/hermes-mobile-client`. Toolchain installed by
@@ -55,6 +57,9 @@ Status travels with the branch.
 | 4 | 09, 10, 11 | `f573778` | PASS round 2 (`review-4-2.md`) |
 | 5 | 12 (Kotlin 2.1.0 to 2.4.21) | `34cd034` | PASS round 1 (`review-5-1.md`) |
 | 6 | 13, 14, 15, 16, 16-fix, 17 (Markdown chat) | `b9ef8da` | FAIL round 1 on turn spacing (`review-6-1.md`), fixed by `16-fix`; PASS round 2 (`review-6-2.md`); PASS round 3 after ticket 17 (`review-6-3.md`) |
+| 7 | 18, 18-fix (chat design polish) | `b1ab414` | FAIL round 1 (style: "New chat" default repeated), PASS round 2 (`review-7-2.md`) |
+| 8 | 19, 20, 21, 19-fix, 20-fix, 21-fix, 20-fix-imports (text size, compact chat, consistent screens) | `6ac4980` | FAIL round 1 (layering, spacing, indent), FAIL round 2 (imports), PASS round 3 (`review-8-3.md`) |
+| 9 | 22, 22-fix (model picker) | `b88a0c5` | FAIL round 1 (missing test, imports), PASS round 2 (`review-9-2.md`) |
 
 The docs worker ran; its drift list is `.scratch/v1/drift.md`. `CHANGELOG.md` has an Unreleased section.
 
@@ -77,6 +82,8 @@ The docs worker ran; its drift list is `.scratch/v1/drift.md`. `CHANGELOG.md` ha
 
 ### Not run on a device
 
+Only the Markdown reply (bold, bullets, inline code) and the new look were seen on the Realme. Everything below was not.
+
 - Leaving the chat during a running turn (no Done notification comes after leaving, by design of the chosen rule).
 - The Gateways row auth messages.
 - Approval and clarify cards (approvals are off on the WorkLab gateway).
@@ -84,15 +91,16 @@ The docs worker ran; its drift list is `.scratch/v1/drift.md`. `CHANGELOG.md` ha
 - The updater and install failure messages.
 - Markdown code card.
 - Markdown table.
-- Reasoning row.
+- Reasoning row (the Thinking row).
+- Tool cards.
 - Link tap.
 - Whole-reply Copy.
 
 ### Unchecked
 
-- CHANGELOG says slash suggestions are filtered as you type; the old handoff said suggestions run only when
-  tapped. Unchecked.
-- Slash dispatch types `send`, `skill`, `prefill` and `alias` show nothing.
+- Slash commands, resolved from the code (not device-checked): suggestions filter as you type and tapping one runs it;
+  Enter on a typed `/cmd` sends it as plain text. CHANGELOG says the same.
+- Text size setting, model picker and reasoning chips, and the Stop/Steer button: not seen on a device.
 
 ### Non-blocking reviewer smells (no ticket)
 
@@ -104,10 +112,13 @@ The docs worker ran; its drift list is `.scratch/v1/drift.md`. `CHANGELOG.md` ha
 
 ### Next steps
 
-1. Design ticket for the chat UI (phone feedback: minimalist, "okay, not great enough").
-2. Phase 3 = slash commands.
-3. Then the docs worker.
-4. Then ask the user about tagging v0.1.1 (the fixes are not in 0.1.0).
+1. Phase 3 (slash commands) in a new session. Read the "Starting notes for the next session" in `docs/ROADMAP.md`,
+   `docs/PROTOCOL.md` lines ~383-386, and Herald's `docs/hermes-protocol-research.md` before cutting tickets. No
+   Phase 3 tickets are written yet.
+2. Then the docs worker (Phase 4).
+3. Then ask the user about tagging v0.1.1 (the fixes are not in 0.1.0).
+4. Ask the user to approve the 51 lines in `.scratch/dev-notes.md`.
+5. Commit `kit/linkcheck.py` in the dev-team kit repo (it is not committed yet).
 - Raising the Markdown library above 0.33.0 needs a Compose BOM bump first (planner decision).
 
 ## Working agreement with the user
@@ -152,11 +163,11 @@ The docs worker ran; its drift list is `.scratch/v1/drift.md`. `CHANGELOG.md` ha
 
 ## Known gaps and not device-tested
 
-- Chat UI renders Markdown (Phase 2 done) but still looks minimalist per phone feedback; the design ticket is next
-  (ask the user what to mirror from Desktop). Notification wording may be revised later.
+- Design polish (Phase 2b) is done; the user is satisfied with it "for now". Notification wording may be revised later.
+- Slash commands (Phase 3): `complete.slash` is unused, Enter sends `/cmd` as plain text, and the dispatch types
+  `send`, `skill`, `prefill` and `alias` show nothing.
 - Reasoning events are shown while streaming; reasoning in stored history is not read.
 - Multi-select clarify questions are answered as one value because PROTOCOL.md has no multi-answer shape.
-- Reasoning level is not read from the session on open.
 - Markdown library gotchas: 0.38.1 crashed the chat on Android 11 (`NoSuchMethodError` `shouldExecute`) because the app's
   Compose is 1.7.6 (BOM 2024.12.01). 0.35.0 crashed on a `BasicText` TextAutoSize overload. Unit tests and
   `assembleDebug` do not catch this. Always run `kit/linkcheck.py <apk>` and open a chat with a reply on a device.
