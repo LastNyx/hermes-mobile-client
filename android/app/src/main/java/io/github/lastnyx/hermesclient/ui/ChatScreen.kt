@@ -151,11 +151,13 @@ fun ChatScreen(
             Text(
                 title,
                 Modifier.weight(1f).padding(start = if (onBack == null) 4.dp else 0.dp),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            TextButton(onClick = { picking = true }) { Text(modelState.model.ifBlank { "Model" }, maxLines = 1) }
+            TextButton(onClick = { picking = true }) {
+                Text(modelState.model.ifBlank { "Model" }, maxLines = 1, style = MaterialTheme.typography.labelLarge)
+            }
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
             itemsIndexed(state.items, key = { _, it -> it.key }) { index, item ->
@@ -193,9 +195,9 @@ fun ChatScreen(
                 )
             }
         }
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
-                draft, { draft = it }, modifier = Modifier.weight(1f),
+                draft, { draft = it }, modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                 shape = RoundedCornerShape(24.dp),
                 maxLines = 6,
                 placeholder = { Text(if (state.running) "Steer the reply" else "Message") },
@@ -209,7 +211,7 @@ fun ChatScreen(
                     else if (state.running) scope.launch { controller.stop() }
                 },
                 enabled = sendable || state.running,
-                modifier = Modifier.padding(start = 8.dp),
+                modifier = Modifier.padding(start = 8.dp).size(40.dp),
             ) { Icon(icon, contentDescription = label) }
         }
     }
@@ -301,8 +303,8 @@ private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) 
     }
 }
 
-internal const val INSIDE_TURN_GAP = 6
-private const val PROMPT_TO_REPLY_GAP = 16
+internal const val INSIDE_TURN_GAP = 4
+private const val PROMPT_TO_REPLY_GAP = 12
 
 // A turn is a prompt plus the reply's parts: air after the prompt and before the next
 // prompt, tight between the reply's own parts.
@@ -324,7 +326,7 @@ private fun MessageBubble(item: ChatItem.Message) {
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
-                Text(item.text, Modifier.padding(horizontal = 14.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyMedium)
+                Text(item.text, Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
             }
         }
     } else if (item.text.isNotEmpty()) {
@@ -334,7 +336,7 @@ private fun MessageBubble(item: ChatItem.Message) {
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
-                MarkdownText(item.text, Modifier.padding(12.dp))
+                MarkdownText(item.text, Modifier.padding(10.dp))
             }
             if (!item.streaming) CopyReplyButton(replyForCopy(item.text))
         }
@@ -351,7 +353,7 @@ private fun ReasoningRow(item: ChatItem.Reasoning) {
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
-        Column(Modifier.clickable { open = !open }.padding(12.dp)) {
+        Column(Modifier.clickable { open = !open }.padding(horizontal = 12.dp, vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     if (item.streaming) "Thinking…" else "Thought",
@@ -380,7 +382,7 @@ private fun ToolRow(item: ChatItem.Tool) {
     ) {
         Column {
             Row(
-                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -397,7 +399,7 @@ private fun ToolRow(item: ChatItem.Tool) {
                 Text(
                     toolDetailPreview(item.detail, 4000),
                     Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
                     fontFamily = FontFamily.Monospace,
                     style = MaterialTheme.typography.bodySmall,
                 )

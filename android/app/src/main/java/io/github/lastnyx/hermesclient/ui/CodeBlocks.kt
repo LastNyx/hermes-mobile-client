@@ -50,7 +50,7 @@ internal fun CodeCard(code: String, language: String?, style: TextStyle) {
     ) {
         Column {
             Row(
-                Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp),
+                Modifier.fillMaxWidth().padding(start = 10.dp, end = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -62,7 +62,7 @@ internal fun CodeCard(code: String, language: String?, style: TextStyle) {
                 style = style,
                 fontFamily = FontFamily.Monospace,
                 softWrap = false,
-                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 10.dp, end = 10.dp, bottom = 10.dp),
             )
         }
     }

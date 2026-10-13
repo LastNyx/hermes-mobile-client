@@ -13,12 +13,12 @@ class TurnSpacingTest {
     private val nextUser = ChatItem.Message("m3", "user", "again")
 
     @Test
-    fun promptToReplyIs16AndInsideTheReplyIsTighter() {
-        assertEquals(16, itemGapBefore(user, reply))
-        assertEquals(16, itemGapBefore(user, reasoning))
-        val inside = listOf(itemGapBefore(reasoning, reply), itemGapBefore(reply, note))
-        assertTrue(inside.all { it < 16 })
-        assertTrue(itemGapBefore(note, nextUser) >= inside.max())
+    fun promptToReplyIs12AndInsideTheReplyIs4() {
+        assertEquals(12, itemGapBefore(user, reply))
+        assertEquals(12, itemGapBefore(user, reasoning))
+        assertEquals(4, itemGapBefore(reasoning, reply))
+        assertEquals(4, itemGapBefore(reply, note))
+        assertEquals(12, itemGapBefore(note, nextUser))
         assertEquals(0, itemGapBefore(null, user))
     }
 }
