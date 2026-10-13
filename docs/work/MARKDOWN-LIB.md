@@ -1,6 +1,6 @@
 # Markdown library reference (for workers; read-only facts)
 
-Library: `com.mikepenz:multiplatform-markdown-renderer-m3` **0.38.1** (+ its core `multiplatform-markdown-renderer`),
+Library: `com.mikepenz:multiplatform-markdown-renderer-m3` **0.33.0** (+ its core `multiplatform-markdown-renderer`),
 already in `libs.versions.toml` as `libs.markdown.renderer.m3` and in `app/build.gradle.kts`. Read from the jar
 with `javap` on 2026-10-13. Do not guess a parameter that is not listed here: FAIL with the reason instead.
 Do not add other libraries (no syntax highlighter, no TeX, no image loader): `needs-dependency: <coordinates>`.
@@ -33,6 +33,13 @@ Pass only `content`, `modifier`, and what a ticket needs (`components`, `typogra
 The library opens a link through `LocalUriHandler`. Provide your own `UriHandler` with `CompositionLocalProvider`
 around `Markdown(...)` to restrict schemes.
 
-## Not available in 0.38.1 / not wanted now
+## Not available in 0.33.0 / not wanted now
 
 Syntax highlighting, TeX math, loading web images. A Markdown image shows as plain text (no `ImageTransformer`).
+
+## Why 0.33.0 (do not raise it)
+
+The app runs Compose 1.7.6 (BOM 2024.12.01). 0.37.0 and newer call `Composer.shouldExecute`, 0.34.0 and 0.35.0 call a
+`BasicText` overload with `TextAutoSize`; neither exists in 1.7.6, so the chat crashed at runtime (`NoSuchMethodError`).
+Unit tests and `assembleDebug` do not see this. Raising the version needs a Compose BOM bump first, decided by the planner.
+Check any change with `python3 -I <scratch>/tools/linkcheck.py app-debug.apk` (planner tool) and a run on a device.
