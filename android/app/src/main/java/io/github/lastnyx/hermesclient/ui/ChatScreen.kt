@@ -8,6 +8,20 @@ import androidx.compose.ui.platform.LocalContext
 import io.github.lastnyx.hermesclient.data.watch.WatchHub
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -120,7 +134,13 @@ fun ChatScreen(
                     is ChatItem.Message -> MessageBubble(item)
                     is ChatItem.Reasoning -> ReasoningRow(item)
                     is ChatItem.Tool -> ToolRow(item)
-                    is ChatItem.Note -> Text(item.text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    is ChatItem.Note -> Text(
+                        item.text,
+                        Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
                 }
             }
             items(state.prompts, key = { it.id }) { prompt ->
@@ -247,13 +267,21 @@ private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) 
 @Composable
 private fun MessageBubble(item: ChatItem.Message) {
     val mine = item.role == "user"
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
-        Column(Modifier.padding(vertical = 2.dp)) {
-            if (mine) Text(item.text, style = MaterialTheme.typography.bodyMedium)
-            else if (item.text.isNotEmpty()) {
-                MarkdownText(item.text)
-                if (!item.streaming) CopyButton(replyForCopy(item.text))
+    if (mine) {
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.CenterEnd) {
+            Surface(
+                Modifier.widthIn(max = maxWidth * 0.85f),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ) {
+                Text(item.text, Modifier.padding(horizontal = 14.dp, vertical = 10.dp), style = MaterialTheme.typography.bodyMedium)
             }
+        }
+    } else if (item.text.isNotEmpty()) {
+        Column(Modifier.fillMaxWidth()) {
+            MarkdownText(item.text)
+            if (!item.streaming) CopyButton(replyForCopy(item.text))
         }
     }
 }
@@ -277,14 +305,36 @@ private fun ReasoningRow(item: ChatItem.Reasoning) {
 @Composable
 private fun ToolRow(item: ChatItem.Tool) {
     var open by remember(item.key) { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 4.dp)) {
-        Text(
-            "${item.name.ifBlank { "tool" }} · ${if (item.status == ToolStatus.Running) "running" else "done"}",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (open && item.detail.isNotBlank()) {
-            Text(item.detail, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+    Surface(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Column {
+            Row(
+                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (item.status == ToolStatus.Running) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                else Icon(Icons.Filled.Check, contentDescription = "Done", modifier = Modifier.size(16.dp))
+                Text(item.name.ifBlank { "tool" }, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                Icon(
+                    if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (open) "Collapse" else "Expand",
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            if (open && item.detail.isNotBlank()) {
+                Text(
+                    toolDetailPreview(item.detail, 4000),
+                    Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
     }
 }
