@@ -178,7 +178,10 @@ class ChatController(
         resolve(id, JSONObject().put("choice", choice), note)
     }
 
+    /** Sends nothing until every question id has an answer: the gateway wants one result for all of them. */
     fun answerClarify(id: String, answers: Map<String, String>) {
+        val prompt = _state.value.prompts.filterIsInstance<Prompt.Clarify>().firstOrNull { it.id == id } ?: return
+        if (prompt.questions.any { answers[it.qid].isNullOrBlank() }) return
         val body = JSONObject()
         answers.forEach { (qid, answer) -> body.put(qid, answer) }
         resolve(id, JSONObject().put("answers", body), "You answered: " + answers.values.joinToString(", "))

@@ -212,13 +212,24 @@ private fun ApprovalCard(prompt: Prompt.Approval, onChoose: (String) -> Unit) {
 private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            // One question at a time is enough for v1: the first one carries the answer.
-            val q = prompt.questions.firstOrNull() ?: return@Column
-            var text by remember(prompt.id) { mutableStateOf("") }
-            Text(q.question, style = MaterialTheme.typography.bodyMedium)
-            q.choices.forEach { choice -> OutlinedButton(onClick = { onAnswer(mapOf(q.qid to choice)) }) { Text(choice) } }
-            OutlinedTextField(text, { text = it }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Your answer") })
-            Button(onClick = { onAnswer(mapOf(q.qid to text.trim())) }, enabled = text.isNotBlank()) { Text("Answer") }
+            // §5.1 documents one string per question id, so multi-select is answered as a single value too.
+            var answers by remember(prompt.id) { mutableStateOf(mapOf<String, String>()) }
+            prompt.questions.forEach { q ->
+                Text(q.question, style = MaterialTheme.typography.bodyMedium)
+                q.choices.forEach { choice ->
+                    val picked = answers[q.qid] == choice
+                    val pick = { answers = answers + (q.qid to choice) }
+                    if (picked) Button(onClick = pick) { Text(choice) } else OutlinedButton(onClick = pick) { Text(choice) }
+                }
+                OutlinedTextField(
+                    answers[q.qid].orEmpty().takeIf { it !in q.choices }.orEmpty(),
+                    { answers = answers + (q.qid to it) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Your answer") },
+                )
+            }
+            val ready = prompt.questions.all { !answers[it.qid].isNullOrBlank() }
+            Button(onClick = { onAnswer(answers.mapValues { it.value.trim() }) }, enabled = ready) { Text("Answer") }
         }
     }
 }

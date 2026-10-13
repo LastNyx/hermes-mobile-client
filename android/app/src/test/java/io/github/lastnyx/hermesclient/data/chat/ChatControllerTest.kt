@@ -192,6 +192,85 @@ class ChatControllerTest {
     }
 
     @Test
+    fun everyApprovalChoiceAndMultiQuestionClarifyAreAnsweredAndCancelledApprovalsSendNothing() = runBlocking {
+        val replies = Collections.synchronizedList(mutableListOf<String>())
+        var socket: WebSocket? = null
+        val listener = object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                socket = webSocket
+                webSocket.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"gateway.ready","payload":{"heartbeat":true,"replay_epoch":"ep1"}}}""")
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                val frame = JSONObject(text)
+                val id = frame.optString("id")
+                if (id.startsWith("srq-")) { replies += "$id ${frame.getJSONObject("result")}"; return }
+                fun result(body: String) = webSocket.send("""{"jsonrpc":"2.0","id":"$id","result":$body}""")
+                when (frame.optString("method")) {
+                    "client.capabilities" -> result("{}")
+                    "session.resume" -> {
+                        result("""{"session_id":"rt1","stored_session_id":"stored-1","running":false}""")
+                        for ((srq, choice) in listOf("srq-1" to "once", "srq-2" to "session", "srq-3" to "always", "srq-4" to "deny", "srq-x" to "x")) {
+                            webSocket.send("""{"jsonrpc":"2.0","id":"$srq","method":"approval","params":{"session_id":"rt1","request_id":"ap_$choice","command":"ls"}}""")
+                        }
+                        webSocket.send("""{"jsonrpc":"2.0","id":"srq-c","method":"clarify","params":{"session_id":"rt1","questions":[{"qid":"q1","question":"Which?","choices":["red","blue"],"multi_select":false},{"qid":"q2","question":"Why?","choices":null,"multi_select":false}]}}""")
+                    }
+                }
+            }
+        }
+        val gateway = MockWebServer()
+        gateway.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.path == "/api/auth/ws-ticket" -> MockResponse().setBody("""{"ticket":"t","ttl_seconds":30}""")
+                request.path!!.startsWith("/api/ws") -> MockResponse().withWebSocketUpgrade(listener)
+                request.path!!.startsWith("/api/sessions/stored-1/messages") -> MockResponse().setBody("""{"session_id":"stored-1","messages":[]}""")
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val http = OkHttpClient()
+        val authed = AuthedHttp(http, tokens, "gw-1", base, now = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val link = LiveLink(http, authed, base, scope, FakeNetwork(), random = { 0.0 })
+        link.start()
+        awaitTrue { link.state.value == LinkState.Connected }
+
+        val chat = ChatController(link, SessionsRepository(authed, base), "stored-1", scope)
+        chat.open()
+        awaitTrue { chat.state.value.prompts.size == 6 }
+
+        socket!!.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"approval.cancelled","session_id":"rt1","payload":{"session_id":"rt1","reason":"interrupted","cancelled_count":1,"request_ids":["ap_x"]}}}""")
+        awaitTrue { chat.state.value.prompts.none { it.id == "srq-x" } }
+
+        chat.answerApproval("srq-1", "once")
+        chat.answerApproval("srq-2", "session")
+        chat.answerApproval("srq-3", "always")
+        chat.answerApproval("srq-4", "deny")
+        chat.answerClarify("srq-c", mapOf("q1" to "blue"))
+        chat.answerClarify("srq-c", mapOf("q1" to "blue", "q2" to "because"))
+        awaitTrue { replies.size == 5 }
+
+        assertEquals(
+            listOf(
+                "srq-1 {\"choice\":\"once\"}",
+                "srq-2 {\"choice\":\"session\"}",
+                "srq-3 {\"choice\":\"always\"}",
+                "srq-4 {\"choice\":\"deny\"}",
+                "srq-c {\"answers\":{\"q1\":\"blue\",\"q2\":\"because\"}}",
+            ),
+            replies.toList(),
+        )
+        assertEquals(emptyList<Prompt>(), chat.state.value.prompts)
+
+        link.stop()
+        scope.coroutineContext[Job]!!.cancel()
+        gateway.shutdown()
+    }
+
+    @Test
     fun chatOpensStreamsSteersStopsAndResumesOn4001() = runBlocking {
         val calls = Collections.synchronizedList(mutableListOf<String>())
         var resumes = 0
