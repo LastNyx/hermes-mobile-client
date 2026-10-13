@@ -122,9 +122,8 @@ class ModelsAndSlashTest {
 
         val slash = SlashCommands(chat)
         slash.load()
-        assertEquals(listOf("status"), slash.filter("/st").map { it.name })
-        assertEquals(listOf("goal"), slash.filter("go").map { it.name })
-        slash.run("status")
+        assertEquals(listOf("/status", "/goal", "/compress"), slash.suggestions("/").map { it.text })
+        slash.runLine("/status")
 
         assertEquals(
             listOf(

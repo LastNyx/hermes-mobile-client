@@ -66,6 +66,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +79,7 @@ import io.github.lastnyx.hermesclient.data.chat.ModelsState
 import io.github.lastnyx.hermesclient.data.chat.Prompt
 import io.github.lastnyx.hermesclient.data.chat.REASONING_LEVELS
 import io.github.lastnyx.hermesclient.data.chat.SlashCommands
+import io.github.lastnyx.hermesclient.data.chat.SlashSuggestion
 import io.github.lastnyx.hermesclient.data.chat.ToolStatus
 import io.github.lastnyx.hermesclient.data.chat.parseSlashLine
 import io.github.lastnyx.hermesclient.data.live.LinkState
@@ -87,6 +90,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -143,9 +147,20 @@ fun ChatScreen(
 ) {
     val state by controller.state.collectAsState()
     val modelState by models.state.collectAsState()
-    val commands by slash.commands.collectAsState()
     val scope = rememberCoroutineScope()
-    var draft by remember { mutableStateOf("") }
+    var field by remember { mutableStateOf(TextFieldValue("")) }
+    val draft = field.text
+    fun setDraft(text: String) { field = TextFieldValue(text, TextRange(text.length)) }
+    var suggestions by remember { mutableStateOf(emptyList<SlashSuggestion>()) }
+    LaunchedEffect(draft) {
+        val wanted = '\n' !in draft && (draft == "/" || parseSlashLine(draft) != null)
+        if (!wanted) {
+            suggestions = emptyList()
+        } else {
+            if (draft != "/") delay(150)
+            suggestions = slash.suggestions(draft)
+        }
+    }
     var picking by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     LaunchedEffect(state.items.size, state.items.lastOrNull()) {
@@ -202,18 +217,12 @@ fun ChatScreen(
             }
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (draft.startsWith("/") && ' ' !in draft) {
-            slash.filter(draft).take(6).forEach { cmd ->
-                Text(
-                    "/${cmd.name}  ${cmd.description}",
-                    Modifier.fillMaxWidth().clickable { draft = ""; scope.launch { slash.run(cmd.name) } }.padding(vertical = 6.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
+        if (suggestions.isNotEmpty() && '\n' !in draft && (draft == "/" || parseSlashLine(draft) != null)) {
+            SlashSuggestionList(suggestions, { setDraft(composerTextFor(it)) })
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
-                draft, { draft = it }, modifier = Modifier.weight(1f).heightIn(min = 44.dp),
+                field, { field = it }, modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                 shape = RoundedCornerShape(24.dp),
                 maxLines = 6,
                 placeholder = { Text(if (state.running) "Steer the reply" else "Message") },
@@ -225,9 +234,9 @@ fun ChatScreen(
                 onClick = {
                     if (sendable) {
                         val text = draft
-                        draft = ""
+                        setDraft("")
                         if (parseSlashLine(text) != null) {
-                            scope.launch { slash.runLine(text)?.let { draft = it } }
+                            scope.launch { slash.runLine(text)?.let { setDraft(it) } }
                         } else {
                             scope.launch { onSend(text) }
                         }

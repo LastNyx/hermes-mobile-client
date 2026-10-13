@@ -4,19 +4,13 @@ import io.github.lastnyx.hermesclient.data.live.RpcError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
 import org.json.JSONObject
 import java.io.IOException
 
 private const val MAX_ALIAS_HOPS = 5
 
-data class SlashCommand(val name: String, val description: String)
-
-/** Slash commands the gateway offers, and running one; output lands in the chat as a note. */
+/** Slash commands the gateway offers, and running one; output lands in the chat as a card. */
 class SlashCommands(private val chat: ChatController) {
-    private val _commands = MutableStateFlow<List<SlashCommand>>(emptyList())
-    val commands: StateFlow<List<SlashCommand>> = _commands
-
     private val _catalog = MutableStateFlow(SlashCatalog())
     val catalog: StateFlow<SlashCatalog> = _catalog
 
@@ -41,13 +35,6 @@ class SlashCommands(private val chat: ChatController) {
             val parsed = parseSlashCatalog(result)
             _catalog.value = parsed
             if (parsed.warning.isNotEmpty()) chat.addNote(parsed.warning)
-            val pairs = result.optJSONArray("pairs") ?: return
-            _commands.update {
-                (0 until pairs.length()).map {
-                    val pair = pairs.getJSONArray(it)
-                    SlashCommand(pair.getString(0).removePrefix("/"), pair.optString(1))
-                }
-            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
@@ -55,17 +42,6 @@ class SlashCommands(private val chat: ChatController) {
         } catch (e: Exception) {
             chat.addNote("Couldn't load the command list.")
         }
-    }
-
-    /** [input] is what the user typed, with or without the leading slash. */
-    fun filter(input: String): List<SlashCommand> {
-        val prefix = input.removePrefix("/").substringBefore(' ').lowercase()
-        return _commands.value.filter { it.name.lowercase().startsWith(prefix) }
-    }
-
-    /** [command] has no leading slash, e.g. "status" or "goal pause". */
-    suspend fun run(command: String) {
-        runLine("/" + command.removePrefix("/"))
     }
 
     /** Runs a typed slash line. Returns composer text for `prefill`; null for no text or a non-command line. */
