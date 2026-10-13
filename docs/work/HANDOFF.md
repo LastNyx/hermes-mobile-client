@@ -21,16 +21,25 @@ Status travels with the branch.
 
 ## Where we are
 
-- Branch `feature/v1`, pushed to origin on 2026-10-13 with the user's go (`git log origin/feature/v1` for the tip).
+- Branch `feature/v1`, pushed to origin up to `2badbf5` on 2026-10-13 with the user's go.
   Nothing has been merged to main, and nothing has been tagged since v0.1.0.
-- All 27 tickets in `.scratch/v1/issues/` are `Status: done`.
-- `./build.sh test`: 45 tests, 0 failures. A flaky LiveLinkTest race was fixed by `05-fix-flaky-livelink-test`.
+- Tickets 01-17 plus fixes in `.scratch/v1/issues/` are `Status: done`.
+- `./build.sh test`: 50 tests, 0 failures. A flaky LiveLinkTest race was fixed by `05-fix-flaky-livelink-test`.
+- Kotlin upgraded from 2.1.0 to 2.4.21 (batch 5). `jvmTarget` moved to `kotlin { compilerOptions }`.
+- Phase 2 Markdown chat is done (batch 6: tickets 13 Markdown replies, 14 code cards and Copy, 15 reasoning rows,
+  16 chat look, 16-fix turn spacing, 17 Markdown library version fix).
+- Markdown library is `com.mikepenz:multiplatform-markdown-renderer-m3` **0.33.0**; see `docs/work/MARKDOWN-LIB.md`.
+  On the Realme RMX1921 (Android 11) the debug build with 0.33.0 opens a chat with a Markdown reply (bold, bullets,
+  inline code) and does not crash. That is the only device check of the Markdown work so far.
+- Phone feedback: the UI looks minimalist, "okay, not great enough". A design ticket comes next, then Phase 3.
+- Test device: Realme RMX1921, Android 11, USB debugging on. `adb` is in `~/tools/android-sdk/platform-tools`.
 - v0.1.0 is published (tag `v0.1.0`). All of the fixes below are NOT in the published v0.1.0.
 - Machine now: Arch Linux PC. Repo at `~/Proyek/hermes-mobile-client`. Toolchain installed by
   `scripts/setup-toolchain.sh` into `~/tools` (JDK 17 + Android SDK). `build.sh` and
   `scripts/setup-toolchain.sh` are executable. Dev-team kit at `~/Dokumen/projects/hermes-dev-team/kit`
   (run with `python3 -u`).
-- Telegram APK delivery was not done in this session.
+- Telegram APK delivery works: Bot API `sendDocument` with `TELEGRAM_BOT_TOKEN` and the first `TELEGRAM_ALLOWED_USERS`
+  id from `~/.hermes/.env`. The user had to send `/start` to the bot first. `hermes send` has no home channel set.
 - Reference app for building features: `Giton22/herald` (Kotlin Multiplatform Android client for Hermes).
   Read its `docs/ROADMAP.md` and `docs/hermes-protocol-research.md` for how a feature behaves; do not copy
   code and do not build anything `docs/PROTOCOL.md` does not list.
@@ -44,6 +53,8 @@ Status travels with the branch.
 | 2 | 04, 04b, 05, 05b | `beb9368` | PASS round 2 (`review-2-2.md`) |
 | 3 | 05c, 06, 07, 08 | `37aae4a` | FAIL round 2 on two style findings, fixed by `06-fix-dedupe-history-mapping`, then PASS round 3 (`review-3-2.md`, `review-3-3.md`) |
 | 4 | 09, 10, 11 | `f573778` | PASS round 2 (`review-4-2.md`) |
+| 5 | 12 (Kotlin 2.1.0 to 2.4.21) | `34cd034` | PASS round 1 (`review-5-1.md`) |
+| 6 | 13, 14, 15, 16, 16-fix, 17 (Markdown chat) | `b9ef8da` | FAIL round 1 on turn spacing (`review-6-1.md`), fixed by `16-fix`; PASS round 2 (`review-6-2.md`); PASS round 3 after ticket 17 (`review-6-3.md`) |
 
 The docs worker ran; its drift list is `.scratch/v1/drift.md`. `CHANGELOG.md` has an Unreleased section.
 
@@ -71,6 +82,11 @@ The docs worker ran; its drift list is `.scratch/v1/drift.md`. `CHANGELOG.md` ha
 - Approval and clarify cards (approvals are off on the WorkLab gateway).
 - The expensive-model Confirm.
 - The updater and install failure messages.
+- Markdown code card.
+- Markdown table.
+- Reasoning row.
+- Link tap.
+- Whole-reply Copy.
 
 ### Unchecked
 
@@ -88,11 +104,11 @@ The docs worker ran; its drift list is `.scratch/v1/drift.md`. `CHANGELOG.md` ha
 
 ### Next steps
 
-1. Phase 2 = Markdown chat. Needs a library added to `android/gradle/libs.versions.toml` by the planner, with
-   the user's yes.
+1. Design ticket for the chat UI (phone feedback: minimalist, "okay, not great enough").
 2. Phase 3 = slash commands.
 3. Then the docs worker.
 4. Then ask the user about tagging v0.1.1 (the fixes are not in 0.1.0).
+- Raising the Markdown library above 0.33.0 needs a Compose BOM bump first (planner decision).
 
 ## Working agreement with the user
 
@@ -136,10 +152,14 @@ The docs worker ran; its drift list is `.scratch/v1/drift.md`. `CHANGELOG.md` ha
 
 ## Known gaps and not device-tested
 
-- Chat UI is plain text with basic code blocks; no Markdown rendering (Phase 2 above); no polish ticket yet
+- Chat UI renders Markdown (Phase 2 done) but still looks minimalist per phone feedback; the design ticket is next
   (ask the user what to mirror from Desktop). Notification wording may be revised later.
+- Reasoning events are shown while streaming; reasoning in stored history is not read.
 - Multi-select clarify questions are answered as one value because PROTOCOL.md has no multi-answer shape.
 - Reasoning level is not read from the session on open.
+- Markdown library gotchas: 0.38.1 crashed the chat on Android 11 (`NoSuchMethodError` `shouldExecute`) because the app's
+  Compose is 1.7.6 (BOM 2024.12.01). 0.35.0 crashed on a `BasicText` TextAutoSize overload. Unit tests and
+  `assembleDebug` do not catch this. Always run `kit/linkcheck.py <apk>` and open a chat with a reply on a device.
 - Phone checkpoints: 1 (sign-in) PASSED; 2 (chat) PASSED with a text-only UI; 3 at the end.
 - The "Not run on a device" list is under "Where we are" above; nothing in it has been run on a device.
 
