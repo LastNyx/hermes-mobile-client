@@ -199,7 +199,7 @@ fun SessionsHost(
     DisposableEffect(network) { onDispose { network.close() } }
     val link = remember(authed) { LiveLink(http, authed, gateway.url, linkScope, network) }
     LaunchedEffect(link, model) {
-        link.state.collect { if (it == LinkState.Connected && !model.state.value.loading) model.refresh() }
+        link.state.collect { model.onLinkState(it) }
     }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(link, lifecycle) {

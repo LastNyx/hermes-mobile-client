@@ -1,5 +1,6 @@
 package io.github.lastnyx.hermesclient.data.sessions
 
+import io.github.lastnyx.hermesclient.data.live.LinkState
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +22,11 @@ class SessionListModel(private val repo: SessionsRepository, private val io: Cor
 
     suspend fun refresh() = fetch(_state.value.query) { current ->
         if (current.isBlank()) repo.list() else repo.search(current)
+    }
+
+    /** A reconnect may have missed changes, so refresh; skip if a load is already running. */
+    suspend fun onLinkState(link: LinkState) {
+        if (link == LinkState.Connected && !_state.value.loading) refresh()
     }
 
     suspend fun search(query: String) = fetch(query) { if (it.isBlank()) repo.list() else repo.search(it.trim()) }
