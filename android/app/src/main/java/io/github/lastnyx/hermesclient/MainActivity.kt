@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
                             updateStatus = updateUi.status,
                         )
                     } else {
-                        SessionsHost(active, http, tokens, onGateways = { showGateways = true }, openSessionId = requestedSession)
+                        SessionsHost(active, http, signIn, onGateways = { showGateways = true }, openSessionId = requestedSession)
                     }
                 }
             }

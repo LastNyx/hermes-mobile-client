@@ -79,4 +79,34 @@ class SignInControllerTest {
         assertNull(TokenStore(storage, cipher).load("gw-1"))
         gateway.shutdown()
     }
+
+    @Test
+    fun refreshOutcomesSurfaceAndFreshSignInOrSignOutResetThem() = runBlocking {
+        val gateway = MockWebServer()
+        gateway.enqueue(MockResponse().setResponseCode(503))
+        gateway.enqueue(MockResponse().setResponseCode(401))
+        gateway.enqueue(MockResponse().setBody(tokenJson))
+        gateway.enqueue(MockResponse().setBody("""{"user_id":"u1","display_name":"Ada"}"""))
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("old-at", "old-rt", 1000, "basic", "u1"))
+        val controller = SignInController(OkHttpClient(), tokens, completingBrowser(mutableListOf()))
+        val authed = controller.authed("gw-1", base, now = { 2000 })
+        val request = okhttp3.Request.Builder().url("$base/api/sessions").build()
+
+        runCatching { authed.execute(request) }
+        assertEquals(SignInState.Unavailable, controller.stateOf("gw-1"))
+        assertEquals("old-rt", tokens.load("gw-1")?.refreshToken)
+
+        runCatching { authed.execute(request) }
+        assertEquals(SignInState.SignedOut("Signed out — sign in again"), controller.stateOf("gw-1"))
+
+        controller.signIn("gw-1", base)
+        assertEquals(SignInState.SignedIn("Ada"), controller.stateOf("gw-1"))
+
+        controller.signOut("gw-1")
+        assertEquals(SignInState.SignedOut(null), controller.stateOf("gw-1"))
+        gateway.shutdown()
+    }
 }

@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 sealed interface SignInState {
     data class SignedOut(val message: String?) : SignInState
     data object SigningIn : SignInState
+    data object Unavailable : SignInState
     data class SignedIn(val name: String) : SignInState
 }
 
@@ -66,6 +67,27 @@ class SignInController(
         set(gatewayId, SignInState.SignedOut(null))
     }
 
+    /** REST client whose auth outcomes feed [states], so the Gateways row has one source of truth. */
+    fun authed(
+        gatewayId: String,
+        baseUrl: String,
+        now: () -> Long = { System.currentTimeMillis() / 1000 },
+    ) = AuthedHttp(http, tokens, gatewayId, baseUrl, now) { report(gatewayId, it) }
+
+    private fun report(gatewayId: String, auth: AuthState) {
+        val current = _states.value[gatewayId]
+        if (current is SignInState.SigningIn) return
+        when (auth) {
+            AuthState.Expired -> set(gatewayId, SignInState.SignedOut(SIGNED_OUT_MESSAGE))
+            AuthState.AuthUnavailable -> set(gatewayId, SignInState.Unavailable)
+            AuthState.SignedOut -> if (current !is SignInState.SignedOut) set(gatewayId, SignInState.SignedOut(null))
+            is AuthState.SignedIn ->
+                if (current is SignInState.Unavailable || current is SignInState.SignedOut) {
+                    set(gatewayId, SignInState.SignedIn(FALLBACK_NAME))
+                }
+        }
+    }
+
     private fun set(gatewayId: String, state: SignInState) {
         _states.value = _states.value + (gatewayId to state)
     }
@@ -84,5 +106,6 @@ class SignInController(
 
     private companion object {
         const val FALLBACK_NAME = "Signed in"
+        const val SIGNED_OUT_MESSAGE = "Signed out — sign in again"
     }
 }

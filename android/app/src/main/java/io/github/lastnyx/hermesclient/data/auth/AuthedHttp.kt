@@ -24,13 +24,20 @@ class AuthedHttp(
     private val gatewayId: String,
     baseUrl: String,
     private val now: () -> Long = { System.currentTimeMillis() / 1000 },
+    private val onState: (AuthState) -> Unit = {},
 ) {
     private val base = baseUrl.trimEnd('/')
     private val lock = Any()
-    private val _state = MutableStateFlow<AuthState>(
-        tokens.load(gatewayId)?.let { AuthState.SignedIn(it.userId) } ?: AuthState.SignedOut,
-    )
-    val state: StateFlow<AuthState> = _state
+    private val _state = object {
+        private val flow = MutableStateFlow<AuthState>(
+            tokens.load(gatewayId)?.let { AuthState.SignedIn(it.userId) } ?: AuthState.SignedOut,
+        )
+        val stateFlow: StateFlow<AuthState> get() = flow
+        var value: AuthState
+            get() = flow.value
+            set(v) { flow.value = v; onState(v) }
+    }
+    val state: StateFlow<AuthState> = _state.stateFlow
 
     @Throws(IOException::class)
     fun execute(request: Request): Response {
@@ -40,7 +47,11 @@ class AuthedHttp(
         }
         if (pair.expiresAt <= 0 || now() >= pair.expiresAt - 60) pair = refresh(pair.accessToken)
         val response = http.newCall(withBearer(request, pair)).execute()
-        if (response.code != 401 || !replayable(request) || !refreshable(response)) return response
+        if (response.code != 401 || !replayable(request) || !refreshable(response)) {
+            // A fresh sign-in or a recovered provider leaves Expired/AuthUnavailable behind.
+            if (response.code != 401 && _state.value !is AuthState.SignedIn) _state.value = AuthState.SignedIn(pair.userId)
+            return response
+        }
         response.close()
         return http.newCall(withBearer(request, refresh(pair.accessToken))).execute()
     }

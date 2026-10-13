@@ -94,11 +94,12 @@ fun GatewaysScreen(
                             when (state) {
                                 is SignInState.SignedIn -> if (state.name == "Signed in") state.name else "Signed in as ${state.name}"
                                 SignInState.SigningIn -> "Signing in…"
-                                is SignInState.SignedOut -> state.message?.let { "Signed out: $it" } ?: "Signed out"
+                                SignInState.Unavailable -> "Gateway auth unavailable, retrying"
+                                is SignInState.SignedOut -> state.message ?: "Signed out"
                             },
                         )
                         Row {
-                            if (state is SignInState.SignedIn) {
+                            if (state is SignInState.SignedIn || state == SignInState.Unavailable) {
                                 TextButton(onClick = { signIn.signOut(gateway.id) }) { Text("Sign out") }
                             } else {
                                 TextButton(

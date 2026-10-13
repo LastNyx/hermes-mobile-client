@@ -47,8 +47,7 @@ import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
 import androidx.compose.ui.platform.LocalContext
 import io.github.lastnyx.hermesclient.data.auth.AuthState
-import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
-import io.github.lastnyx.hermesclient.data.auth.TokenStore
+import io.github.lastnyx.hermesclient.data.auth.SignInController
 import io.github.lastnyx.hermesclient.data.gateway.Gateway
 import io.github.lastnyx.hermesclient.data.sessions.CANT_REACH_GATEWAY
 import io.github.lastnyx.hermesclient.data.sessions.Session
@@ -179,11 +178,11 @@ private fun relativeTime(epochSeconds: Double, nowMs: Long = System.currentTimeM
 fun SessionsHost(
     gateway: Gateway,
     http: OkHttpClient,
-    tokens: TokenStore,
+    signIn: SignInController,
     onGateways: () -> Unit,
     openSessionId: String? = null,
 ) {
-    val authed = remember(gateway.id, gateway.url) { AuthedHttp(http, tokens, gateway.id, gateway.url) }
+    val authed = remember(gateway.id, gateway.url) { signIn.authed(gateway.id, gateway.url) }
     val model = remember(authed) { SessionListModel(SessionsRepository(authed, gateway.url), Dispatchers.IO) }
     val auth by authed.state.collectAsState()
     var chatOpen by remember(gateway.id) { mutableStateOf(false) }
