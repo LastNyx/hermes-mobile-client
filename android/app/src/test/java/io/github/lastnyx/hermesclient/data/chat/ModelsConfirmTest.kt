@@ -64,6 +64,7 @@ class ModelsConfirmTest {
                     "client.capabilities" -> result("{}")
                     "session.resume" -> result("""{"session_id":"rt1","stored_session_id":"stored-1","running":false}""")
                     "model.options" -> result("""{"providers":[{"slug":"anthropic","name":"Anthropic","models":["sonnet"]},{"slug":"openai","name":"OpenAI","models":["gpt-5"]}],"model":"sonnet","provider":"anthropic"}""")
+                    "config.get" -> result("""{"value":"medium","display":"medium"}""")
                     "config.set" -> {
                         val confirmed = params.optBoolean("confirm_expensive_model")
                         calls += "config.set ${params.getString("value")} confirm=$confirmed ${params.length()}"

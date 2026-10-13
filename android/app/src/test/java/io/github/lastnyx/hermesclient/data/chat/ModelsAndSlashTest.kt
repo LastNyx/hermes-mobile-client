@@ -67,6 +67,10 @@ class ModelsAndSlashTest {
                         calls += "model.options ${params.getString("session_id")}"
                         result("""{"providers":[{"slug":"anthropic","name":"Anthropic","models":["opus","sonnet"],"is_current":true},{"slug":"openai","name":"OpenAI","models":["gpt-5"]}],"model":"sonnet","provider":"anthropic"}""")
                     }
+                    "config.get" -> {
+                        calls += "config.get ${params.getString("session_id")} ${params.getString("key")}"
+                        result("""{"value":"medium","display":"medium"}""")
+                    }
                     "config.set" -> {
                         calls += "config.set ${params.getString("session_id")} ${params.getString("key")} ${params.getString("value")} ${params.length()}"
                         result("""{"key":"x","value":"y"}""")
@@ -107,6 +111,10 @@ class ModelsAndSlashTest {
         assertEquals(listOf("anthropic" to listOf("opus", "sonnet"), "openai" to listOf("gpt-5")), loaded.groups.map { it.slug to it.models })
         assertEquals("sonnet", loaded.model)
         assertEquals("anthropic", loaded.provider)
+        assertEquals("medium", loaded.reasoningEffort)
+        assertEquals("medium", loaded.reasoningDisplay)
+        assertEquals("", reasoningFromConfig(JSONObject("{}")).value)
+        assertEquals("auto", reasoningFromConfig(JSONObject("""{"display":"auto"}""")).display)
 
         models.selectModel("openai", "gpt-5")
         models.selectReasoning("high")
@@ -121,6 +129,7 @@ class ModelsAndSlashTest {
         assertEquals(
             listOf(
                 "model.options rt1",
+                "config.get rt1 reasoning",
                 "config.set rt1 model gpt-5 --provider openai --session 3",
                 "config.set rt1 reasoning high 3",
                 "slash.exec rt1 status 2",

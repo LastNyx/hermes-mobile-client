@@ -31,7 +31,15 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -156,7 +164,12 @@ fun ChatScreen(
                 overflow = TextOverflow.Ellipsis,
             )
             TextButton(onClick = { picking = true }) {
-                Text(modelState.model.ifBlank { "Model" }, maxLines = 1, style = MaterialTheme.typography.labelLarge)
+                Text(
+                    modelChipLabel(modelState.model, modelState.reasoningEffort),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
@@ -217,48 +230,86 @@ fun ChatScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
-        title = { Text("Model") },
-        text = {
-            LazyColumn {
+    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { BottomSheetDefaults.DragHandle() }) {
+        LazyColumn(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Model", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                    IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = "Close") }
+                }
+            }
+            val notice = state.confirmMessage
+            if (notice != null || state.error != null) {
                 item {
-                    Text("Reasoning", style = MaterialTheme.typography.titleSmall)
-                    Row(Modifier.horizontalScroll(rememberScrollState())) {
-                        REASONING_LEVELS.forEach { level ->
-                            TextButton(onClick = { scope.launch { models.selectReasoning(level) } }) {
-                                Text(if (level == state.reasoningEffort) "[$level]" else level)
+                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.errorContainer) {
+                        Column(Modifier.padding(12.dp)) {
+                            if (notice != null) {
+                                Text(notice, color = MaterialTheme.colorScheme.onErrorContainer)
+                                Row(Modifier.padding(top = 8.dp)) {
+                                    Button(onClick = { scope.launch { models.confirmPending() } }) { Text("Confirm") }
+                                    OutlinedButton(onClick = { models.cancelConfirm() }, modifier = Modifier.padding(start = 8.dp)) { Text("Cancel") }
+                                }
                             }
+                            state.error?.let { Text(it, color = MaterialTheme.colorScheme.onErrorContainer) }
                         }
                     }
                 }
-                state.groups.forEach { group ->
-                    item { Text(group.name, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)) }
-                    items(group.models) { model ->
-                        val current = model == state.model && group.slug == state.provider
-                        Text(
-                            if (current) "• $model" else model,
-                            Modifier.fillMaxWidth().clickable { scope.launch { models.selectModel(group.slug, model) } }.padding(vertical = 6.dp),
+            }
+            item {
+                Text("Reasoning", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    REASONING_LEVELS.forEach { level ->
+                        val selected = level == state.reasoningEffort
+                        FilterChip(
+                            selected = selected,
+                            onClick = { scope.launch { models.selectReasoning(level) } },
+                            label = { Text(level) },
+                            leadingIcon = if (selected) {
+                                { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
+                            } else null,
                         )
                     }
                 }
-                state.confirmMessage?.let { message ->
-                    item {
-                        Text(message, color = MaterialTheme.colorScheme.error)
-                        Row {
-                            Button(onClick = { scope.launch { models.confirmPending() } }) { Text("Confirm") }
-                            OutlinedButton(onClick = { models.cancelConfirm() }, modifier = Modifier.padding(start = 8.dp)) { Text("Cancel") }
+                if (state.reasoningEffort !in REASONING_LEVELS && state.reasoningDisplay.isNotBlank()) {
+                    Text(
+                        "Current: ${state.reasoningDisplay}",
+                        Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            state.groups.forEach { group ->
+                item {
+                    Text(
+                        group.name,
+                        Modifier.padding(top = 12.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                items(group.models) { model ->
+                    val current = model == state.model && group.slug == state.provider
+                    Surface(
+                        onClick = { scope.launch { models.selectModel(group.slug, model) } },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (current) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                    ) {
+                        Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(model, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                            if (current) Icon(Icons.Filled.Check, contentDescription = "Current model")
                         }
                     }
                 }
-                state.error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
             }
-        },
-    )
+            item { Spacer(Modifier.size(24.dp)) }
+        }
+    }
 }
 
 @Composable
