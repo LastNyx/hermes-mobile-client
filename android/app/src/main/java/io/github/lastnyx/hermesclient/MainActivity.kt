@@ -9,6 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Typography
+import io.github.lastnyx.hermesclient.data.settings.PrefsTextScaleStorage
+import io.github.lastnyx.hermesclient.ui.TextScaleStore
+import io.github.lastnyx.hermesclient.ui.scaledTypography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,8 +75,13 @@ class MainActivity : ComponentActivity() {
             Dispatchers.IO,
             install = { ApkInstaller.install(applicationContext, it) },
         )
+        val textScaleStore = TextScaleStore(PrefsTextScaleStorage(applicationContext))
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            var textScale by remember { mutableStateOf(textScaleStore.current()) }
+            MaterialTheme(
+                colorScheme = darkColorScheme(),
+                typography = scaledTypography(Typography(), textScale),
+            ) {
                 Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
                     var showGateways by remember {
                         mutableStateOf(registry.active()?.let { signIn.stateOf(it.id) } !is SignInState.SignedIn)
@@ -85,7 +94,12 @@ class MainActivity : ComponentActivity() {
                     val updateUi by updates.state.collectAsState()
                     val active = registry.active()
                     if (showSettings) {
-                        SettingsScreen(updates, BuildConfig.VERSION_NAME, onBack = { showSettings = false })
+                        SettingsScreen(
+                            updates, BuildConfig.VERSION_NAME,
+                            textScale = textScale,
+                            onTextScale = { textScale = it; textScaleStore.set(it) },
+                            onBack = { showSettings = false },
+                        )
                     } else if (showGateways || active == null) {
                         GatewaysScreen(
                             registry, client, signIn,

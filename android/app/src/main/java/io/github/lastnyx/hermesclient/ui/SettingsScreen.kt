@@ -2,9 +2,18 @@ package io.github.lastnyx.hermesclient.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,11 +26,39 @@ import io.github.lastnyx.hermesclient.data.update.UpdateController
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(updates: UpdateController, versionName: String, onBack: () -> Unit) {
+fun SettingsScreen(
+    updates: UpdateController,
+    versionName: String,
+    textScale: TextScale,
+    onTextScale: (TextScale) -> Unit,
+    onBack: () -> Unit,
+) {
     val ui by updates.state.collectAsState()
     val scope = rememberCoroutineScope()
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(
+        Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
+        Text("Text size", style = MaterialTheme.typography.titleMedium)
+        Column(Modifier.selectableGroup()) {
+            TextScale.entries.forEach { option ->
+                Row(
+                    Modifier.fillMaxWidth().selectable(
+                        selected = option == textScale,
+                        role = Role.RadioButton,
+                        onClick = { onTextScale(option) },
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RadioButton(selected = option == textScale, onClick = null)
+                    Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
+                        Text(option.label)
+                        Text("The quick brown fox", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
         Text("Version $versionName")
         Button(enabled = !ui.busy, onClick = { scope.launch { updates.check(silent = false) } }) {
             Text("Check for updates")
