@@ -23,7 +23,7 @@ Status travels with the branch.
 
 - Branch `feature/v1`, pushed to origin up to `dd13d53`. Nothing merged to main, nothing tagged since v0.1.0.
 - Tickets 01-22 plus fixes (45 tickets) in `.scratch/v1/issues/` are `Status: done`. Phase 3 tickets 23-25 (slash commands) are written;
-  23 (catalog and `complete.slash`, data only) and 24 (run on send, dispatch types) are `review`; 25 (output card) and 26 (suggestion list, old API removal) are next. Verified protocol facts: `docs/PROTOCOL.md` 4.5.
+  23 (catalog and `complete.slash`, data only) and 24 (run on send, dispatch types) and 25 (output card) are `review`; 26 (suggestion list, old API removal) is next. Verified protocol facts: `docs/PROTOCOL.md` 4.5.
   Herald is cloned at `C:/home/project/herald` (reference only; feature gaps vs it are listed for a later 'Herald parity' roadmap).
 - `./build.sh test`: 59 tests, 0 failures. A flaky LiveLinkTest race was fixed by `05-fix-flaky-livelink-test`.
 - Kotlin upgraded from 2.1.0 to 2.4.21 (batch 5). `jvmTarget` moved to `kotlin { compilerOptions }`.
