@@ -15,7 +15,10 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -36,11 +39,11 @@ fun SettingsScreen(
     val ui by updates.state.collectAsState()
     val scope = rememberCoroutineScope()
     Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium)
-        Text("Text size", style = MaterialTheme.typography.titleMedium)
+        ScreenTopBar("Settings", onBack)
+        Section("Text size") {
         Column(Modifier.selectableGroup()) {
             TextScale.entries.forEach { option ->
                 Row(
@@ -59,16 +62,32 @@ fun SettingsScreen(
                 }
             }
         }
-        Text("Version $versionName")
-        Button(enabled = !ui.busy, onClick = { scope.launch { updates.check(silent = false) } }) {
-            Text("Check for updates")
         }
-        if (ui.available != null) {
-            Button(enabled = !ui.busy, onClick = { scope.launch { updates.installAvailable() } }) {
-                Text("Install ${ui.available?.version}")
+        Section("About") {
+            Text("Version $versionName")
+            Button(enabled = !ui.busy, onClick = { scope.launch { updates.check(silent = false) } }) {
+                Text("Check for updates")
             }
+            if (ui.available != null) {
+                Button(enabled = !ui.busy, onClick = { scope.launch { updates.installAvailable() } }) {
+                    Text("Install ${ui.available?.version}")
+                }
+            }
+            if (ui.status.isNotEmpty()) Text(ui.status)
         }
-        if (ui.status.isNotEmpty()) Text(ui.status)
-        TextButton(onClick = onBack) { Text("Back") }
+    }
+}
+
+@Composable
+private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        content()
     }
 }

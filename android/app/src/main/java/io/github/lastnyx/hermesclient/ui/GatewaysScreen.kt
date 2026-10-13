@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -56,9 +58,10 @@ fun GatewaysScreen(
 
     fun refresh() { gateways = registry.list(); activeId = registry.active()?.id }
 
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Gateways", style = MaterialTheme.typography.headlineMedium)
-        TextButton(onClick = onOpenSettings) { Text("Settings") }
+    Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ScreenTopBar("Gateways") {
+            TextButton(onClick = onOpenSettings) { Text("Settings") }
+        }
         if (updateStatus.startsWith("Update available")) Text(updateStatus)
         val activeState = activeId?.let { signStates[it] ?: signIn.stateOf(it) }
         if (activeState is SignInState.SignedIn) {
@@ -79,7 +82,11 @@ fun GatewaysScreen(
         }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(gateways, key = { it.id }) { gateway ->
-                Card(Modifier.fillMaxWidth()) {
+                Card(
+                    Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                ) {
                     Column(Modifier.padding(12.dp)) {
                         Row {
                             RadioButton(selected = gateway.id == activeId, onClick = { registry.setActive(gateway.id); refresh() })
@@ -118,7 +125,9 @@ fun GatewaysScreen(
                                 }
                             }) { Text("Test") }
                             TextButton(onClick = { editing = gateway }) { Text("Edit") }
-                            TextButton(onClick = { registry.remove(gateway.id); refresh() }) { Text("Remove") }
+                            TextButton(onClick = { registry.remove(gateway.id); refresh() }) {
+                                Text("Remove", style = MaterialTheme.typography.labelLarge)
+                            }
                         }
                     }
                 }

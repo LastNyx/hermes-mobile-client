@@ -13,7 +13,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -81,17 +84,17 @@ fun SessionsScreen(
     }
 
     Column(modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Sessions", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
+        ScreenTopBar("Sessions") {
+            Button(onClick = { onOpen(null) }, contentPadding = ButtonDefaults.TextButtonContentPadding) { Text("New chat") }
             TextButton(onClick = onGateways) { Text("Gateways") }
         }
         if (expired) {
             Text("Signed out, sign in again", color = MaterialTheme.colorScheme.error)
             Button(onClick = onGateways) { Text("Go to Gateways") }
         }
-        Button(onClick = { onOpen(null) }) { Text("New chat") }
         OutlinedTextField(
-            query, { query = it }, label = { Text("Search") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+            query, { query = it }, label = { Text("Search") }, singleLine = true,
+            shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth(),
         )
         state.error?.let {
             if (offline && it == CANT_REACH_GATEWAY) {
@@ -105,28 +108,36 @@ fun SessionsScreen(
             onRefresh = { scope.launch { model.refresh() } },
             modifier = Modifier.fillMaxSize(),
         ) {
-            LazyColumn(Modifier.fillMaxSize()) {
+            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(state.sessions, key = { it.id }) { session ->
+                    val card = RoundedCornerShape(12.dp)
                     Column(
                         Modifier.fillMaxWidth()
+                            .clip(card)
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow, card)
                             .combinedClickable(onClick = { onOpen(session.id) }, onLongClick = { renaming = session })
-                            .padding(vertical = 8.dp),
+                            .padding(12.dp),
                     ) {
                         Row {
                             Text(
                                 session.title.ifBlank { "Untitled" },
-                                style = MaterialTheme.typography.titleMedium,
+                                style = MaterialTheme.typography.titleSmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
-                            Text(relativeTime(session.lastActive), style = MaterialTheme.typography.bodySmall)
+                            Text(relativeTime(session.lastActive), style = MaterialTheme.typography.labelSmall)
                         }
                         if (session.preview.isNotBlank()) {
-                            Text(session.preview, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                session.preview,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
-                    HorizontalDivider()
                 }
             }
         }
@@ -162,7 +173,7 @@ fun SessionsScreen(
     }
 }
 
-private fun relativeTime(epochSeconds: Double, nowMs: Long = System.currentTimeMillis()): String {
+internal fun relativeTime(epochSeconds: Double, nowMs: Long = System.currentTimeMillis()): String {
     if (epochSeconds <= 0) return ""
     val seconds = (nowMs / 1000 - epochSeconds.toLong()).coerceAtLeast(0)
     return when {
