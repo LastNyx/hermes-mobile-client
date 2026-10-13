@@ -136,7 +136,11 @@ class ModelsAndSlashTest {
             ),
             calls.toList(),
         )
-        assertEquals("All good", (chat.state.value.items.last() as ChatItem.Note).text)
+        assertEquals("All good", (chat.state.value.items.last() as ChatItem.CommandOutput).text)
+        assertEquals(
+            listOf(ChatItem.CommandOutput("n0", "/status", "All good", false)),
+            chat.state.value.items.filterIsInstance<ChatItem.CommandOutput>().map { it.copy(key = "n0") },
+        )
 
         link.stop()
         scope.coroutineContext[Job]!!.cancel()

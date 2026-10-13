@@ -448,6 +448,7 @@ class ChatControllerTest {
                 is ChatItem.Message -> "${it.role}:${it.text}"
                 is ChatItem.Tool -> "tool:${it.name}:${it.status}"
                 is ChatItem.Note -> "note:${it.text}"
+                is ChatItem.CommandOutput -> "command:${it.text}"
                 is ChatItem.Reasoning -> "reasoning:${it.text}"
             }
         }

@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import org.json.JSONObject
+import java.io.IOException
 
 private const val MAX_ALIAS_HOPS = 5
 
@@ -47,8 +48,12 @@ class SlashCommands(private val chat: ChatController) {
                     SlashCommand(pair.getString(0).removePrefix("/"), pair.optString(1))
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            chat.addNote("Can't reach the gateway. Check your connection.")
         } catch (e: Exception) {
-            chat.addNote(e.message ?: "Could not load commands")
+            chat.addNote("Couldn't load the command list.")
         }
     }
 
@@ -70,7 +75,7 @@ class SlashCommands(private val chat: ChatController) {
         while (true) {
             val name = line.name
             if (_catalog.value.unavailable(name)) {
-                chat.addNote("/$name isn't available in this app.")
+                chat.addCommandOutput("/$name", "/$name isn't available in this app.", true)
                 return null
             }
             val result = try {
@@ -78,28 +83,28 @@ class SlashCommands(private val chat: ChatController) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                chat.addNote(slashErrorText(e, name))
+                chat.addCommandOutput("/$name", slashErrorText(e, name), true)
                 return null
             }
             when (val parsed = parseSlashResult(result)) {
                 null -> {
-                    chat.addNote("/$name didn't work. Try again.")
+                    chat.addCommandOutput("/$name", "/$name didn't work. Try again.", true)
                     return null
                 }
                 is SlashResult.Output -> {
-                    chat.addNote(if (parsed.warning.isEmpty()) parsed.text else parsed.warning + "\n\n" + parsed.text)
+                    chat.addCommandOutput("/$name", if (parsed.warning.isEmpty()) parsed.text else parsed.warning + "\n\n" + parsed.text, false)
                     return null
                 }
                 is SlashResult.Alias -> {
                     if (++hops > MAX_ALIAS_HOPS) {
-                        chat.addNote("/$name loops back on itself.")
+                        chat.addCommandOutput("/$name", "/$name loops back on itself.", true)
                         return null
                     }
                     line = SlashLine(parsed.target.removePrefix("/").lowercase(), line.arg)
                 }
                 is SlashResult.Send -> {
                     if (chat.state.value.running) {
-                        chat.addNote("A reply is running. Stop it or wait, then run /$name again.")
+                        chat.addCommandOutput("/$name", "A reply is running. Stop it or wait, then run /$name again.", true)
                         return null
                     }
                     parsed.notice?.let { chat.addNote(it) }
@@ -112,7 +117,7 @@ class SlashCommands(private val chat: ChatController) {
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        chat.addNote(slashErrorText(e, name))
+                        chat.addCommandOutput("/$name", slashErrorText(e, name), true)
                     }
                     parsed.notice?.let { chat.addNote(it) }
                     return parsed.message

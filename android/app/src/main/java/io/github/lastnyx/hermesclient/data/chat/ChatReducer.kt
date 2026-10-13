@@ -22,6 +22,9 @@ sealed interface ChatItem {
 
     /** Short line left behind by an answered prompt ("You allowed once"). */
     data class Note(override val key: String, val text: String) : ChatItem
+
+    /** Result of a slash command, shown as a card headed by the command. */
+    data class CommandOutput(override val key: String, val command: String, val text: String, val failed: Boolean = false) : ChatItem
 }
 
 data class ClarifyQuestion(val qid: String, val question: String, val choices: List<String>, val multiSelect: Boolean)

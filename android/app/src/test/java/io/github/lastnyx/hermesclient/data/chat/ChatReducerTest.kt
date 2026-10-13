@@ -22,6 +22,7 @@ class ChatReducerTest {
             is ChatItem.Message -> "M:${it.text}:${it.streaming}"
             is ChatItem.Tool -> "T:${it.name}"
             is ChatItem.Note -> "N:${it.text}"
+            is ChatItem.CommandOutput -> "C:${it.text}"
         }
     }
 

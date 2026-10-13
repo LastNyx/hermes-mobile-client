@@ -134,13 +134,21 @@ class SlashRunTest {
         chat.open()
         val slash = SlashCommands(chat)
         slash.load()
-        fun notes() = chat.state.value.items.filterIsInstance<ChatItem.Note>().map { it.text }
+        fun notes() = chat.state.value.items.filter { it is ChatItem.Note || it is ChatItem.CommandOutput }.map {
+            when (it) {
+                is ChatItem.Note -> it.text
+                is ChatItem.CommandOutput -> it.text
+                else -> ""
+            }
+        }
+        fun lastOutput() = chat.state.value.items.filterIsInstance<ChatItem.CommandOutput>().last()
 
         assertNull(slash.runLine("not a command"))
         assertEquals(emptyList<String>(), calls.toList())
 
         slash.runLine("/term")
         assertEquals(listOf("/term isn't available in this app."), notes())
+        assertEquals(ChatItem.CommandOutput(lastOutput().key, "/term", "/term isn't available in this app.", true), lastOutput())
         assertEquals(emptyList<String>(), calls.toList())
 
         slash.runLine("/goal pause")
@@ -154,9 +162,11 @@ class SlashRunTest {
 
         slash.runLine("/loop")
         assertEquals("/loop loops back on itself.", notes().last())
+        assertTrue(lastOutput().failed)
 
         slash.runLine("/fail")
         assertEquals("The gateway's command helper isn't ready. Try again in a moment.", notes().last())
+        assertTrue(lastOutput().failed)
 
         calls.clear()
         slash.runLine("/review src")
@@ -168,6 +178,7 @@ class SlashRunTest {
         calls.clear()
         slash.runLine("/review src")
         assertEquals("A reply is running. Stop it or wait, then run /review again.", notes().last())
+        assertTrue(lastOutput().failed)
         assertEquals(listOf("exec review src"), calls.toList())
 
         link.stop()

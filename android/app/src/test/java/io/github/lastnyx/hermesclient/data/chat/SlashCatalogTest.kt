@@ -31,6 +31,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Collections
+import java.util.concurrent.atomic.AtomicInteger
 
 class SlashCatalogTest {
     private class XorCipher : SecretCipher {
@@ -96,6 +97,7 @@ class SlashCatalogTest {
         assertEquals("/personality alpha", option.text)
 
         val calls = Collections.synchronizedList(mutableListOf<String>())
+        val catalogCalls = AtomicInteger()
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 webSocket.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"gateway.ready","payload":{"heartbeat":true,"replay_epoch":"ep1"}}}""")
@@ -109,7 +111,9 @@ class SlashCatalogTest {
                 when (frame.optString("method")) {
                     "client.capabilities" -> result("{}")
                     "session.resume" -> result("""{"session_id":"rt1","stored_session_id":"stored-1","running":false}""")
-                    "commands.catalog" -> result(catalogJson)
+                    "commands.catalog" ->
+                        if (catalogCalls.incrementAndGet() == 1) result(catalogJson)
+                        else webSocket.send("""{"jsonrpc":"2.0","id":"$id","error":{"code":5000,"message":"secret-host:9119"}}""")
                     "complete.slash" -> {
                         calls += "complete.slash ${params.getString("session_id")} ${params.getString("text")} ${params.length()}"
                         if (params.getString("text") == "/bad") {
@@ -155,6 +159,13 @@ class SlashCatalogTest {
         assertEquals(listOf("complete.slash rt1 /rev 2"), calls.toList())
         assertEquals(emptyList<SlashSuggestion>(), slash.suggestions("/bad"))
         assertEquals(1, chat.state.value.items.filterIsInstance<ChatItem.Note>().size)
+
+        slash.load()
+        assertEquals(
+            listOf("careful", "Couldn't load the command list."),
+            chat.state.value.items.filterIsInstance<ChatItem.Note>().map { it.text },
+        )
+        assertFalse(chat.state.value.items.any { it.toString().contains("secret-host") })
 
         link.stop()
         scope.coroutineContext[Job]!!.cancel()

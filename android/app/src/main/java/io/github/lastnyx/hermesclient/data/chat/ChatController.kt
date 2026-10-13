@@ -242,6 +242,10 @@ class ChatController(
         _state.update { it.copy(items = it.items + ChatItem.Note("n${it.items.size}", text)) }
     }
 
+    fun addCommandOutput(command: String, text: String, failed: Boolean) {
+        _state.update { it.copy(items = it.items + ChatItem.CommandOutput("n${it.items.size}", command, text, failed)) }
+    }
+
     suspend fun stop() {
         try {
             sessionCall("session.interrupt") { it }

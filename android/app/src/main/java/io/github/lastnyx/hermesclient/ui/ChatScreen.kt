@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -42,6 +43,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -179,6 +181,7 @@ fun ChatScreen(
                         is ChatItem.Message -> MessageBubble(item)
                         is ChatItem.Reasoning -> ReasoningRow(item)
                         is ChatItem.Tool -> ToolRow(item)
+                        is ChatItem.CommandOutput -> CommandOutputCard(item)
                         is ChatItem.Note -> Text(
                             item.text,
                             Modifier.fillMaxWidth(),
@@ -401,6 +404,34 @@ private fun MessageBubble(item: ChatItem.Message) {
                 MarkdownText(item.text, Modifier.padding(10.dp))
             }
             if (!item.streaming) CopyReplyButton(replyForCopy(item.text))
+        }
+    }
+}
+
+private const val COMMAND_OUTPUT_MAX_LINES = 12
+
+@Composable
+private fun CommandOutputCard(item: ChatItem.CommandOutput) {
+    var expanded by rememberSaveable(item.key) { mutableStateOf(false) }
+    val long = item.text.lineSequence().count() > COMMAND_OUTPUT_MAX_LINES
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterStart) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = if (item.failed) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = if (item.failed) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+        ) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Text(item.command, style = MaterialTheme.typography.labelMedium, color = LocalContentColor.current.copy(alpha = 0.7f))
+                SelectionContainer {
+                    Text(
+                        item.text,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = if (long && !expanded) COMMAND_OUTPUT_MAX_LINES else Int.MAX_VALUE,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (long) TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Show less" else "Show more") }
+            }
         }
     }
 }
