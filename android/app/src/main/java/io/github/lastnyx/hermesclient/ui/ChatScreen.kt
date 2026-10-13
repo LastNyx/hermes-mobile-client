@@ -17,7 +17,13 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.CircularProgressIndicator
@@ -76,7 +82,14 @@ import kotlinx.coroutines.launch
 
 /** Builds the controller for one chat; opens it once the live link is connected. */
 @Composable
-fun ChatHost(storedId: String?, link: LiveLink, repo: SessionsRepository, modifier: Modifier = Modifier) {
+fun ChatHost(
+    storedId: String?,
+    link: LiveLink,
+    repo: SessionsRepository,
+    modifier: Modifier = Modifier,
+    title: String = "New chat",
+    onBack: (() -> Unit)? = null,
+) {
     val scope = remember(storedId) { CoroutineScope(SupervisorJob() + Dispatchers.Main) }
     DisposableEffect(scope) { onDispose { scope.cancel() } }
     val controller = remember(scope) { ChatController(link, repo, storedId, scope) }
@@ -105,7 +118,7 @@ fun ChatHost(storedId: String?, link: LiveLink, repo: SessionsRepository, modifi
         }
         controller.send(text)
     }
-    ChatScreen(controller, models, slash, modifier, onSend)
+    ChatScreen(controller, models, slash, modifier, onSend, title, onBack)
 }
 
 @Composable
@@ -115,6 +128,8 @@ fun ChatScreen(
     slash: SlashCommands,
     modifier: Modifier = Modifier,
     onSend: suspend (String) -> Unit = { controller.send(it) },
+    title: String = "New chat",
+    onBack: (() -> Unit)? = null,
 ) {
     val state by controller.state.collectAsState()
     val modelState by models.state.collectAsState()
@@ -129,7 +144,19 @@ fun ChatScreen(
     if (picking) ModelPicker(modelState, models, onDismiss = { picking = false })
 
     Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-        TextButton(onClick = { picking = true }) { Text(modelState.model.ifBlank { "Model" }) }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (onBack != null) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+            }
+            Text(
+                title,
+                Modifier.weight(1f).padding(start = if (onBack == null) 4.dp else 0.dp),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            TextButton(onClick = { picking = true }) { Text(modelState.model.ifBlank { "Model" }, maxLines = 1) }
+        }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
             itemsIndexed(state.items, key = { _, it -> it.key }) { index, item ->
                 Box(Modifier.padding(top = itemGapBefore(state.items.getOrNull(index - 1), item).dp)) {
@@ -169,17 +196,21 @@ fun ChatScreen(
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 draft, { draft = it }, modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(24.dp),
+                maxLines = 6,
                 placeholder = { Text(if (state.running) "Steer the reply" else "Message") },
             )
-            if (draft.isNotBlank()) {
-                Button(onClick = { val text = draft; draft = ""; scope.launch { onSend(text) } }, modifier = Modifier.padding(start = 8.dp)) {
-                    Text(if (state.running) "Steer" else "Send")
-                }
-            } else if (state.running) {
-                Button(onClick = { scope.launch { controller.stop() } }, modifier = Modifier.padding(start = 8.dp)) { Text("Stop") }
-            } else {
-                Button(onClick = {}, enabled = false, modifier = Modifier.padding(start = 8.dp)) { Text("Send") }
-            }
+            val sendable = draft.isNotBlank()
+            val icon = if (!sendable && state.running) Icons.Filled.Stop else Icons.AutoMirrored.Filled.Send
+            val label = if (sendable) (if (state.running) "Steer" else "Send") else if (state.running) "Stop" else "Send"
+            FilledIconButton(
+                onClick = {
+                    if (sendable) { val text = draft; draft = ""; scope.launch { onSend(text) } }
+                    else if (state.running) scope.launch { controller.stop() }
+                },
+                enabled = sendable || state.running,
+                modifier = Modifier.padding(start = 8.dp),
+            ) { Icon(icon, contentDescription = label) }
         }
     }
 }
@@ -298,8 +329,14 @@ private fun MessageBubble(item: ChatItem.Message) {
         }
     } else if (item.text.isNotEmpty()) {
         Column(Modifier.fillMaxWidth()) {
-            MarkdownText(item.text)
-            if (!item.streaming) CopyButton(replyForCopy(item.text))
+            Surface(
+                Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+            ) {
+                MarkdownText(item.text, Modifier.padding(12.dp))
+            }
+            if (!item.streaming) CopyReplyButton(replyForCopy(item.text))
         }
     }
 }
@@ -308,14 +345,26 @@ private fun MessageBubble(item: ChatItem.Message) {
 private fun ReasoningRow(item: ChatItem.Reasoning) {
     // Saveable so the expanded state survives the row leaving the lazy list.
     var open by rememberSaveable(item.key) { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth().clickable { open = !open }.padding(vertical = 4.dp)) {
-        Text(
-            if (item.streaming) "Thinking…" else "Thought",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (open) {
-            Text(item.text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Surface(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Column(Modifier.clickable { open = !open }.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (item.streaming) "Thinking…" else "Thought",
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+                Icon(
+                    if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (open) "Collapse" else "Expand",
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            if (open) Text(item.text, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

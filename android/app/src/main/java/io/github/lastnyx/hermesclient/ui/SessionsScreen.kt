@@ -223,8 +223,15 @@ fun SessionsHost(
         val linkState by link.state.collectAsState()
         val offline = showsOfflineLine(linkState)
         val repo = remember(authed) { SessionsRepository(authed, gateway.url) }
+        val listState by model.state.collectAsState()
         val chat: @Composable (Modifier) -> Unit = { m ->
-            key(chatId, chatKey) { ChatHost(chatId, link, repo, m) }
+            key(chatId, chatKey) {
+                ChatHost(
+                    chatId, link, repo, m,
+                    title = chatTitle(listState.sessions, chatId),
+                    onBack = if (wide) null else ({ chatOpen = false }),
+                )
+            }
         }
         Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, auth, model, open, onGateways, offline, chat) }
     }

@@ -8,6 +8,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,7 +46,7 @@ internal fun CodeCard(code: String, language: String?, style: TextStyle) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
     ) {
         Column {
             Row(
@@ -57,6 +63,30 @@ internal fun CodeCard(code: String, language: String?, style: TextStyle) {
                 fontFamily = FontFamily.Monospace,
                 softWrap = false,
                 modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+            )
+        }
+    }
+}
+
+@Composable
+internal fun CopyReplyButton(text: String) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(2000)
+            copied = false
+        }
+    }
+    Row(Modifier.fillMaxWidth()) {
+        IconButton(onClick = {
+            clipboard.setText(AnnotatedString(text))
+            copied = true
+        }) {
+            Icon(
+                if (copied) Icons.Filled.Check else Icons.Filled.ContentCopy,
+                contentDescription = "Copy reply",
+                modifier = Modifier.size(18.dp),
             )
         }
     }
