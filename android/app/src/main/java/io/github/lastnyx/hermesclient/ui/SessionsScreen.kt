@@ -221,7 +221,7 @@ fun SessionsHost(
     Column(Modifier.fillMaxSize()) {
         LiveLinkIndicator(link, Modifier.padding(horizontal = 12.dp))
         val linkState by link.state.collectAsState()
-        val offline = linkState == LinkState.Offline || linkState == LinkState.Connecting
+        val offline = showsOfflineLine(linkState)
         val repo = remember(authed) { SessionsRepository(authed, gateway.url) }
         val chat: @Composable (Modifier) -> Unit = { m ->
             key(chatId, chatKey) { ChatHost(chatId, link, repo, m) }
@@ -229,6 +229,9 @@ fun SessionsHost(
         Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, auth, model, open, onGateways, offline, chat) }
     }
 }
+
+// Connecting must keep the red error: a failed connect attempt is a genuine "can't reach" report.
+internal fun showsOfflineLine(state: LinkState): Boolean = state == LinkState.Offline
 
 @Composable
 private fun SessionsBody(
