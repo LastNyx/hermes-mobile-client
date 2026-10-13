@@ -15,6 +15,17 @@ class GatewayRegistryTest {
         override fun save(text: String) { this.text = text }
     }
 
+    @Test fun ipv6UrlsNormaliseToSingleBracketsAndWarnWithoutThrowing() {
+        val registry = GatewayRegistry(MemoryStorage())
+        val loop = registry.add("Loop", "http://[::1]:9119/").getOrThrow()
+        assertEquals("http://[::1]:9119", loop.url)
+        assertTrue(registry.add("Again", "http://[::1]:9119").isFailure)
+        assertEquals("http://[fd7a::1]", registry.add("Ts", "http://[fd7a::1]").getOrThrow().url)
+
+        assertFalse(GatewayUrl.warnsCleartext("http://[::1]"))
+        assertTrue(GatewayUrl.warnsCleartext("http://[fd7a::1]"))
+    }
+
     @Test fun registryPersistsAndRejectsAndStatusReportsVersion() {
         val storage = MemoryStorage()
         val registry = GatewayRegistry(storage)
