@@ -79,6 +79,9 @@ class MainActivity : ComponentActivity() {
                     }
                     var showSettings by remember { mutableStateOf(false) }
                     LaunchedEffect(Unit) { updates.check(silent = true) }
+                    LaunchedEffect(Unit) {
+                        io.github.lastnyx.hermesclient.data.update.InstallFailures.messages.collect { updates.installFailed(it) }
+                    }
                     val updateUi by updates.state.collectAsState()
                     val active = registry.active()
                     if (showSettings) {

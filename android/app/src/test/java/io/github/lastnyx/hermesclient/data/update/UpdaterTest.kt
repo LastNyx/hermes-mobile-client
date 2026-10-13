@@ -58,6 +58,35 @@ class UpdaterTest {
         assertEquals(UpdateOutcome.NonePublished, updater("1.0.0").check().getOrThrow())
     }
 
+    private val helloSha = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+
+    private fun tmp() = File.createTempFile("dlapk", ".apk").apply { deleteOnExit() }
+
+    private fun info(sha: String) = UpdateInfo("2.0.0", server.url("/app.apk").toString(), 5, sha, "")
+
+    @Test fun downloadKeepsMatchingFile() {
+        server.enqueue(MockResponse().setBody("hello"))
+        val dest = tmp()
+        val result = updater("1.0.0").download(info(helloSha), dest)
+        assertEquals(dest, result.getOrThrow())
+        assertTrue(dest.exists())
+    }
+
+    @Test fun downloadDeletesMismatchedFile() {
+        server.enqueue(MockResponse().setBody("tampered"))
+        val dest = tmp()
+        val result = updater("1.0.0").download(info(helloSha), dest)
+        assertEquals("Download did not match its checksum", result.exceptionOrNull()?.message)
+        assertFalse(dest.exists())
+    }
+
+    @Test fun downloadHttpErrorCantReachGithub() {
+        server.enqueue(MockResponse().setResponseCode(500))
+        val dest = tmp()
+        val result = updater("1.0.0").download(info(helloSha), dest)
+        assertEquals("Can't reach GitHub", result.exceptionOrNull()?.message)
+    }
+
     @Test fun verifyIsCaseInsensitive() {
         val file = File.createTempFile("apk", ".bin").apply { writeText("hello"); deleteOnExit() }
         val hex = "2CF24DBA5FB0A30E26E83B2AC5B9E29E1B161E5C1FA7425E73043362938B9824"

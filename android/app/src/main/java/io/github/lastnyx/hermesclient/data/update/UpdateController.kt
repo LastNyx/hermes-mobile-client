@@ -33,6 +33,10 @@ class UpdateController(
         )
     }
 
+    fun installFailed(message: String) {
+        _state.value = UpdateUi(message, _state.value.available)
+    }
+
     suspend fun installAvailable() {
         val info = _state.value.available ?: return
         _state.value = _state.value.copy(busy = true, status = "Downloading…")

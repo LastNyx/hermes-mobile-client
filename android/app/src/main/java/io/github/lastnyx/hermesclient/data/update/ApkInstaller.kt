@@ -37,7 +37,11 @@ object ApkInstaller {
 
 class InstallStatusReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -1) != PackageInstaller.STATUS_PENDING_USER_ACTION) return
+        val status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)
+        if (status != PackageInstaller.STATUS_PENDING_USER_ACTION) {
+            installFailureMessage(status)?.let(InstallFailures::report)
+            return
+        }
         @Suppress("DEPRECATION")
         val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT) ?: return
         context.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
