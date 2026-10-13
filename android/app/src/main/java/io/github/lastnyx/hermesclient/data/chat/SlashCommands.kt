@@ -1,6 +1,7 @@
 package io.github.lastnyx.hermesclient.data.chat
 
 import io.github.lastnyx.hermesclient.data.live.RpcError
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -12,9 +13,31 @@ class SlashCommands(private val chat: ChatController) {
     private val _commands = MutableStateFlow<List<SlashCommand>>(emptyList())
     val commands: StateFlow<List<SlashCommand>> = _commands
 
+    private val _catalog = MutableStateFlow(SlashCatalog())
+    val catalog: StateFlow<SlashCatalog> = _catalog
+
+    suspend fun suggestions(text: String): List<SlashSuggestion> {
+        if (text == "/") return _catalog.value.suggestions
+        return try {
+            val result = chat.sessionCall("complete.slash") { it.put("text", text) }
+            val catalog = _catalog.value
+            parseSlashCompletions(text, result).filterNot {
+                it.kind == SlashKind.Command && catalog.unavailable(it.text)
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     suspend fun load() {
         try {
-            val pairs = chat.sessionCall("commands.catalog") { it }.optJSONArray("pairs") ?: return
+            val result = chat.sessionCall("commands.catalog") { it }
+            val parsed = parseSlashCatalog(result)
+            _catalog.value = parsed
+            if (parsed.warning.isNotEmpty()) chat.addNote(parsed.warning)
+            val pairs = result.optJSONArray("pairs") ?: return
             _commands.update {
                 (0 until pairs.length()).map {
                     val pair = pairs.getJSONArray(it)
