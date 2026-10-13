@@ -333,14 +333,17 @@ Common rules (`tui_gateway/contracts/base.py:11-20`, `rpc_dispatch.py`):
 | 4000 | params failed contract validation (unknown/mistyped key) | `rpc_dispatch.py:28-31` |
 | 4001 | session not found (stale runtime id → `session.resume` the stored id); also other "not found/no session" | `server.py:1245` |
 | 4002 | bad value (`text is required`, `unknown reasoning value: …`, `model value required`, `unknown config key: …`) | `methods_config_set.py`, `methods_session_interrupt.py:106` |
+| 4004 | `empty command`, `usage: /queue <prompt>`, `undo: invalid count …` (slash commands, §4.5) | `methods_tools.py` |
 | 4006 | `request_id required` | `methods_prompt.py:1197` |
 | 4009 | `session busy` (truncating submit while running) | `methods_prompt.py:765` |
 | 4010 | agent does not support steer/redirect | `methods_session_interrupt.py:127` |
+| 4018 | slash commands (§4.5): `not a quick/plugin/bundle/skill command: <name>`, `skill command: use command.dispatch for /<name>`, `bundle dispatch failed: …`, or a quick `exec` command's own failure text | `methods_tools.py` |
 | 4064 | profile unavailable | `rpc_dispatch.py:35-36` |
 | 4090 | active-session limit reached (`data.reason`) | `methods_prompt.py:719-723` |
 | 4404 | (client→server answer) "no window shows this session" decline | `server_requests.py:110-114` |
 | 5000 | steer/redirect failed: … | `methods_session_interrupt.py:88` |
 | 5019 | compute-host interrupt failed | `methods_session_interrupt.py:63` |
+| 5030 | `slash.exec`: slash worker failed to start or crashed (message is the worker's error text) | `methods_tools.py` |
 | 5032 | agent still starting / agent init failed / build timed out | `server.py:921-925,962-967` |
 | 5035 | `backend is retiring; reconnect to continue` | `rpc_dispatch.py:13,68` |
 
@@ -383,7 +386,7 @@ Contracts: `tui_gateway/contracts/{sessions,prompt_voice,liveness,tools_commands
 | `commands.catalog` | `session_id?, profile?` | `{pairs: [name, desc][], sub: {cmd: string[]}, canon: {alias: canonical}, commands: {name: {argument_mode?: "options"\|"text"\|"mixed", desktop?, desktop_subcommands?}}, categories: [{name, pairs}], skills: {name: {usage, origin}}, skill_count, warning}` | List slash commands + skills. |
 | `complete.slash` | `text?, session_id?, profile?` | `{items: [{text, display, meta, kind?}], replace_from?: int}` | Autocomplete for a `/…` token. |
 | `slash.exec` | `session_id, command: str` (without leading `/`, e.g. `"status"`, `"goal pause"`) | `{output?, warning?, type?, target?, message?, notice?, display?, name?, status?}` | Execute a slash command. If `type` present, treat like `command.dispatch` result. |
-| `command.dispatch` | `name: str, arg?: str, session_id?, profile?` | `{type: "exec"\|"alias"\|"plugin"\|"send"\|"skill"\|"prefill", output?, target?, message?, notice?, display?, name?, status?}` | Fallback when `slash.exec` errors (Desktop order, `use-prompt-actions/slash.ts:420-470`). `exec`/`plugin`: show `output`; `alias`: re-run `target`; `send`/`skill`: submit `message` via `prompt.submit` (render `display`, never `message`); `prefill`: put `message` in the composer **(inferred from contract doc + Desktop)**. |
+| `command.dispatch` | `name: str, arg?: str, session_id?, profile?` | `{type: "exec"\|"alias"\|"plugin"\|"send"\|"skill"\|"prefill", output?, target?, message?, notice?, display?, name?, status?}` | Fallback when `slash.exec` errors (Desktop order, `use-prompt-actions/slash.ts:420-470`). `exec`/`plugin`: show `output`; `alias`: re-run `target`; `send`/`skill`: submit `message` via `prompt.submit` (render `display`, never `message`); `prefill`: put `message` in the composer (verified, §4.5). |
 | `image.attach_bytes` | `session_id, content_base64?\|data?, filename?, ext?` | `{attached, path?, count?, name?, width?, height?, token_estimate?, …}` | Upload an image for the next turn (remote clients). |
 | `file.attach` | `session_id, path?, data_url?, name?` | `{attached, name, path, ref_path, ref_text, uploaded}` | Non-image file; insert `ref_text` into prompt **(inferred)**. |
 
@@ -422,6 +425,55 @@ Use `inflight` to rebuild a turn that was streaming when you reconnected.
 `PendingApproval`: `{request_id?, command?, description?, pattern_key?, pattern_keys?, allow_permanent?, allow_session?, smart_denied?, choices?: string[], tool_name?}`.
 
 `ModelOptionProvider` (selected): `{slug, name, models: string[], total_models?, is_current?, authenticated?, auth_type?, featured_models?, capabilities?: {model: {...}}, pricing?, warning?, unavailable_models?}` (`config_free_tier_control.py:536-568`).
+
+### 4.5 Slash commands (read from the Hermes checkout on 2026-10-13, `tui_gateway/methods_tools.py`, `methods_complete.py`)
+Read from a checkout dated 2026-10-10, not from the v0.21.5 tag WorkLab runs; field names below are what the source returns, so
+treat any difference on the phone as WorkLab drifting from this doc (see HANDOFF pitfalls on optional params).
+
+**`commands.catalog`** (`methods_tools.py:503`). Params `session_id?`, `profile?`; an unknown profile is 4064. Result keys:
+`pairs` (flat `[name, description][]`: built-ins, quick commands, plugin commands and skills, names usually with the slash),
+`categories: [{name, pairs}]` (built-ins by category, no skills), `skills: {name: {usage, origin}}`, `skill_count`,
+`canon` (alias to canonical), `commands: {name: {argument_mode?, desktop?, desktop_subcommands?}}`, `sub` (subcommand names per command),
+`warning` (string, empty when discovery worked; show it, do not fail). Skills only appear in `pairs`, not in `categories`.
+`commands[/name].desktop` (`hermes_cli/commands.py:67,368`) is `null` when a graphical client should offer the command, else one of
+`"terminal"` (CLI-only), `"messaging"` (messaging platforms only), `"advanced"`, `"settings"`, `"hidden"`, `"composer-voice"`; the key is
+`/name` for the command and for each of its aliases. `canon` maps `/alias` to `/canonical`.
+
+**`complete.slash`** (`methods_complete.py:278`). Params `text` (the whole composer text), `session_id?`, `profile?`. Text not starting
+with `/` returns `{items: []}`. Result `{items: [{text, display, meta, kind: "command"|"skill"}], replace_from}`.
+`replace_from` is 1 while the user is typing the command name (each `text` is a command, usually with the slash), and the index just after the
+last space once an argument is being typed (each `text` is only the argument; the new composer text is `text[0:replace_from] + item.text`).
+The argument stage is capped at 30 items; the name stage is ranked (usage first) and fuzzy-matches names and descriptions.
+
+**`slash.exec`** (`methods_tools.py:1113`). Params `session_id` (live runtime id; a stale one is 4001), `command` (no leading slash; empty is 4004).
+Result is one of:
+- `{output, warning?}`: text for the user. `output` is `"(no output)"` when the worker printed nothing. The worker prints for a terminal,
+  so strip ANSI escape codes.
+- a `command.dispatch` result (has `type`): returned when the command is a skill, a skill bundle, a pending-input built-in (`queue`, ...) or a
+  prompt-composing command (`type: "send"`, `message`). Treat it exactly like a `command.dispatch` result.
+- error 4018 `skill command: use command.dispatch for /<name>` (the gateway could not hand the dispatch over itself): call `command.dispatch`.
+- error 5030: the slash worker failed to start or crashed; the message is its text. The first call in a session starts the worker and can be slow.
+
+**`command.dispatch`** (`methods_tools.py:1093`). Params `name` (a leading `/` is stripped), `arg?` (string), `session_id?`, `profile?`. The gateway tries
+stages in this order and uses the first that answers: quick command, plugin command, skill bundle, skill, then the built-ins it handles itself
+(`queue`/`q`, `learn`, `plan`, `init`, `moa`, `focus`, `retry`, `steer`, `goal`, `loop`, `undo`, `snapshot`/`snap`, `compress`/`compact`,
+`initiate-setup`, `memory`, `skills`). Nothing matched is 4018 `not a quick/plugin/bundle/skill command: <name>`. Result `type`:
+
+| `type` | Other keys | Client does |
+|---|---|---|
+| `exec` | `output` | show `output` (a quick command's captured stdout, redacted, at most 4000 chars) |
+| `plugin` | `output` | show `output` |
+| `alias` | `target` | run `target` (slash optional) with the same `arg` |
+| `send` | `message`, `notice?`, `display?` | `prompt.submit` with `message`; show `notice` first if present; the chat shows `display`, never `message`. Built-ins `queue` and `retry` answer `{type: "send", message}` without `display` |
+| `skill` | `message`, `name`, `notice?`, `display` | same as `send` |
+| `prefill` | `message`, `notice` | put `message` in the composer for editing; `/undo [N]` answers this (`methods_tools.py:969`), after removing the last N user turns from the stored transcript, so reload the history |
+
+Two rules from the source: `display` is the projection of the skill or bundle scaffold and the only text a UI may show for a `send` or
+`skill` result; and a `command.dispatch` 4018 after a failed `slash.exec` only means "no stage had it", so the worker's own error is the
+one to show.
+
+Not checked and not to be assumed: which built-ins return `send` or `prefill` besides the ones named above, and the `goal`/`loop`
+result shapes (they also push `session.control` snapshots).
 
 ---
 
