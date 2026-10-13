@@ -1,5 +1,7 @@
 package io.github.lastnyx.hermesclient.data.auth
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -77,6 +79,68 @@ class SignInControllerTest {
         restarted.signOut("gw-1")
         assertEquals(SignInState.SignedOut(null), restarted.stateOf("gw-1"))
         assertNull(TokenStore(storage, cipher).load("gw-1"))
+        gateway.shutdown()
+    }
+
+    @Test
+    fun meFailingStillSignsInWithFallbackName() = runBlocking {
+        val gateway = MockWebServer()
+        gateway.enqueue(MockResponse().setBody(tokenJson))
+        gateway.enqueue(MockResponse().setResponseCode(500))
+        gateway.start()
+        val controller = SignInController(OkHttpClient(), TokenStore(MemoryStorage(), XorCipher()), completingBrowser(mutableListOf()))
+
+        controller.signIn("gw-1", gateway.url("/").toString().trimEnd('/'))
+
+        assertEquals(SignInState.SignedIn("Signed in"), controller.stateOf("gw-1"))
+        gateway.shutdown()
+    }
+
+    @Test
+    fun signInFailureGivesSignedOutWithMessageAndStoresNothing() = runBlocking {
+        val gateway = MockWebServer()
+        gateway.enqueue(MockResponse().setResponseCode(400))
+        gateway.start()
+        val storage = MemoryStorage()
+        val controller = SignInController(OkHttpClient(), TokenStore(storage, XorCipher()), completingBrowser(mutableListOf()))
+
+        controller.signIn("gw-1", gateway.url("/").toString().trimEnd('/'))
+
+        assertEquals(SignInState.SignedOut("Sign-in expired, try again"), controller.stateOf("gw-1"))
+        assertNull(storage.text)
+        gateway.shutdown()
+    }
+
+    @Test
+    fun secondSignInWhileOneRunsLaunchesNoSecondBrowser() = runBlocking {
+        val gateway = MockWebServer()
+        gateway.enqueue(MockResponse().setBody(tokenJson))
+        gateway.enqueue(MockResponse().setBody("""{"display_name":"Ada"}"""))
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val launches = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val release = java.util.concurrent.CountDownLatch(1)
+        val browser = BrowserLauncher { url ->
+            launches += url
+            val q = query(url)
+            thread {
+                release.await()
+                (java.net.URL("${q["redirect_uri"]}?code=gw-code&state=${q["state"]}").openConnection() as HttpURLConnection)
+                    .apply { responseCode; disconnect() }
+            }
+        }
+        val controller = SignInController(OkHttpClient(), TokenStore(MemoryStorage(), XorCipher()), browser)
+
+        val first = async { controller.signIn("gw-1", base) }
+        while (launches.isEmpty()) delay(10)
+        controller.signIn("gw-1", base)
+        assertEquals(1, launches.size)
+        assertEquals(SignInState.SigningIn, controller.stateOf("gw-1"))
+
+        release.countDown()
+        first.await()
+        assertEquals(1, launches.size)
+        assertEquals(SignInState.SignedIn("Ada"), controller.stateOf("gw-1"))
         gateway.shutdown()
     }
 

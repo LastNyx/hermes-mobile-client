@@ -83,4 +83,68 @@ class NativeSignInTest {
         assertNull(store.load("gw-1"))
         assertNotNull(gateway.also { it.shutdown() })
     }
+
+    private fun hit(url: String): Int =
+        (java.net.URL(url).openConnection() as HttpURLConnection).run { val code = responseCode; disconnect(); code }
+
+    @Test
+    fun wrongStateIsRejectedAndFlowKeepsWaiting() {
+        val gateway = MockWebServer()
+        gateway.enqueue(MockResponse().setBody("""{"access_token":"at-1","refresh_token":"rt-1","expires_at":1760000000}"""))
+        gateway.start()
+        val store = TokenStore(MemoryStorage(), XorCipher())
+        var wrongStatus = 0
+        val browser = BrowserLauncher { url ->
+            val q = query(url)
+            thread {
+                wrongStatus = hit("${q["redirect_uri"]}?code=evil&state=nope")
+                hit("${q["redirect_uri"]}?code=gw-code&state=${q["state"]}")
+            }
+        }
+
+        val pair = NativeSignIn(OkHttpClient(), store, browser).signIn("gw-1", gateway.url("/").toString()).getOrThrow()
+
+        assertEquals(400, wrongStatus)
+        assertEquals("at-1", pair.accessToken)
+        assertEquals("gw-code", JSONObject(gateway.takeRequest().body.readUtf8()).getString("code"))
+        gateway.shutdown()
+    }
+
+    @Test
+    fun errorParameterFailsWithThatMessage() {
+        val gateway = MockWebServer()
+        gateway.start()
+        val storage = MemoryStorage()
+        val browser = BrowserLauncher { url ->
+            val q = query(url)
+            thread { hit("${q["redirect_uri"]}?error=access_denied&state=${q["state"]}") }
+        }
+
+        val result = NativeSignIn(OkHttpClient(), TokenStore(storage, XorCipher()), browser)
+            .signIn("gw-1", gateway.url("/").toString())
+
+        assertEquals("access_denied", result.exceptionOrNull()?.message)
+        assertEquals(0, gateway.requestCount)
+        assertNull(storage.text)
+        gateway.shutdown()
+    }
+
+    @Test
+    fun tokenEndpoint400SaysSignInExpired() {
+        val gateway = MockWebServer()
+        gateway.enqueue(MockResponse().setResponseCode(400).setBody("""{"detail":"bad code"}"""))
+        gateway.start()
+        val storage = MemoryStorage()
+        val browser = BrowserLauncher { url ->
+            val q = query(url)
+            thread { hit("${q["redirect_uri"]}?code=gw-code&state=${q["state"]}") }
+        }
+
+        val result = NativeSignIn(OkHttpClient(), TokenStore(storage, XorCipher()), browser)
+            .signIn("gw-1", gateway.url("/").toString())
+
+        assertEquals("Sign-in expired, try again", result.exceptionOrNull()?.message)
+        assertNull(storage.text)
+        gateway.shutdown()
+    }
 }

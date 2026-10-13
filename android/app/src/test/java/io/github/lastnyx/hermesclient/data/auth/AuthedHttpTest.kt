@@ -68,4 +68,78 @@ class AuthedHttpTest {
         assertEquals(AuthState.SignedOut, authed.state.value)
         gateway.shutdown()
     }
+
+    private val rotated =
+        """{"access_token":"at-2","refresh_token":"rt-2","token_type":"Bearer","expires_at":1760000000,"provider":"basic","user_id":"u1"}"""
+
+    private fun setup(gateway: MockWebServer): Pair<TokenStore, AuthedHttp> {
+        gateway.start()
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1000, "basic", "u1"))
+        return tokens to AuthedHttp(OkHttpClient(), tokens, "gw-1", gateway.url("/").toString().trimEnd('/'), now = { 2000 })
+    }
+
+    @Test
+    fun expiredByClockTokenRefreshesBeforeRequestAndPersists() {
+        val gateway = MockWebServer()
+        gateway.enqueue(MockResponse().setBody(rotated))
+        gateway.enqueue(MockResponse().setBody("ok"))
+        val (tokens, authed) = setup(gateway)
+
+        authed.execute(Request.Builder().url(gateway.url("/api/sessions")).build()).use { assertEquals("ok", it.body!!.string()) }
+
+        assertEquals("/auth/native/refresh", gateway.takeRequest().path)
+        assertEquals("Bearer at-2", gateway.takeRequest().getHeader("Authorization"))
+        assertEquals(TokenPair("at-2", "rt-2", 1760000000, "basic", "u1"), tokens.load("gw-1"))
+        gateway.shutdown()
+    }
+
+    @Test
+    fun postGets401WithoutReplay() {
+        val gateway = MockWebServer()
+        gateway.start()
+        gateway.enqueue(
+            MockResponse().setResponseCode(401)
+                .setBody("""{"error":"session_expired","detail":"Unauthorized","reason":"invalid_or_expired_session"}"""),
+        )
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val authed = AuthedHttp(OkHttpClient(), tokens, "gw-1", gateway.url("/").toString().trimEnd('/'), now = { 1000 })
+        val post = Request.Builder().url(gateway.url("/api/sessions"))
+            .post(okhttp3.RequestBody.create(null, "{}")).build()
+
+        authed.execute(post).use { assertEquals(401, it.code) }
+
+        assertEquals(1, gateway.requestCount)
+        assertEquals("at-1", tokens.load("gw-1")!!.accessToken)
+        gateway.shutdown()
+    }
+
+    @Test
+    fun refresh401WipesTokensAndExpires() {
+        val gateway = MockWebServer()
+        gateway.enqueue(MockResponse().setResponseCode(401))
+        val (tokens, authed) = setup(gateway)
+
+        val failure = runCatching { authed.execute(Request.Builder().url(gateway.url("/api/sessions")).build()) }
+
+        assertEquals(true, failure.isFailure)
+        assertEquals(null, tokens.load("gw-1"))
+        assertEquals(AuthState.Expired, authed.state.value)
+        gateway.shutdown()
+    }
+
+    @Test
+    fun refresh503KeepsTokensAndIsUnavailable() {
+        val gateway = MockWebServer()
+        gateway.enqueue(MockResponse().setResponseCode(503))
+        val (tokens, authed) = setup(gateway)
+
+        val failure = runCatching { authed.execute(Request.Builder().url(gateway.url("/api/sessions")).build()) }
+
+        assertEquals(true, failure.isFailure)
+        assertEquals("rt-1", tokens.load("gw-1")!!.refreshToken)
+        assertEquals(AuthState.AuthUnavailable, authed.state.value)
+        gateway.shutdown()
+    }
 }
