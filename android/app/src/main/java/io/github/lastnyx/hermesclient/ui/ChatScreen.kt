@@ -250,7 +250,10 @@ private fun MessageBubble(item: ChatItem.Message) {
     Column(Modifier.fillMaxWidth(), horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
         Column(Modifier.padding(vertical = 2.dp)) {
             if (mine) Text(item.text, style = MaterialTheme.typography.bodyMedium)
-            else if (item.text.isNotEmpty()) MarkdownText(item.text)
+            else if (item.text.isNotEmpty()) {
+                MarkdownText(item.text)
+                if (!item.streaming) CopyButton(replyForCopy(item.text))
+            }
         }
     }
 }
