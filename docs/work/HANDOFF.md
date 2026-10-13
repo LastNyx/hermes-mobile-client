@@ -1,6 +1,6 @@
 # Handoff
 
-Where the build stands (as of 2026-10-12), so work can continue on another PC (Windows or Arch Linux).
+Where the build stands (as of 2026-10-13), so work can continue on another PC (Windows or Arch Linux).
 Read this top to bottom, then `docs/DESIGN.md` (settled decisions; do not reopen) and `docs/PROTOCOL.md`
 (the only source for gateway endpoints and methods).
 
@@ -21,49 +21,78 @@ Status travels with the branch.
 
 ## Where we are
 
-- All 11 feature tickets (plus 02b, 04b, 05b, 05c) are built and in `review`. None is `done`: a ticket
-  becomes `done` only when its reviewer batch passes.
-- **v0.1.0 is published** (tag `v0.1.0`, built by CI, signed with the release key). The user installed the
-  release build on the phone ("mobile nice"); which parts were exercised on the minified build is not recorded.
-  v0.1.0 does NOT contain any of the fixes below.
-- **Reviewer round 1 ran on all 4 batches and every batch FAILED.** Reviews: `.scratch/v1/review-<b>-1.md`.
-  10 fix tickets exist, all `todo`, **none dispatched** (the user said: review everything first, no fixes yet).
-- Next step: the user picks the order and says go; dispatch fix tickets one at a time; then reviewer round 2;
-  then the docs worker; then tag `v0.1.1` (ask the user: the fixes are not in 0.1.0).
+- Branch `feature/v1`, pushed to origin on 2026-10-13 with the user's go (`git log origin/feature/v1` for the tip).
+  Nothing has been merged to main, and nothing has been tagged since v0.1.0.
+- All 27 tickets in `.scratch/v1/issues/` are `Status: done`.
+- `./build.sh test`: 45 tests, 0 failures. A flaky LiveLinkTest race was fixed by `05-fix-flaky-livelink-test`.
+- v0.1.0 is published (tag `v0.1.0`). All of the fixes below are NOT in the published v0.1.0.
+- Machine now: Arch Linux PC. Repo at `~/Proyek/hermes-mobile-client`. Toolchain installed by
+  `scripts/setup-toolchain.sh` into `~/tools` (JDK 17 + Android SDK). `build.sh` and
+  `scripts/setup-toolchain.sh` are executable. Dev-team kit at `~/Dokumen/projects/hermes-dev-team/kit`
+  (run with `python3 -u`).
+- Telegram APK delivery was not done in this session.
+- Reference app for building features: `Giton22/herald` (Kotlin Multiplatform Android client for Hermes).
+  Read its `docs/ROADMAP.md` and `docs/hermes-protocol-research.md` for how a feature behaves; do not copy
+  code and do not build anything `docs/PROTOCOL.md` does not list.
+- Plan: `docs/ROADMAP.md`.
 
 ### Review batches (`.scratch/v1/batches.md`)
 
-| Batch | Tickets | Base | Verdict |
+| Batch | Tickets | Base | Result |
 |---|---|---|---|
-| 1 | 01, 02, 02b, 03 | `16a46fc` (merge-base with main) | FAIL 3 spec, 1 standards |
-| 2 | 04, 04b, 05, 05b | `beb9368` | FAIL 2 spec, 2 standards |
-| 3 | 05c, 06, 07, 08 | `37aae4a` | FAIL 4 spec, 2 standards |
-| 4 | 09, 10, 11 | `f573778` | FAIL 3 spec, 3 standards |
+| 1 | 01, 02, 02b, 03 | `16a46fc` | PASS round 2 (`review-1-2.md`) |
+| 2 | 04, 04b, 05, 05b | `beb9368` | PASS round 2 (`review-2-2.md`) |
+| 3 | 05c, 06, 07, 08 | `37aae4a` | FAIL round 2 on two style findings, fixed by `06-fix-dedupe-history-mapping`, then PASS round 3 (`review-3-2.md`, `review-3-3.md`) |
+| 4 | 09, 10, 11 | `f573778` | PASS round 2 (`review-4-2.md`) |
 
-Bases for batches 2 to 4 were chosen by commit order, not recorded as each batch passed (the skill's rule),
-so a reviewer may have seen a little out-of-scope diff. Round 2 should reuse the same bases. Round 3 is never
-dispatched without asking the user.
+The docs worker ran; its drift list is `.scratch/v1/drift.md`. `CHANGELOG.md` has an Unreleased section.
 
-### Fix tickets (all `Status: todo`, in `.scratch/v1/issues/`)
+### Fix tickets (all `Status: done`, in `.scratch/v1/issues/`)
 
-Suggested order (the user has not chosen one yet):
+| # | Ticket | What changed |
+|---|---|---|
+| 1 | `10-fix-watch-survives-leaving-chat` | Leaving the chat ends the watch and stops the service. |
+| 2 | `01-fix-ipv6-gateway-url` | IPv6 gateway URLs no longer crash the Gateways form. |
+| 3 | `03-fix-auth-state-surfacing` | Gateways row shows 'Signed out, sign in again' and 'Gateway auth unavailable, retrying'. |
+| 4 | `08-fix-clarify-answers-and-coverage` | Clarify card answers every question. |
+| 5 | `09-fix-expensive-model-confirm` | Expensive-model switch has Confirm and Cancel. |
+| 6 | `11-fix-download-checksum-and-install-failure` | Updater download checksum is tested; install failures show in Settings. |
+| 7 | `05c-fix-offline-line-only-when-offline` | Grey Offline line only while Offline. |
+| 8 | `03-fix-missing-auth-tests` | Extra tests for auth. |
+| 9 | `05b-fix-untested-friendly-error-and-reconnect-refresh` | Extra tests for friendly errors and reconnect refresh. |
+| 10 | `07-fix-untested-reload-paths` | Extra tests for the reload paths. |
+| 11 | `06-fix-dedupe-history-mapping` | History-to-items mapping exists once in `ChatController`. |
+| 12 | `05-fix-flaky-livelink-test` | Flaky LiveLinkTest race fixed. |
 
-| # | Ticket | What | Kind |
-|---|---|---|---|
-| 1 | `10-fix-watch-survives-leaving-chat` | Watch service and its notifications stop working once the chat screen is left (Back to the list): the `ChatController` scope dies with `ChatHost`, so no Done/approval notification and the service never stops. Also `WatchHub` keeps the link after the chat is gone. | real bug |
-| 2 | `01-fix-ipv6-gateway-url` | `GatewayUrl.normalise` doubles brackets on IPv6 hosts and `warnsCleartext` throws, so the Gateways form crashes. Confirmed in code. | real bug |
-| 3 | `03-fix-auth-state-surfacing` | "Signed out, sign in again" / "Gateway auth unavailable" never reach the Gateways row; `SignInController` and `AuthedHttp` keep two sources of truth, so Expired can outlive a fresh sign-in. Has a required screen part. | real bug |
-| 4 | `08-fix-clarify-answers-and-coverage` | Clarify card answers only the first question; approval withdrawal untested. | gap + tests |
-| 5 | `09-fix-expensive-model-confirm` | Expensive-model confirm is a dead end: the picker shows the message in red but cannot confirm and resend. | gap + tests |
-| 6 | `11-fix-download-checksum-and-install-failure` | `Updater.download` checksum enforcement untested; `InstallStatusReceiver` ignores failure statuses so Settings sticks on "Installing...". | gap + tests |
-| 7 | `05c-fix-offline-line-only-when-offline` | Grey "Offline" line also shows while Connecting, hiding a real can't-reach error. | small |
-| 8 | `03-fix-missing-auth-tests` | Tests for 02, 02b, 03 criteria that were built but never tested. Do after #2 and #3 so they cover final code. | tests |
-| 9 | `05b-fix-untested-friendly-error-and-reconnect-refresh` | Tests for the friendly-error mapping and refresh-on-Connected (moves the rule into a testable unit). | tests |
-| 10 | `07-fix-untested-reload-paths` | Tests for the different-epoch and truncated reload after reconnect. | tests |
+### Not run on a device
 
-Reviewer smells with no ticket: duplicated history-to-items mapping in `ChatController`; inline fully-qualified
-names and unordered imports; raw `e.message` shown in the model picker and slash UI (should be plain sentences);
-the ping id `heartbeat-<ms>` vs `r<n>` (harmless, matches PROTOCOL).
+- Leaving the chat during a running turn (no Done notification comes after leaving, by design of the chosen rule).
+- The Gateways row auth messages.
+- Approval and clarify cards (approvals are off on the WorkLab gateway).
+- The expensive-model Confirm.
+- The updater and install failure messages.
+
+### Unchecked
+
+- CHANGELOG says slash suggestions are filtered as you type; the old handoff said suggestions run only when
+  tapped. Unchecked.
+- Slash dispatch types `send`, `skill`, `prefill` and `alias` show nothing.
+
+### Non-blocking reviewer smells (no ticket)
+
+- Anonymous state wrapper in `AuthedHttp`.
+- The 'Signed out — sign in again' string is repeated in `AuthedHttp` and `SignInController`.
+- `SignInState` and `AuthState` both exist.
+- Raw `e.message` in `ModelsController.fail` and `SlashCommands`.
+- Fully qualified names in `UpdateController` and `MainActivity`.
+
+### Next steps
+
+1. Phase 2 = Markdown chat. Needs a library added to `android/gradle/libs.versions.toml` by the planner, with
+   the user's yes.
+2. Phase 3 = slash commands.
+3. Then the docs worker.
+4. Then ask the user about tagging v0.1.1 (the fixes are not in 0.1.0).
 
 ## Working agreement with the user
 
@@ -107,14 +136,12 @@ the ping id `heartbeat-<ms>` vs `r<n>` (harmless, matches PROTOCOL).
 
 ## Known gaps and not device-tested
 
-- Chat UI is plain text with basic code blocks; no Markdown rendering; no polish ticket yet (ask the user what to
-  mirror from Desktop). Notification wording may be revised later.
-- Slash suggestions run only when tapped; Enter sends `/cmd` as a normal message. `command.dispatch` types
-  `send`/`skill`/`prefill`/`alias` show nothing. Reasoning level is not read from the session on open.
-- Not run on a device: approvals, expensive-model confirm, reconnect catch-up with a slow turn (the user's 1-300
-  test finished too fast), the background watch beyond the simple case, the updater, R8 shrinking beyond what the
-  user tried.
+- Chat UI is plain text with basic code blocks; no Markdown rendering (Phase 2 above); no polish ticket yet
+  (ask the user what to mirror from Desktop). Notification wording may be revised later.
+- Multi-select clarify questions are answered as one value because PROTOCOL.md has no multi-answer shape.
+- Reasoning level is not read from the session on open.
 - Phone checkpoints: 1 (sign-in) PASSED; 2 (chat) PASSED with a text-only UI; 3 at the end.
+- The "Not run on a device" list is under "Where we are" above; nothing in it has been run on a device.
 
 ## APK delivery
 
