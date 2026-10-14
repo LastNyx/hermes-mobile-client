@@ -210,48 +210,50 @@ fun ChatScreen(
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-        LazyColumn(Modifier.fillMaxSize().nestedScroll(userScrollWatcher), state = listState) {
-            val rows = groupTools(state.items)
-            itemsIndexed(rows, key = { _, it -> it.key }) { index, row ->
-                Box(Modifier.padding(top = itemGapBefore(rows.getOrNull(index - 1)?.last, row.first).dp)) {
-                    if (row is ChatRow.ToolGroup) { ToolGroupRow(row); return@Box }
-                    val item = (row as ChatRow.Single).item
-                    when (item) {
-                        is ChatItem.Message -> MessageBubble(item)
-                        is ChatItem.Reasoning -> ReasoningRow(item)
-                        is ChatItem.Tool -> ToolRow(item)
-                        is ChatItem.CommandOutput -> CommandOutputCard(item)
-                        is ChatItem.Note -> Text(
-                            item.text,
-                            Modifier.fillMaxWidth(),
-                            style = roles.caption,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
-                        )
+            LazyColumn(Modifier.fillMaxSize().nestedScroll(userScrollWatcher), state = listState) {
+                val rows = groupTools(state.items)
+                itemsIndexed(rows, key = { _, it -> it.key }) { index, row ->
+                    Box(Modifier.padding(top = itemGapBefore(rows.getOrNull(index - 1)?.last, row.first).dp)) {
+                        if (row is ChatRow.ToolGroup) {
+                            ToolGroupRow(row)
+                        } else {
+                            when (val item = (row as ChatRow.Single).item) {
+                                is ChatItem.Message -> MessageBubble(item)
+                                is ChatItem.Reasoning -> ReasoningRow(item)
+                                is ChatItem.Tool -> ToolRow(item)
+                                is ChatItem.CommandOutput -> CommandOutputCard(item)
+                                is ChatItem.Note -> Text(
+                                    item.text,
+                                    Modifier.fillMaxWidth(),
+                                    style = roles.caption,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                    }
+                }
+                items(state.prompts, key = { it.id }) { prompt ->
+                    Box(Modifier.padding(top = INSIDE_TURN_GAP.dp)) {
+                        when (prompt) {
+                            is Prompt.Approval -> ApprovalCard(prompt) { controller.answerApproval(prompt.id, it) }
+                            is Prompt.Clarify -> ClarifyCard(prompt) { controller.answerClarify(prompt.id, it) }
+                        }
                     }
                 }
             }
-            items(state.prompts, key = { it.id }) { prompt ->
-                Box(Modifier.padding(top = INSIDE_TURN_GAP.dp)) {
-                    when (prompt) {
-                        is Prompt.Approval -> ApprovalCard(prompt) { controller.answerApproval(prompt.id, it) }
-                        is Prompt.Clarify -> ClarifyCard(prompt) { controller.answerClarify(prompt.id, it) }
-                    }
+            if (!following) {
+                FilledTonalButton(
+                    onClick = {
+                        following = true
+                        scope.launch { listState.scrollToEnd() }
+                    },
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = ROW_PADDING.dp),
+                ) {
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, Modifier.size(18.dp))
+                    Text("Jump to latest")
                 }
             }
-        }
-        if (!following) {
-            FilledTonalButton(
-                onClick = {
-                    following = true
-                    scope.launch { listState.scrollToEnd() }
-                },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = ROW_PADDING.dp),
-            ) {
-                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, Modifier.size(18.dp))
-                Text("Jump to latest")
-            }
-        }
         }
         state.error?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.error) }
         if (suggestions.isNotEmpty() && asksForSuggestions(draft)) {
@@ -306,7 +308,7 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
                     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.errorContainer) {
                         Column(Modifier.padding(PROMPT_CARD_PADDING.dp)) {
                             if (notice != null) {
-                                Text(notice, style = roles.body, color =MaterialTheme.colorScheme.onErrorContainer)
+                                Text(notice, style = roles.body, color = MaterialTheme.colorScheme.onErrorContainer)
                                 Row(Modifier.padding(top = LIST_GAP.dp)) {
                                     Button(onClick = { scope.launch { models.confirmPending() } }) { Text("Confirm") }
                                     OutlinedButton(onClick = { models.cancelConfirm() }, modifier = Modifier.padding(start = LIST_GAP.dp)) { Text("Cancel") }

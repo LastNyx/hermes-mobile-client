@@ -35,6 +35,8 @@ class ToolRowsTest {
         assertEquals("0.4 s", durationText(0.4))
         assertEquals("12.0 s", durationText(12.0))
         assertEquals("1 min 3 s", durationText(63.0))
+        assertEquals("1 min", durationText(59.96))
+        assertEquals("59.9 s", durationText(59.94))
 
         assertEquals("first", reasoningPreview("first\nsecond", false))
         assertEquals("second", reasoningPreview("first\nsecond", true))

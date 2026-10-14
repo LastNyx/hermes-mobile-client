@@ -10,8 +10,10 @@ internal fun toolLabel(name: String): String {
 
 internal fun durationText(seconds: Double): String {
     val s = seconds.coerceAtLeast(0.0)
+    // Round first so 59.96 reads "1 min", not "60.0 s".
+    val tenths = Math.round(s * 10) / 10.0
     return when {
-        s < 60 -> "%.1f s".format(java.util.Locale.ROOT, s)
+        tenths < 60 -> "%.1f s".format(java.util.Locale.ROOT, tenths)
         else -> {
             val total = Math.round(s).toInt()
             val sec = total % 60
