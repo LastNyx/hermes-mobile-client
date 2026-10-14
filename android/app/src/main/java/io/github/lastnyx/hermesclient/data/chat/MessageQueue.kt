@@ -16,6 +16,13 @@ class MessageQueue {
         return QueueEntry("q${++counter}", trimmed).also { items += it }
     }
 
+    /** Puts [text] back before the others; returns null when blank. */
+    fun addFirst(text: String): QueueEntry? {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return null
+        return QueueEntry("q${++counter}", trimmed).also { items.add(0, it) }
+    }
+
     fun remove(id: String): QueueEntry? {
         val index = items.indexOfFirst { it.id == id }
         return if (index < 0) null else items.removeAt(index)

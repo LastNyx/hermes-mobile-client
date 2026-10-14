@@ -31,6 +31,7 @@ class ChatController(
     private val queueLock = Any()
     private val queue = MessageQueue()
     private var drainPending = false
+    private var drainBlocked = false
     private var sendNowId: String? = null
     private var sendNowReady = false
 
@@ -94,7 +95,7 @@ class ChatController(
     private fun turnEnded(status: String) {
         synchronized(queueLock) {
             if (sendNowId != null) sendNowReady = true
-            else if (status != "error" && status != "interrupted" && queue.entries.isNotEmpty()) drainPending = true
+            else if (!drainBlocked && status != "error" && status != "interrupted" && queue.entries.isNotEmpty()) drainPending = true
         }
         scope.launch { drainQueue() }
     }
@@ -119,7 +120,13 @@ class ChatController(
 
     private suspend fun drainQueue() {
         val entry = takeDue() ?: return
-        deliver(entry.text, entry.text)
+        if (!deliver(entry.text, entry.text)) {
+            // Put it back and wait for the user, as after an error ending.
+            synchronized(queueLock) {
+                drainBlocked = true
+                queue.addFirst(entry.text)?.let { publishQueue() }
+            }
+        }
     }
 
     private fun publishQueue() = _state.update { it.copy(queue = queue.entries) }
@@ -138,6 +145,7 @@ class ChatController(
 
     /** Stops the running turn, then submits exactly this entry once the turn has ended. */
     suspend fun sendNow(id: String) {
+        unblockDrain()
         val entry = synchronized(queueLock) {
             if (_state.value.running) {
                 sendNowId = id
@@ -289,11 +297,15 @@ class ChatController(
     /** Text that could not be sent is queued. */
     suspend fun send(text: String) {
         val trimmed = text.trim()
+        unblockDrain()
         deliver(trimmed, trimmed)
     }
 
+    private fun unblockDrain() = synchronized(queueLock) { drainBlocked = false }
+
     /** [message] goes to the model; the bubble shows [display] (message may be hidden scaffolding). */
     suspend fun sendWithDisplay(message: String, display: String) {
+        unblockDrain()
         deliver(message, display)
     }
 
@@ -303,12 +315,13 @@ class ChatController(
     }
 
     /** Text that cannot go now (redirect rejected or failed, or a prompt is open) is queued. */
-    private suspend fun deliver(message: String, display: String) {
-        if (message.isEmpty()) return
+    /** Returns false only when a plain submit failed, so the caller can keep the text. */
+    private suspend fun deliver(message: String, display: String): Boolean {
+        if (message.isEmpty()) return true
         val before = _state.value
         if (before.running && before.prompts.isNotEmpty()) {
             queue(message)
-            return
+            return true
         }
         val bubbleId = "m${before.items.size}"
         _state.update { it.copy(items = it.items + ChatItem.Message(bubbleId, "user", display), running = true, error = null) }
@@ -326,13 +339,14 @@ class ChatController(
         } catch (e: Exception) {
             if (!before.running) {
                 fail(e)
-            } else {
-                dropBubble()
-                // The turn we tried to redirect is still running, so leave `running` alone.
-                _state.update { it.copy(error = errorText(e)) }
-                queue(message)
+                return false
             }
+            dropBubble()
+            // The turn we tried to redirect is still running, so leave `running` alone.
+            _state.update { it.copy(error = errorText(e)) }
+            queue(message)
         }
+        return true
     }
 
     /** Puts local text (e.g. slash command output) into the chat without sending it. */
