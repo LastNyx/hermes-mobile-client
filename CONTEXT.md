@@ -12,7 +12,8 @@
 | **Live link** | The app's WebSocket connection to one gateway, speaking newline-delimited JSON-RPC. |
 | **Session** | A Hermes conversation (`session_id`), shared with Desktop and other clients. |
 | **Turn** | One user prompt and everything the agent does until it completes, fails or is interrupted. |
-| **Steer** | Text sent while a turn is running; Hermes folds it into the running turn. |
+| **Redirect** | Text sent while a turn is running; the gateway stops the running reply and continues with it (`session.redirect`). |
+| **Queue** | Messages parked on the phone, sent one by one after the running reply. |
 | **Stop** | Interrupt the running turn. |
 | **Approval** | Hermes asks permission for a tool call; the user answers on the phone. |
 | **Clarify** | Hermes asks the user a question (choices or free text) mid-turn. |
