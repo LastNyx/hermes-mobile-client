@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Spacing: space around prompts, between turns and inside replies is about a quarter tighter. Text size is unchanged; tool, group and Thinking headers stay compact.
+- Type: each kind of text uses one style (body, secondary, label, caption, title, code). Command output and the Thinking text now use the body size.
+- Tool and Thinking rows: a tool row shows a readable label, a short preview and the duration. Three or more tool calls in a row collapse into one "Used N tools" row. The tool detail has a Copy button. The Thinking row shows a one-line preview and a spinner while it streams.
+- Clarify and approval cards: long text and choices wrap inside the card and can be selected. The card scrolls when it is taller than about 60% of the screen, and the Answer and choice buttons stay visible.
+- Scrolling: a chat opens at the latest message, including a pending approval or question. It follows new content only while you are near the bottom; when you have scrolled up, a "Jump to latest" button appears. Send always scrolls to the bottom.
 - Model picker: opening a chat shows the session's current reasoning level in the header chip (for example `sonnet · high`). The picker is a bottom sheet with reasoning chips (the current one ticked) and model rows (the current one highlighted). Confirm and errors show in a rounded box at the top; if the reasoning level cannot be read, the model list still loads.
 - Look and layout: Sessions, Gateways and Settings share one top bar and use tonal 12 dp cards with no dividers. Settings has Text size and About sections and no bottom Back button. New chat is in the Sessions top bar.
 - Text size: Settings has a Text size setting (Small 0.9x, Default 1.0x, Large 1.15x, Extra large 1.3x) with a sample line. The whole app rescales at once, and the choice is saved on the device.
