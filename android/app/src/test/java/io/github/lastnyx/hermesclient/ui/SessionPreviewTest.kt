@@ -19,5 +19,14 @@ class SessionPreviewTest {
 
     @Test fun slashCommandKept() = assertEquals("/status", cleanPreview("/status"))
 
+    @Test fun leftoversAreBlank() {
+        assertEquals("", cleanPreview("@file:`/home/x/.hermes/attachments/Pasted content (9.1 ..."))
+        assertEquals("", cleanPreview("@url:`https://github.com/a/b.git`..."))
+        assertEquals("look at please", cleanPreview("look at @file:`/tmp/a.txt` please"))
+        assertEquals("", cleanPreview("..."))
+        assertEquals("", cleanPreview(". . ."))
+        assertEquals("fix the bug...", cleanPreview("fix the bug..."))
+    }
+
     @Test fun headerTitle() = assertEquals("Today · 6", groupHeaderTitle("Today", 6))
 }
