@@ -1,9 +1,6 @@
 package io.github.lastnyx.hermesclient.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,32 +13,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material3.Icon
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.HorizontalDivider
-import io.github.lastnyx.hermesclient.data.sessions.SessionGrouping
-import io.github.lastnyx.hermesclient.data.sessions.SessionOrdering
-import io.github.lastnyx.hermesclient.data.sessions.SessionStatus
-import io.github.lastnyx.hermesclient.data.sessions.sessionStatus
-import androidx.compose.foundation.shape.CircleShape
-import io.github.lastnyx.hermesclient.data.sessions.groupSessions
-import io.github.lastnyx.hermesclient.data.settings.PrefsSessionViewStorage
-import io.github.lastnyx.hermesclient.data.settings.SessionViewStore
-import java.time.ZoneId
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -57,10 +36,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -75,21 +52,25 @@ import io.github.lastnyx.hermesclient.data.sessions.CANT_REACH_GATEWAY
 import io.github.lastnyx.hermesclient.data.sessions.Session
 import io.github.lastnyx.hermesclient.data.sessions.SessionListModel
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
+import io.github.lastnyx.hermesclient.data.sessions.groupSessions
+import io.github.lastnyx.hermesclient.data.settings.PrefsSessionViewStorage
+import io.github.lastnyx.hermesclient.data.settings.SessionViewStore
 import io.github.lastnyx.hermesclient.data.watch.WatchHub
+import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SessionsScreen(
     model: SessionListModel,
     expired: Boolean,
     onOpen: (String?) -> Unit,
     onGateways: () -> Unit,
-    modifier: Modifier = Modifier,
     viewStore: SessionViewStore,
+    modifier: Modifier = Modifier,
     offline: Boolean = false,
 ) {
     val state by model.state.collectAsState()
@@ -113,118 +94,79 @@ fun SessionsScreen(
     BackHandler(enabled = state.archivedPage) { scope.launch { model.closeArchived() } }
 
     Box(modifier) {
-    Column(Modifier.padding(horizontal = SCREEN_EDGE.dp), verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
-        ScreenTopBar(if (state.archivedPage) "Archived" else "Sessions") {
-            if (state.archivedPage) {
-                TextButton(onClick = { scope.launch { model.closeArchived() } }) { Text("Back") }
-            } else {
-                Button(onClick = { onOpen(null) }, contentPadding = ButtonDefaults.TextButtonContentPadding) { Text("New chat") }
-                Box {
-                    TextButton(onClick = { viewMenu = true }) { Text("View") }
-                    DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
-                        SessionOrdering.entries.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text((if (option == ordering) "✓ " else "") + option.label) },
-                                onClick = { viewMenu = false; ordering = option; viewStore.setOrdering(option) },
-                            )
-                        }
-                        HorizontalDivider()
-                        Text("Group by", style = roles.caption, modifier = Modifier.padding(horizontal = ROW_PADDING.dp))
-                        SessionGrouping.entries.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text((if (option == grouping) "✓ " else "") + option.label) },
-                                onClick = { viewMenu = false; grouping = option; viewStore.setGrouping(option) },
-                            )
-                        }
-                        HorizontalDivider()
-                        Text("Show", style = roles.caption, modifier = Modifier.padding(horizontal = ROW_PADDING.dp))
-                        SessionStatus.entries.forEach { option ->
-                            DropdownMenuItem(
-                                text = { Text((if (option in statuses) "☑ " else "☐ ") + option.label) },
-                                onClick = {
-                                    statuses = if (option in statuses) statuses - option else statuses + option
-                                    viewStore.setStatusFilter(statuses)
-                                },
-                            )
-                        }
-                    }
-                }
-                TextButton(onClick = { scope.launch { query = ""; model.openArchived() } }) { Text("Archived") }
-                TextButton(onClick = onGateways) { Text("Gateways") }
-            }
-        }
-        if (expired) {
-            Text("Signed out, sign in again", style = roles.body, color = MaterialTheme.colorScheme.error)
-            Button(onClick = onGateways) { Text("Go to Gateways") }
-        }
-        OutlinedTextField(
-            query, { query = it }, label = { Text("Search") }, singleLine = true,
-            shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth(),
-        )
-        state.error?.let {
-            if (offline && it == CANT_REACH_GATEWAY) {
-                Text("Offline", style = roles.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                Text(it, style = roles.body, color = MaterialTheme.colorScheme.error)
-            }
-        }
-        PullToRefreshBox(
-            isRefreshing = state.loading,
-            onRefresh = { scope.launch { model.refresh() } },
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
-                if (state.query.isNotEmpty() || state.archivedPage) {
-                    items(state.sessions, key = { it.id }) { session ->
-                        SessionRow(session, onOpen, { menuFor = session })
-                    }
+        Column(Modifier.padding(horizontal = SCREEN_EDGE.dp), verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
+            ScreenTopBar(if (state.archivedPage) "Archived" else "Sessions") {
+                if (state.archivedPage) {
+                    TextButton(onClick = { scope.launch { model.closeArchived() } }) { Text("Back") }
                 } else {
-                    val groups = groupSessions(
-                        state.sessions, System.currentTimeMillis() / 1000, grouping, ordering, ZoneId.systemDefault(), statuses,
-                    )
-                    groups.forEach { group ->
-                        item(key = "group-${group.title}") {
-                            Text(group.title, style = roles.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        items(group.sessions, key = { it.id }) { session ->
+                    Button(onClick = { onOpen(null) }, contentPadding = ButtonDefaults.TextButtonContentPadding) { Text("New chat") }
+                    Box {
+                        TextButton(onClick = { viewMenu = true }) { Text("View") }
+                        SessionViewMenu(
+                            expanded = viewMenu,
+                            onDismiss = { viewMenu = false },
+                            ordering = ordering,
+                            grouping = grouping,
+                            statuses = statuses,
+                            onOrdering = { viewMenu = false; ordering = it; viewStore.setOrdering(it) },
+                            onGrouping = { viewMenu = false; grouping = it; viewStore.setGrouping(it) },
+                            onStatuses = { statuses = it; viewStore.setStatusFilter(it) },
+                        )
+                    }
+                    TextButton(onClick = { scope.launch { query = ""; model.openArchived() } }) { Text("Archived") }
+                    TextButton(onClick = onGateways) { Text("Gateways") }
+                }
+            }
+            if (expired) {
+                Text("Signed out, sign in again", style = roles.body, color = MaterialTheme.colorScheme.error)
+                Button(onClick = onGateways) { Text("Go to Gateways") }
+            }
+            OutlinedTextField(
+                query, { query = it }, label = { Text("Search") }, singleLine = true,
+                shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth(),
+            )
+            state.error?.let {
+                if (offline && it == CANT_REACH_GATEWAY) {
+                    Text("Offline", style = roles.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text(it, style = roles.body, color = MaterialTheme.colorScheme.error)
+                }
+            }
+            PullToRefreshBox(
+                isRefreshing = state.loading,
+                onRefresh = { scope.launch { model.refresh() } },
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
+                    if (state.query.isNotEmpty() || state.archivedPage) {
+                        items(state.sessions, key = { it.id }) { session ->
                             SessionRow(session, onOpen, { menuFor = session })
                         }
+                    } else {
+                        val groups = groupSessions(
+                            state.sessions, System.currentTimeMillis() / 1000, grouping, ordering, ZoneId.systemDefault(), statuses,
+                        )
+                        groups.forEach { group ->
+                            item(key = "group-${group.title}") {
+                                Text(group.title, style = roles.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            items(group.sessions, key = { it.id }) { session ->
+                                SessionRow(session, onOpen, { menuFor = session })
+                            }
+                        }
                     }
                 }
             }
         }
-    }
-    SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
 
     menuFor?.let { session ->
-        AlertDialog(
-            onDismissRequest = { menuFor = null },
-            title = { Text(session.title.ifBlank { "Untitled" }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            text = {
-                Column {
-                    if (state.archivedPage) {
-                        TextButton(onClick = { menuFor = null; scope.launch { model.setArchived(session.id, false) } }) { Text("Unarchive") }
-                    } else {
-                        TextButton(onClick = { menuFor = null; scope.launch { model.setPinned(session.id, !session.pinned) } }) {
-                            Text(if (session.pinned) "Unpin" else "Pin")
-                        }
-                        TextButton(onClick = {
-                            menuFor = null
-                            scope.launch {
-                                model.setArchived(session.id, true)
-                                if (model.state.value.error == null) {
-                                    val result = snackbar.showSnackbar("Archived", actionLabel = "Undo", duration = SnackbarDuration.Short)
-                                    if (result == SnackbarResult.ActionPerformed) model.setArchived(session.id, false)
-                                }
-                            }
-                        }) { Text("Archive") }
-                        TextButton(onClick = { menuFor = null; renaming = session }) { Text("Rename") }
-                    }
-                    TextButton(onClick = { menuFor = null; deleting = session }) { Text("Delete") }
-                }
-            },
-            confirmButton = { TextButton(onClick = { menuFor = null }) { Text("Cancel") } },
+        SessionRowMenu(
+            session, state.archivedPage, model, snackbar, scope,
+            onDismiss = { menuFor = null },
+            onRename = { renaming = session },
+            onDelete = { deleting = session },
         )
     }
     renaming?.let { session ->
@@ -249,68 +191,6 @@ fun SessionsScreen(
             },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
         )
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun SessionRow(session: Session, onOpen: (String?) -> Unit, onMenu: () -> Unit) {
-    val card = RoundedCornerShape(12.dp)
-    Column(
-        Modifier.fillMaxWidth()
-            .clip(card)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow, card)
-            .combinedClickable(onClick = { onOpen(session.id) }, onLongClick = onMenu)
-            .padding(ROW_PADDING.dp),
-    ) {
-        Row {
-            if (session.pinned) {
-                Icon(
-                    Icons.Filled.PushPin, contentDescription = "Pinned",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp).padding(end = LIST_GAP.dp),
-                )
-            }
-            val dot = when (sessionStatus(session)) {
-                SessionStatus.Working -> MaterialTheme.colorScheme.tertiary
-                SessionStatus.Unread -> MaterialTheme.colorScheme.primary
-                else -> null
-            }
-            if (dot != null) {
-                Box(
-                    Modifier.align(Alignment.CenterVertically).padding(end = LIST_GAP.dp)
-                        .size(8.dp).background(dot, CircleShape),
-                )
-            }
-            Text(
-                session.title.ifBlank { "Untitled" },
-                style = roles.title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Text(relativeTime(session.lastActive), style = roles.caption)
-        }
-        if (session.preview.isNotBlank()) {
-            Text(
-                session.preview,
-                style = roles.secondary,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-internal fun relativeTime(epochSeconds: Double, nowMs: Long = System.currentTimeMillis()): String {
-    if (epochSeconds <= 0) return ""
-    val seconds = (nowMs / 1000 - epochSeconds.toLong()).coerceAtLeast(0)
-    return when {
-        seconds < 60 -> "now"
-        seconds < 3600 -> "${seconds / 60} min ago"
-        seconds < 86400 -> "${seconds / 3600} h ago"
-        else -> "${seconds / 86400} d ago"
     }
 }
 
@@ -394,15 +274,16 @@ private fun SessionsBody(
     viewStore: SessionViewStore,
     chat: @Composable (Modifier) -> Unit,
 ) {
+    val expired = auth == AuthState.Expired
     if (wide) {
         Row(Modifier.fillMaxSize()) {
-            SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.width(360.dp).fillMaxHeight(), viewStore, offline)
+            SessionsScreen(model, expired, open, onGateways, viewStore, Modifier.width(360.dp).fillMaxHeight(), offline)
             if (chatOpen) chat(Modifier.weight(1f)) else ChatPlaceholder(Modifier.weight(1f))
         }
     } else if (chatOpen) {
         chat(Modifier.fillMaxSize())
     } else {
-        SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.fillMaxSize(), viewStore, offline)
+        SessionsScreen(model, expired, open, onGateways, viewStore, Modifier.fillMaxSize(), offline)
     }
 }
 
