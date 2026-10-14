@@ -57,14 +57,11 @@ Read from the code on 2026-10-13. No Phase 3 tickets are written yet.
 
 ## Phase 4: close out
 - [x] Docs worker, drift report (2026-10-14).
-- [ ] Ask the user: tag `v0.1.1` (includes phases 1 to 3), or keep working first.
+- [x] Release decision (2026-10-14): no release. The user runs the debug build for himself; v0.1.0 stays the only tag.
 
-## Backlog (not scheduled; the user picks after Phase 3)
-Ordered by what Herald shows as the biggest gap.
-1. Attachments: photos, files, PDFs; media the agent sends back.
-2. Session tools: rename, pin, archive, delete, search.
-3. Send-while-running modes (queue, stop and send) and edit/regenerate/branch.
-4. Offline cache of recent chats (encrypted).
-5. Cron jobs, capabilities (skills/toolsets/MCP), insights.
-6. Voice: dictation, then voice chat.
-7. Notification actions: approve or answer from the notification.
+## Backlog (user decision 2026-10-14)
+Goal: usable almost like Hermes Desktop, essential usage only. Herald is a feature reference, not a plan to follow. Picked by the user: session tools, send-while-running, notification actions. Order is the planner's; each one gets its own ticket batch after a protocol check.
+1. Session tools: pin and archive (rename, delete, search exist). PROTOCOL has `session.archive`, `session.delete`, `session.title` and the REST PATCH with `pinned`, `archived`, `unread`.
+2. Send-while-running: queue, steer, stop and send, undo and retry. PROTOCOL has `prompt.submit` (`queued`), `session.steer`, `session.redirect`, `session.interrupt`, `session.undo`.
+3. Notification actions: approve or answer from the notification. Needs the watch service to answer server requests over the live link.
+Not scheduled (no decision yet): attachments, offline cache, cron and capabilities, voice.

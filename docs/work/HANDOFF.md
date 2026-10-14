@@ -116,9 +116,9 @@ Only the Markdown reply (bold, bullets, inline code) and the new look were seen 
 
 1. Phase 3 is done: batches 10 and 11 (tickets 23-31 plus fixes) passed reviewer round 2 (`review-10-2.md`, `review-11-2.md`) and the user did a phone check. Not pushed, not released (user said: do not release first).
 2. Phase 4 docs worker ran (2026-10-14): 5 CHANGELOG entries added, drift list in `.scratch/v1/drift.md`.
-3. Then ask the user about tagging v0.1.1 (the fixes are not in 0.1.0).
+3. No release for now: the user uses the debug build himself (2026-10-14). Do not tag or publish.
 4. Ask the user to approve the 51 lines in `.scratch/dev-notes.md`.
-5. Commit `kit/linkcheck.py` in the dev-team kit repo (it is not committed yet).
+5. `kit/linkcheck.py` in the dev-team repo: the user said to forget the dev-team repo.
 - Raising the Markdown library above 0.33.0 needs a Compose BOM bump first (planner decision).
 
 ## Working agreement with the user
