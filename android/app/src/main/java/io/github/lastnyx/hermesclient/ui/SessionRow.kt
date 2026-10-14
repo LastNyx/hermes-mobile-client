@@ -9,17 +9,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.sessions.Session
@@ -28,50 +29,56 @@ import io.github.lastnyx.hermesclient.data.sessions.sessionStatus
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun SessionRow(session: Session, onOpen: (String?) -> Unit, onMenu: () -> Unit) {
-    val card = RoundedCornerShape(12.dp)
-    Column(
-        Modifier.fillMaxWidth()
-            .clip(card)
-            .background(MaterialTheme.colorScheme.surfaceContainerLow, card)
-            .combinedClickable(onClick = { onOpen(session.id) }, onLongClick = onMenu)
-            .padding(ROW_PADDING.dp),
-    ) {
-        Row {
-            if (session.pinned) {
-                Icon(
-                    Icons.Filled.PushPin, contentDescription = "Pinned",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp).padding(end = LIST_GAP.dp),
+internal fun SessionRow(session: Session, onOpen: (String?) -> Unit, onMenu: () -> Unit, divider: Boolean = false) {
+    Column(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.fillMaxWidth()
+                .combinedClickable(onClick = { onOpen(session.id) }, onLongClick = onMenu)
+                .padding(vertical = ROW_PADDING.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.width(SESSION_ROW_SLOT.dp), contentAlignment = Alignment.CenterStart) {
+                    val dot = when (sessionStatus(session)) {
+                        SessionStatus.Working -> MaterialTheme.colorScheme.tertiary
+                        SessionStatus.Unread -> MaterialTheme.colorScheme.primary
+                        else -> null
+                    }
+                    if (session.pinned) {
+                        Icon(
+                            Icons.Filled.PushPin, contentDescription = "Pinned",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(SESSION_PIN_SIZE.dp),
+                        )
+                    } else if (dot != null) {
+                        Box(Modifier.size(SESSION_DOT_SIZE.dp).background(dot, CircleShape))
+                    }
+                }
+                Text(
+                    session.title.ifBlank { "Untitled" },
+                    style = roles.title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(relativeTime(session.lastActive), style = roles.caption)
+            }
+            val preview = cleanPreview(session.preview)
+            if (preview.isNotBlank()) {
+                Text(
+                    preview,
+                    style = roles.secondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = SESSION_ROW_SLOT.dp),
                 )
             }
-            val dot = when (sessionStatus(session)) {
-                SessionStatus.Working -> MaterialTheme.colorScheme.tertiary
-                SessionStatus.Unread -> MaterialTheme.colorScheme.primary
-                else -> null
-            }
-            if (dot != null) {
-                Box(
-                    Modifier.align(Alignment.CenterVertically).padding(end = LIST_GAP.dp)
-                        .size(8.dp).background(dot, CircleShape),
-                )
-            }
-            Text(
-                session.title.ifBlank { "Untitled" },
-                style = roles.title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Text(relativeTime(session.lastActive), style = roles.caption)
         }
-        if (session.preview.isNotBlank()) {
-            Text(
-                session.preview,
-                style = roles.secondary,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
+        if (divider) {
+            HorizontalDivider(
+                Modifier.padding(start = SESSION_ROW_SLOT.dp).alpha(0.5f),
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant,
             )
         }
     }

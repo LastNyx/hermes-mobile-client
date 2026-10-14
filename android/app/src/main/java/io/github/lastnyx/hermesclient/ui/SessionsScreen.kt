@@ -1,22 +1,36 @@
 package io.github.lastnyx.hermesclient.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
@@ -36,6 +50,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -62,7 +79,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SessionsScreen(
     model: SessionListModel,
@@ -72,8 +89,11 @@ fun SessionsScreen(
     viewStore: SessionViewStore,
     modifier: Modifier = Modifier,
     offline: Boolean = false,
+    statusDot: @Composable () -> Unit = {},
 ) {
     val state by model.state.collectAsState()
+    var searching by remember { mutableStateOf(false) }
+    var overflow by remember { mutableStateOf(false) }
     var grouping by remember { mutableStateOf(viewStore.grouping()) }
     var statuses by remember { mutableStateOf(viewStore.statusFilter()) }
     var ordering by remember { mutableStateOf(viewStore.ordering()) }
@@ -91,17 +111,28 @@ fun SessionsScreen(
         if (query.isNotEmpty()) delay(300)
         if (query != model.state.value.query) model.search(query)
     }
+    BackHandler(enabled = searching && !state.archivedPage) { query = ""; searching = false }
     BackHandler(enabled = state.archivedPage) { scope.launch { model.closeArchived() } }
 
     Box(modifier) {
         Column(Modifier.padding(horizontal = SCREEN_EDGE.dp), verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
-            ScreenTopBar(if (state.archivedPage) "Archived" else "Sessions") {
-                if (state.archivedPage) {
-                    TextButton(onClick = { scope.launch { model.closeArchived() } }) { Text("Back") }
-                } else {
-                    Button(onClick = { onOpen(null) }, contentPadding = ButtonDefaults.TextButtonContentPadding) { Text("New chat") }
+            if (state.archivedPage) {
+                ScreenTopBar("Archived", onBack = { scope.launch { model.closeArchived() } })
+            } else if (searching) {
+                SearchField(query, { query = it }, { query = ""; searching = false })
+            } else {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Chats",
+                        Modifier.padding(start = 4.dp),
+                        style = screenTitleStyle(MaterialTheme.typography),
+                        maxLines = 1,
+                    )
+                    Box(Modifier.padding(start = LIST_GAP.dp * 2)) { statusDot() }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { searching = true }) { Icon(Icons.Filled.Search, contentDescription = "Search") }
                     Box {
-                        TextButton(onClick = { viewMenu = true }) { Text("View") }
+                        IconButton(onClick = { viewMenu = true }) { Icon(Icons.Filled.FilterList, contentDescription = "View") }
                         SessionViewMenu(
                             expanded = viewMenu,
                             onDismiss = { viewMenu = false },
@@ -113,18 +144,23 @@ fun SessionsScreen(
                             onStatuses = { statuses = it; viewStore.setStatusFilter(it) },
                         )
                     }
-                    TextButton(onClick = { scope.launch { query = ""; model.openArchived() } }) { Text("Archived") }
-                    TextButton(onClick = onGateways) { Text("Gateways") }
+                    IconButton(onClick = { onOpen(null) }) { Icon(Icons.Filled.Add, contentDescription = "New chat") }
+                    Box {
+                        IconButton(onClick = { overflow = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
+                        DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Archived") },
+                                onClick = { overflow = false; scope.launch { query = ""; searching = false; model.openArchived() } },
+                            )
+                            DropdownMenuItem(text = { Text("Gateways") }, onClick = { overflow = false; onGateways() })
+                        }
+                    }
                 }
             }
             if (expired) {
                 Text("Signed out, sign in again", style = roles.body, color = MaterialTheme.colorScheme.error)
                 Button(onClick = onGateways) { Text("Go to Gateways") }
             }
-            OutlinedTextField(
-                query, { query = it }, label = { Text("Search") }, singleLine = true,
-                shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth(),
-            )
             state.error?.let {
                 if (offline && it == CANT_REACH_GATEWAY) {
                     Text("Offline", style = roles.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -137,21 +173,28 @@ fun SessionsScreen(
                 onRefresh = { scope.launch { model.refresh() } },
                 modifier = Modifier.fillMaxSize(),
             ) {
-                LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
+                LazyColumn(Modifier.fillMaxSize()) {
                     if (state.query.isNotEmpty() || state.archivedPage) {
-                        items(state.sessions, key = { it.id }) { session ->
-                            SessionRow(session, onOpen, { menuFor = session })
+                        itemsIndexed(state.sessions, key = { _, it -> it.id }) { i, session ->
+                            SessionRow(session, onOpen, { menuFor = session }, divider = i < state.sessions.lastIndex)
                         }
                     } else {
                         val groups = groupSessions(
                             state.sessions, System.currentTimeMillis() / 1000, grouping, ordering, ZoneId.systemDefault(), statuses,
                         )
                         groups.forEach { group ->
-                            item(key = "group-${group.title}") {
-                                Text(group.title, style = roles.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            stickyHeader(key = "group-${group.title}") {
+                                Text(
+                                    groupHeaderTitle(group.title, group.sessions.size),
+                                    Modifier.fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.background)
+                                        .padding(vertical = SESSION_HEADER_PADDING_V.dp),
+                                    style = roles.caption,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
-                            items(group.sessions, key = { it.id }) { session ->
-                                SessionRow(session, onOpen, { menuFor = session })
+                            itemsIndexed(group.sessions, key = { _, it -> it.id }) { i, session ->
+                                SessionRow(session, onOpen, { menuFor = session }, divider = i < group.sessions.lastIndex)
                             }
                         }
                     }
@@ -241,7 +284,6 @@ fun SessionsHost(
     LaunchedEffect(auth) { if (auth == AuthState.Expired) link.stop() }
 
     Column(Modifier.fillMaxSize()) {
-        LiveLinkIndicator(link, Modifier.padding(horizontal = SCREEN_EDGE.dp))
         val linkState by link.state.collectAsState()
         val offline = showsOfflineLine(linkState)
         val repo = remember(authed) { SessionsRepository(authed, gateway.url) }
@@ -255,7 +297,8 @@ fun SessionsHost(
                 )
             }
         }
-        Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, auth, model, open, onGateways, offline, viewStore, chat) }
+        val dot: @Composable () -> Unit = { LiveLinkDot(link) }
+        Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, auth, model, open, onGateways, offline, viewStore, dot, chat) }
     }
 }
 
@@ -272,18 +315,47 @@ private fun SessionsBody(
     onGateways: () -> Unit,
     offline: Boolean,
     viewStore: SessionViewStore,
+    statusDot: @Composable () -> Unit,
     chat: @Composable (Modifier) -> Unit,
 ) {
     val expired = auth == AuthState.Expired
     if (wide) {
         Row(Modifier.fillMaxSize()) {
-            SessionsScreen(model, expired, open, onGateways, viewStore, Modifier.width(360.dp).fillMaxHeight(), offline)
+            SessionsScreen(model, expired, open, onGateways, viewStore, Modifier.width(360.dp).fillMaxHeight(), offline, statusDot)
             if (chatOpen) chat(Modifier.weight(1f)) else ChatPlaceholder(Modifier.weight(1f))
         }
     } else if (chatOpen) {
         chat(Modifier.fillMaxSize())
     } else {
-        SessionsScreen(model, expired, open, onGateways, viewStore, Modifier.fillMaxSize(), offline)
+        SessionsScreen(model, expired, open, onGateways, viewStore, Modifier.fillMaxSize(), offline, statusDot)
+    }
+}
+
+@Composable
+private fun SearchField(query: String, onQuery: (String) -> Unit, onClose: () -> Unit) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    Row(
+        Modifier.fillMaxWidth().height(SESSION_SEARCH_HEIGHT.dp)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(24.dp))
+            .padding(start = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BasicTextField(
+            query, onQuery, singleLine = true,
+            textStyle = roles.body.copy(color = MaterialTheme.colorScheme.onSurface),
+            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+            modifier = Modifier.weight(1f).focusRequester(focus),
+            decorationBox = { inner ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (query.isEmpty()) {
+                        Text("Search chats", style = roles.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    inner()
+                }
+            },
+        )
+        IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = "Close search") }
     }
 }
 
