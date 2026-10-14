@@ -70,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
@@ -77,6 +78,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.chat.ChatController
 import io.github.lastnyx.hermesclient.data.chat.ChatItem
@@ -370,17 +372,29 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
 private fun ApprovalCard(prompt: Prompt.Approval, onChoose: (String) -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(prompt.toolName.ifBlank { "Approval needed" }, style = MaterialTheme.typography.titleSmall)
-            if (prompt.description.isNotBlank()) Text(prompt.description, style = MaterialTheme.typography.bodyMedium)
-            Text(prompt.command, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+            SelectionContainer(Modifier.heightIn(max = promptBodyMaxHeight()).verticalScroll(rememberScrollState())) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(prompt.toolName.ifBlank { "Approval needed" }, style = MaterialTheme.typography.titleSmall)
+                    if (prompt.description.isNotBlank()) Text(prompt.description, style = MaterialTheme.typography.bodyMedium)
+                    Text(prompt.command, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                }
+            }
             val labels = listOf("once" to "Allow once", "session" to "Allow for session", "always" to "Always allow", "deny" to "Deny")
             labels.filter { it.first in prompt.choices }.forEach { (choice, label) ->
-                if (choice == "deny") OutlinedButton(onClick = { onChoose(choice) }) { Text(label) }
-                else Button(onClick = { onChoose(choice) }) { Text(label) }
+                if (choice == "deny") OutlinedButton(onClick = { onChoose(choice) }, Modifier.fillMaxWidth()) { WrappedLabel(label) }
+                else Button(onClick = { onChoose(choice) }, Modifier.fillMaxWidth()) { WrappedLabel(label) }
             }
         }
     }
 }
+
+internal fun promptBodyMaxHeight(screenHeight: Dp): Dp = (screenHeight.value * 3 / 5).dp
+
+@Composable
+private fun promptBodyMaxHeight(): Dp = promptBodyMaxHeight(LocalConfiguration.current.screenHeightDp.dp)
+
+@Composable
+private fun WrappedLabel(text: String) = Text(text, Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
 
 @Composable
 private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) -> Unit) {
@@ -388,19 +402,25 @@ private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) 
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             // §5.1 documents one string per question id, so multi-select is answered as a single value too.
             var answers by remember(prompt.id) { mutableStateOf(mapOf<String, String>()) }
-            prompt.questions.forEach { q ->
-                Text(q.question, style = MaterialTheme.typography.bodyMedium)
-                q.choices.forEach { choice ->
-                    val picked = answers[q.qid] == choice
-                    val pick = { answers = answers + (q.qid to choice) }
-                    if (picked) Button(onClick = pick) { Text(choice) } else OutlinedButton(onClick = pick) { Text(choice) }
+            Column(
+                Modifier.heightIn(max = promptBodyMaxHeight()).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                prompt.questions.forEach { q ->
+                    SelectionContainer { Text(q.question, style = MaterialTheme.typography.bodyMedium) }
+                    q.choices.forEach { choice ->
+                        val picked = answers[q.qid] == choice
+                        val pick = { answers = answers + (q.qid to choice) }
+                        if (picked) Button(onClick = pick, Modifier.fillMaxWidth()) { WrappedLabel(choice) }
+                        else OutlinedButton(onClick = pick, Modifier.fillMaxWidth()) { WrappedLabel(choice) }
+                    }
+                    OutlinedTextField(
+                        answers[q.qid].orEmpty().takeIf { it !in q.choices }.orEmpty(),
+                        { answers = answers + (q.qid to it) },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Your answer") },
+                    )
                 }
-                OutlinedTextField(
-                    answers[q.qid].orEmpty().takeIf { it !in q.choices }.orEmpty(),
-                    { answers = answers + (q.qid to it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Your answer") },
-                )
             }
             val ready = prompt.questions.all { !answers[it.qid].isNullOrBlank() }
             Button(onClick = { onAnswer(answers.mapValues { it.value.trim() }) }, enabled = ready) { Text("Answer") }
