@@ -39,8 +39,8 @@ fun SettingsScreen(
     val ui by updates.state.collectAsState()
     val scope = rememberCoroutineScope()
     Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = SCREEN_EDGE.dp),
+        verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp),
     ) {
         ScreenTopBar("Settings", onBack)
         Section("Text size") {
@@ -55,7 +55,7 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RadioButton(selected = option == textScale, onClick = null)
-                        Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
+                        Column(Modifier.padding(start = ROW_PADDING.dp, top = LIST_GAP.dp, bottom = LIST_GAP.dp)) {
                             Text(option.label, style = roles.body)
                             Text("The quick brown fox", style = roles.secondary)
                         }
@@ -84,8 +84,8 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(ROW_PADDING.dp),
+        verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp),
     ) {
         Text(title, style = roles.title)
         content()

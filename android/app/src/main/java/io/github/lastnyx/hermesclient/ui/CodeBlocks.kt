@@ -43,13 +43,13 @@ internal fun replyForCopy(text: String): String =
 @Composable
 internal fun CodeCard(code: String, language: String?, style: TextStyle) {
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = LIST_GAP.dp),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHighest,
     ) {
         Column {
             Row(
-                Modifier.fillMaxWidth().padding(start = 10.dp, end = 2.dp),
+                Modifier.fillMaxWidth().padding(start = CODE_PADDING.dp, end = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -60,7 +60,7 @@ internal fun CodeCard(code: String, language: String?, style: TextStyle) {
                 codeForCopy(code),
                 style = roles.monospace(style),
                 softWrap = false,
-                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 10.dp, end = 10.dp, bottom = 10.dp),
+                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = CODE_PADDING.dp, end = CODE_PADDING.dp, bottom = CODE_PADDING.dp),
             )
         }
     }

@@ -83,7 +83,7 @@ fun SessionsScreen(
         if (query != model.state.value.query) model.search(query)
     }
 
-    Column(modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier.padding(horizontal = SCREEN_EDGE.dp), verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
         ScreenTopBar("Sessions") {
             Button(onClick = { onOpen(null) }, contentPadding = ButtonDefaults.TextButtonContentPadding) { Text("New chat") }
             TextButton(onClick = onGateways) { Text("Gateways") }
@@ -108,7 +108,7 @@ fun SessionsScreen(
             onRefresh = { scope.launch { model.refresh() } },
             modifier = Modifier.fillMaxSize(),
         ) {
-            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
                 items(state.sessions, key = { it.id }) { session ->
                     val card = RoundedCornerShape(12.dp)
                     Column(
@@ -116,7 +116,7 @@ fun SessionsScreen(
                             .clip(card)
                             .background(MaterialTheme.colorScheme.surfaceContainerLow, card)
                             .combinedClickable(onClick = { onOpen(session.id) }, onLongClick = { renaming = session })
-                            .padding(12.dp),
+                            .padding(ROW_PADDING.dp),
                     ) {
                         Row {
                             Text(
@@ -230,7 +230,7 @@ fun SessionsHost(
     LaunchedEffect(auth) { if (auth == AuthState.Expired) link.stop() }
 
     Column(Modifier.fillMaxSize()) {
-        LiveLinkIndicator(link, Modifier.padding(horizontal = 12.dp))
+        LiveLinkIndicator(link, Modifier.padding(horizontal = SCREEN_EDGE.dp))
         val linkState by link.state.collectAsState()
         val offline = showsOfflineLine(linkState)
         val repo = remember(authed) { SessionsRepository(authed, gateway.url) }
@@ -277,7 +277,7 @@ private fun SessionsBody(
 /** Shown beside the list on wide screens until a chat is opened. */
 @Composable
 fun ChatPlaceholder(modifier: Modifier = Modifier) {
-    Column(modifier.padding(16.dp)) {
+    Column(modifier.padding(SCREEN_EDGE.dp)) {
         Text("Select or start a chat", style = roles.title)
     }
 }

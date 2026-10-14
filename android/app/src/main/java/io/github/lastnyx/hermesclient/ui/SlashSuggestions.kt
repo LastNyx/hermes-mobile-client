@@ -57,21 +57,21 @@ fun SlashSuggestionList(suggestions: List<SlashSuggestion>, onPick: (SlashSugges
                 when (row) {
                     is SuggestionRow.Header -> Text(
                         row.title,
-                        Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp),
+                        Modifier.padding(start = CARD_PADDING_H.dp, end = CARD_PADDING_H.dp, top = ROW_PADDING.dp),
                         style = roles.label,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     is SuggestionRow.Item -> {
                         val s = row.suggestion
                         Row(
-                            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onPick(s) }.padding(horizontal = 12.dp),
+                            Modifier.fillMaxWidth().heightIn(min = 40.dp).clickable { onPick(s) }.padding(horizontal = CARD_PADDING_H.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(s.label, style = roles.code)
                             if (s.kind != SlashKind.Option) {
                                 Text(
                                     s.description,
-                                    Modifier.weight(1f).padding(start = 8.dp),
+                                    Modifier.weight(1f).padding(start = ROW_PADDING.dp),
                                     style = roles.secondary,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
@@ -81,7 +81,7 @@ fun SlashSuggestionList(suggestions: List<SlashSuggestion>, onPick: (SlashSugges
                             if (s.kind == SlashKind.Skill) {
                                 Text(
                                     "skill",
-                                    Modifier.padding(start = 8.dp),
+                                    Modifier.padding(start = ROW_PADDING.dp),
                                     style = roles.caption,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )

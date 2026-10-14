@@ -188,7 +188,7 @@ fun ChatScreen(
     }
     if (picking) ModelPicker(modelState, models, onDismiss = { picking = false })
 
-    Column(modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+    Column(modifier.fillMaxSize().padding(horizontal = SCREEN_EDGE.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             if (onBack != null) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
@@ -246,7 +246,7 @@ fun ChatScreen(
                     following = true
                     scope.launch { listState.scrollToEnd() }
                 },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = ROW_PADDING.dp),
             ) {
                 Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, Modifier.size(18.dp))
                 Text("Jump to latest")
@@ -257,7 +257,7 @@ fun ChatScreen(
         if (suggestions.isNotEmpty() && asksForSuggestions(draft)) {
             SlashSuggestionList(suggestions, { setDraft(composerTextFor(it)) })
         }
-        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(vertical = COMPOSER_VERTICAL_PADDING.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 field, { field = it }, modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                 shape = RoundedCornerShape(24.dp),
@@ -282,7 +282,7 @@ fun ChatScreen(
                     else if (state.running) scope.launch { controller.stop() }
                 },
                 enabled = sendable || state.running,
-                modifier = Modifier.padding(start = 8.dp).size(40.dp),
+                modifier = Modifier.padding(start = ROW_PADDING.dp).size(40.dp),
             ) { Icon(icon, contentDescription = label) }
         }
     }
@@ -293,7 +293,7 @@ fun ChatScreen(
 private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { BottomSheetDefaults.DragHandle() }) {
-        LazyColumn(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LazyColumn(Modifier.padding(horizontal = SCREEN_EDGE.dp), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Model", Modifier.weight(1f), style = roles.title)
@@ -304,12 +304,12 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
             if (notice != null || state.error != null) {
                 item {
                     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.errorContainer) {
-                        Column(Modifier.padding(12.dp)) {
+                        Column(Modifier.padding(PROMPT_CARD_PADDING.dp)) {
                             if (notice != null) {
                                 Text(notice, style = roles.body, color =MaterialTheme.colorScheme.onErrorContainer)
-                                Row(Modifier.padding(top = 8.dp)) {
+                                Row(Modifier.padding(top = LIST_GAP.dp)) {
                                     Button(onClick = { scope.launch { models.confirmPending() } }) { Text("Confirm") }
-                                    OutlinedButton(onClick = { models.cancelConfirm() }, modifier = Modifier.padding(start = 8.dp)) { Text("Cancel") }
+                                    OutlinedButton(onClick = { models.cancelConfirm() }, modifier = Modifier.padding(start = LIST_GAP.dp)) { Text("Cancel") }
                                 }
                             }
                             state.error?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.onErrorContainer) }
@@ -318,8 +318,8 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
                 }
             }
             item {
-                Text("Reasoning", style = roles.label, modifier = Modifier.padding(top = 8.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Reasoning", style = roles.label, modifier = Modifier.padding(top = ROW_PADDING.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
                     REASONING_LEVELS.forEach { level ->
                         val selected = level == state.reasoningEffort
                         FilterChip(
@@ -335,7 +335,7 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
                 if (state.reasoningEffort !in REASONING_LEVELS && state.reasoningDisplay.isNotBlank()) {
                     Text(
                         "Current: ${state.reasoningDisplay}",
-                        Modifier.padding(top = 4.dp),
+                        Modifier.padding(top = LIST_GAP.dp),
                         style = roles.secondary,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -345,7 +345,7 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
                 item {
                     Text(
                         group.name,
-                        Modifier.padding(top = 12.dp),
+                        Modifier.padding(top = ROW_PADDING.dp),
                         style = roles.label,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -358,7 +358,7 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
                         shape = RoundedCornerShape(12.dp),
                         color = if (current) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
                     ) {
-                        Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.padding(horizontal = ROW_PADDING.dp, vertical = ROW_PADDING.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(model, Modifier.weight(1f), style = roles.body)
                             if (current) Icon(Icons.Filled.Check, contentDescription = "Current model")
                         }
@@ -373,9 +373,9 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
 @Composable
 private fun ApprovalCard(prompt: Prompt.Approval, onChoose: (String) -> Unit) {
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.padding(PROMPT_CARD_PADDING.dp), verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp)) {
             SelectionContainer(Modifier.heightIn(max = promptBodyMaxHeight()).verticalScroll(rememberScrollState())) {
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp)) {
                     Text(prompt.toolName.ifBlank { "Approval needed" }, style = roles.title)
                     if (prompt.description.isNotBlank()) Text(prompt.description, style = roles.body)
                     Text(prompt.command, style = roles.code)
@@ -401,12 +401,12 @@ private fun WrappedLabel(text: String) = Text(text, Modifier.fillMaxWidth(), tex
 @Composable
 private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) -> Unit) {
     Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.padding(PROMPT_CARD_PADDING.dp), verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp)) {
             // §5.1 documents one string per question id, so multi-select is answered as a single value too.
             var answers by remember(prompt.id) { mutableStateOf(mapOf<String, String>()) }
             Column(
                 Modifier.heightIn(max = promptBodyMaxHeight()).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp),
             ) {
                 prompt.questions.forEach { q ->
                     SelectionContainer { Text(q.question, style = roles.body) }
@@ -430,12 +430,6 @@ private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) 
     }
 }
 
-internal const val INSIDE_TURN_GAP = 4
-internal const val REASONING_VERTICAL_PADDING = 10
-internal const val TOOL_HEADER_VERTICAL_PADDING = 6
-internal const val TOOL_DETAIL_VERTICAL_PADDING = 8
-private const val PROMPT_TO_REPLY_GAP = 12
-
 // A turn is a prompt plus the reply's parts: air after the prompt and before the next
 // prompt, tight between the reply's own parts.
 internal fun itemGapBefore(previous: ChatItem?, item: ChatItem): Int = when {
@@ -456,7 +450,7 @@ private fun MessageBubble(item: ChatItem.Message) {
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
-                Text(item.text, Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = roles.body)
+                Text(item.text, Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp), style = roles.body)
             }
         }
     } else if (item.text.isNotEmpty()) {
@@ -466,7 +460,7 @@ private fun MessageBubble(item: ChatItem.Message) {
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
-                MarkdownText(item.text, Modifier.padding(10.dp))
+                MarkdownText(item.text, Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp))
             }
             if (!item.streaming) CopyReplyButton(replyForCopy(item.text))
         }
@@ -487,7 +481,7 @@ private fun CommandOutputCard(item: ChatItem.CommandOutput) {
         color = container,
         contentColor = content,
     ) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Column(Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp)) {
             Text(
                 item.command,
                 style = roles.code,
@@ -496,7 +490,7 @@ private fun CommandOutputCard(item: ChatItem.CommandOutput) {
             SelectionContainer {
                 Text(
                     item.text,
-                    Modifier.padding(top = 4.dp),
+                    Modifier.padding(top = LIST_GAP.dp),
                     style = roles.body,
                     maxLines = if (long && !expanded) COMMAND_OUTPUT_MAX_LINES else Int.MAX_VALUE,
                     overflow = TextOverflow.Ellipsis,
@@ -517,18 +511,18 @@ private fun ReasoningRow(item: ChatItem.Reasoning) {
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
-        Column(Modifier.clickable { open = !open }.padding(horizontal = 12.dp, vertical = REASONING_VERTICAL_PADDING.dp)) {
+        Column(Modifier.clickable { open = !open }.padding(horizontal = CARD_PADDING_H.dp, vertical = REASONING_VERTICAL_PADDING.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (item.streaming) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 Text(
                     if (item.streaming) "Thinking…" else "Thought",
-                    Modifier.padding(start = if (item.streaming) 8.dp else 0.dp),
+                    Modifier.padding(start = if (item.streaming) ROW_PADDING.dp else 0.dp),
                     style = roles.label,
                 )
                 val preview = if (open) "" else reasoningPreview(item.text, item.streaming)
                 Text(
                     preview,
-                    Modifier.weight(1f).padding(start = 8.dp),
+                    Modifier.weight(1f).padding(start = ROW_PADDING.dp),
                     style = roles.secondary,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     maxLines = 1,
@@ -556,9 +550,9 @@ private fun ToolRow(item: ChatItem.Tool) {
     ) {
         Column {
             Row(
-                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = TOOL_HEADER_VERTICAL_PADDING.dp),
+                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = CARD_PADDING_H.dp, vertical = TOOL_HEADER_VERTICAL_PADDING.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ROW_PADDING.dp),
             ) {
                 if (item.status == ToolStatus.Running) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 else Icon(Icons.Filled.Check, contentDescription = "Done", modifier = Modifier.size(16.dp))
@@ -582,7 +576,7 @@ private fun ToolRow(item: ChatItem.Tool) {
                 Text(
                     toolDetailPreview(item.detail, 4000),
                     Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())
-                        .padding(horizontal = 12.dp, vertical = TOOL_DETAIL_VERTICAL_PADDING.dp),
+                        .padding(horizontal = CARD_PADDING_H.dp, vertical = TOOL_DETAIL_VERTICAL_PADDING.dp),
                     style = roles.code,
                 )
                 CopyButton(toolDetailPreview(item.detail, 4000))
@@ -602,9 +596,9 @@ private fun ToolGroupRow(group: ChatRow.ToolGroup) {
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         ) {
             Row(
-                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = TOOL_HEADER_VERTICAL_PADDING.dp),
+                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = CARD_PADDING_H.dp, vertical = TOOL_HEADER_VERTICAL_PADDING.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(ROW_PADDING.dp),
             ) {
                 if (group.running) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 else Icon(Icons.Filled.Check, contentDescription = "Done", modifier = Modifier.size(16.dp))

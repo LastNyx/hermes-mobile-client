@@ -58,7 +58,7 @@ fun GatewaysScreen(
 
     fun refresh() { gateways = registry.list(); activeId = registry.active()?.id }
 
-    Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.padding(horizontal = SCREEN_EDGE.dp), verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
         ScreenTopBar("Gateways") {
             TextButton(onClick = onOpenSettings) { Text("Settings") }
         }
@@ -80,14 +80,14 @@ fun GatewaysScreen(
         } else {
             Button(onClick = { adding = true }) { Text("Add gateway") }
         }
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
             items(gateways, key = { it.id }) { gateway ->
                 Card(
                     Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 ) {
-                    Column(Modifier.padding(12.dp)) {
+                    Column(Modifier.padding(ROW_PADDING.dp)) {
                         Row {
                             RadioButton(selected = gateway.id == activeId, onClick = { registry.setActive(gateway.id); refresh() })
                             Column {
@@ -144,7 +144,7 @@ private fun GatewayForm(initial: Gateway?, onSubmit: (String, String) -> String?
     var name by remember(initial) { mutableStateOf(initial?.name.orEmpty()) }
     var url by remember(initial) { mutableStateOf(initial?.url.orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
         OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(url, { url = it }, label = { Text("URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         if (GatewayUrl.warnsCleartext(url)) {
