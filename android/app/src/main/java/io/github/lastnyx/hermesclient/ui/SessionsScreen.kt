@@ -290,11 +290,16 @@ fun SessionsHost(
         val listState by model.state.collectAsState()
         val chat: @Composable (Modifier) -> Unit = { m ->
             key(chatId, chatKey) {
-                ChatHost(
-                    chatId, link, repo, m,
-                    title = chatTitle(listState.sessions, chatId),
-                    onBack = if (wide) null else ({ chatOpen = false }),
-                )
+                Column(m) {
+                    if (showsLiveLinkLine(onChat = true)) {
+                        LiveLinkIndicator(link, Modifier.padding(horizontal = SCREEN_EDGE.dp))
+                    }
+                    ChatHost(
+                        chatId, link, repo, Modifier.weight(1f),
+                        title = chatTitle(listState.sessions, chatId),
+                        onBack = if (wide) null else ({ chatOpen = false }),
+                    )
+                }
             }
         }
         val dot: @Composable () -> Unit = { LiveLinkDot(link) }
@@ -304,6 +309,9 @@ fun SessionsHost(
 
 // Connecting must keep the red error: a failed connect attempt is a genuine "can't reach" report.
 internal fun showsOfflineLine(state: LinkState): Boolean = state == LinkState.Offline
+
+// The list screen shows only the dot; the text line belongs to the chat.
+internal fun showsLiveLinkLine(onChat: Boolean): Boolean = onChat
 
 @Composable
 private fun SessionsBody(
