@@ -25,9 +25,15 @@ class ChatController(
     private val link: LiveLink,
     private val repo: SessionsRepository,
     storedId: String?,
-    scope: CoroutineScope,
+    private val scope: CoroutineScope,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
+    private val queueLock = Any()
+    private val queue = MessageQueue()
+    private var drainPending = false
+    private var sendNowId: String? = null
+    private var sendNowReady = false
+
     private val _state = MutableStateFlow(ChatState(storedId = storedId))
     val state: StateFlow<ChatState> = _state
 
@@ -49,6 +55,7 @@ class ChatController(
                     val ids = event.payload?.optJSONArray("request_ids")
                     val cancelled = ids?.let { a -> (0 until a.length()).map { a.getString(it) } }.orEmpty()
                     _state.update { s -> s.copy(openRequests = s.openRequests.filterNot { it.method == "approval" && it.params.optString("request_id") in cancelled }) }
+                    scope.launch { drainQueue() }
                 }
                 if (event.sessionId != null && event.sessionId == _state.value.sessionId) {
                     synchronized(lock) { if (replaying) held += event else apply(event) }
@@ -80,6 +87,76 @@ class ChatController(
             lastSeen = seq
         }
         _state.update { reduceChat(it, event) }
+        if (event.type == "message.complete") turnEnded(event.payload?.optString("status").orEmpty())
+    }
+
+    /** Only a clean ending drains; after an error or an interrupt the user decides. */
+    private fun turnEnded(status: String) {
+        synchronized(queueLock) {
+            if (sendNowId != null) sendNowReady = true
+            else if (status != "error" && status != "interrupted" && queue.entries.isNotEmpty()) drainPending = true
+        }
+        scope.launch { drainQueue() }
+    }
+
+    private fun takeDue(): QueueEntry? = synchronized(queueLock) {
+        val s = _state.value
+        if (s.running) return null
+        val id = sendNowId
+        if (id != null) {
+            if (!sendNowReady) return null
+            sendNowId = null
+            sendNowReady = false
+            drainPending = false
+            return queue.remove(id)?.also { publishQueue() }
+        }
+        if (drainPending && s.prompts.isEmpty()) {
+            drainPending = false
+            return queue.next()?.also { publishQueue() }
+        }
+        null
+    }
+
+    private suspend fun drainQueue() {
+        val entry = takeDue() ?: return
+        deliver(entry.text, entry.text)
+    }
+
+    private fun publishQueue() = _state.update { it.copy(queue = queue.entries) }
+
+    /** Parks [text] to be sent after the running turn. */
+    fun queue(text: String) {
+        synchronized(queueLock) { queue.add(text)?.let { publishQueue() } }
+    }
+
+    fun removeQueued(id: String) {
+        synchronized(queueLock) { if (queue.remove(id) != null) publishQueue() }
+    }
+
+    /** Takes the entry out of the queue and returns its text, for the composer. */
+    fun takeQueued(id: String): String? = synchronized(queueLock) { queue.remove(id)?.also { publishQueue() }?.text }
+
+    /** Stops the running turn, then submits exactly this entry once the turn has ended. */
+    suspend fun sendNow(id: String) {
+        val entry = synchronized(queueLock) {
+            if (_state.value.running) {
+                sendNowId = id
+                sendNowReady = false
+                return@synchronized null
+            }
+            queue.remove(id)?.also { publishQueue() }
+        }
+        if (entry != null) {
+            deliver(entry.text, entry.text)
+            return
+        }
+        if (synchronized(queueLock) { sendNowId } != id) return
+        stop()
+        // A failed stop leaves nothing to wait for.
+        if (!_state.value.running) {
+            synchronized(queueLock) { sendNowReady = true }
+            drainQueue()
+        }
     }
 
     private suspend fun catchUp() {
@@ -159,6 +236,7 @@ class ChatController(
         // The request and its cancel travel on separate flows, so the cancel can be seen first.
         withdrawn.add(id)
         _state.update { s -> s.copy(openRequests = s.openRequests.filterNot { it.id == id }) }
+        scope.launch { drainQueue() }
     }
 
     private fun resolve(id: String, result: JSONObject, note: String) {
@@ -170,6 +248,7 @@ class ChatController(
                 items = s.items + ChatItem.Note("n${s.items.size}", note),
             )
         }
+        scope.launch { drainQueue() }
     }
 
     /** [choice] is one of once, session, always, deny. */
@@ -207,7 +286,7 @@ class ChatController(
         }
     }
 
-    /** Returns the text if it was not sent, so the caller can keep it. */
+    /** Always null now: text that could not be sent is queued instead of handed back. */
     suspend fun send(text: String): String? {
         val trimmed = text.trim()
         return deliver(trimmed, trimmed)
@@ -223,11 +302,14 @@ class ChatController(
         loadHistory(_state.value.storedId ?: throw IOException("Chat not ready"))
     }
 
-    /** Returns the text when it was not sent (rejected, failed, or blocked by an open prompt), so the caller can keep it; otherwise null. */
+    /** Text that cannot go now (redirect rejected or failed, or a prompt is open) is queued. Always returns null. */
     private suspend fun deliver(message: String, display: String): String? {
         if (message.isEmpty()) return null
         val before = _state.value
-        if (before.running && before.prompts.isNotEmpty()) return message
+        if (before.running && before.prompts.isNotEmpty()) {
+            queue(message)
+            return null
+        }
         val bubbleId = "m${before.items.size}"
         _state.update { it.copy(items = it.items + ChatItem.Message(bubbleId, "user", display), running = true, error = null) }
         fun dropBubble() = _state.update { s -> s.copy(items = s.items.filterNot { it.key == bubbleId }) }
@@ -236,7 +318,8 @@ class ChatController(
                 val reply = sessionCall("session.redirect") { it.put("text", message) }
                 if (reply.optString("status") == "rejected") {
                     dropBubble()
-                    return message
+                    queue(message)
+                    return null
                 }
             } else {
                 submit(message)
@@ -249,7 +332,8 @@ class ChatController(
                 // The turn we tried to redirect is still running.
                 fail(e)
                 _state.update { it.copy(running = true) }
-                return message
+                queue(message)
+                return null
             }
         }
         return null

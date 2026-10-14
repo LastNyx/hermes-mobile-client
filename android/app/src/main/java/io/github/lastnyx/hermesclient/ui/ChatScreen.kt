@@ -4,7 +4,12 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -142,6 +147,7 @@ fun ChatHost(
     ChatScreen(controller, models, slash, modifier, onSend, title, onBack)
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ChatScreen(
     controller: ChatController,
@@ -259,6 +265,12 @@ fun ChatScreen(
         if (suggestions.isNotEmpty() && asksForSuggestions(draft)) {
             SlashSuggestionList(suggestions, { setDraft(composerTextFor(it)) })
         }
+        QueuePanel(
+            state.queue,
+            onSendNow = { id -> scope.launch { controller.sendNow(id) } },
+            onEdit = { id -> controller.takeQueued(id)?.let { setDraft(it) } },
+            onRemove = { controller.removeQueued(it) },
+        )
         Row(Modifier.fillMaxWidth().padding(vertical = COMPOSER_VERTICAL_PADDING.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 field, { field = it }, modifier = Modifier.weight(1f).heightIn(min = 44.dp),
@@ -269,8 +281,16 @@ fun ChatScreen(
             val sendable = draft.isNotBlank()
             val icon = if (!sendable && state.running) Icons.Filled.Stop else Icons.AutoMirrored.Filled.Send
             val label = if (sendable) (if (state.running) "Redirect" else "Send") else if (state.running) "Stop" else "Send"
-            FilledIconButton(
-                onClick = {
+            var queueMenu by remember { mutableStateOf(false) }
+            Box {
+            Surface(
+                shape = CircleShape,
+                color = if (sendable || state.running) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.padding(start = ROW_PADDING.dp).size(40.dp).combinedClickable(
+                    enabled = sendable || state.running,
+                    onLongClick = { if (sendable && state.running) queueMenu = true },
+                    onClick = {
                     if (sendable) {
                         val text = draft
                         setDraft("")
@@ -282,10 +302,22 @@ fun ChatScreen(
                         }
                     }
                     else if (state.running) scope.launch { controller.stop() }
-                },
-                enabled = sendable || state.running,
-                modifier = Modifier.padding(start = ROW_PADDING.dp).size(40.dp),
-            ) { Icon(icon, contentDescription = label) }
+                    },
+                ),
+            ) {
+                Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = label) }
+            }
+            DropdownMenu(expanded = queueMenu, onDismissRequest = { queueMenu = false }) {
+                DropdownMenuItem(
+                    text = { Text("Queue for later") },
+                    onClick = {
+                        queueMenu = false
+                        controller.queue(draft)
+                        setDraft("")
+                    },
+                )
+            }
+            }
         }
     }
 }

@@ -80,6 +80,8 @@ data class ChatState(
     val error: String? = null,
     /** Pending approval/clarify requests (replayed and live, keyed by `srq-` id). */
     val openRequests: List<ServerRequest> = emptyList(),
+    /** Drafts waiting for the running turn to end; in memory only. */
+    val queue: List<QueueEntry> = emptyList(),
 ) {
     val prompts: List<Prompt> get() = openRequests.mapNotNull { it.toPrompt() }
 }

@@ -416,13 +416,15 @@ class ChatControllerTest {
         chat.open()
         assertEquals(true, chat.state.value.running)
 
-        assertEquals("fix it", chat.send("fix it"))
+        assertEquals(null, chat.send("fix it"))
+        assertEquals(listOf("fix it"), chat.state.value.queue.map { it.text })
         assertEquals(emptyList<ChatItem>(), chat.state.value.items)
         assertEquals(true, chat.state.value.running)
 
         socket!!.send("""{"jsonrpc":"2.0","id":"srq-a","method":"approval","params":{"session_id":"rt1","request_id":"ap_1","command":"ls"}}""")
         awaitTrue { chat.state.value.prompts.size == 1 }
-        assertEquals("again", chat.send("again"))
+        assertEquals(null, chat.send("again"))
+        assertEquals(listOf("fix it", "again"), chat.state.value.queue.map { it.text })
         assertEquals(emptyList<ChatItem>(), chat.state.value.items)
         assertEquals(listOf("client.capabilities", "session.resume", "session.redirect"), calls.toList())
 
