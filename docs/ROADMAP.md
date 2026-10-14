@@ -52,7 +52,7 @@ Gap today: suggestions only run when tapped, Enter sends `/cmd` as plain text, a
 Read from the code on 2026-10-13. No Phase 3 tickets are written yet.
 - Works now: `SlashCommands.load()` calls `commands.catalog` when a chat opens. Suggestions filter locally as you type (`slash.filter(draft)`, first 6); tapping one runs it. `run()` calls `slash.exec` and, on an RPC error other than 4001, falls back to `command.dispatch`. The result shows as a note using `output`, `warning` or `notice`. The reasoning level is read on open with `config.get` (key `reasoning`, ticket 22).
 - Missing: `complete.slash` is unused; (stale, fixed by tickets 23-26: Send runs `/cmd` as a command, output card cut at 12 lines); error text from `SlashCommands` and `ModelsController.fail` is raw `e.message`.
-- Where the code is: `SlashCommands`; `ChatScreen.kt` (the composer, with the round Send/Steer/Stop button and the 44 dp field); `ModelsController`.
+- Where the code is: `SlashCommands`; `ChatScreen.kt` (the composer, with the round Send/Redirect/Stop button and the 44 dp field); `ModelsController`.
 - Before cutting tickets, read `docs/PROTOCOL.md` lines ~383-386 (`commands.catalog`, `complete.slash`, `slash.exec`, `command.dispatch`) and Herald's `docs/hermes-protocol-research.md` (https://github.com/Giton22/herald). Herald's notes have not been read yet. Do not add any method or field that PROTOCOL.md does not list.
 
 ## Phase 4: close out
@@ -69,6 +69,6 @@ Goal: usable almost like Hermes Desktop, essential usage only. Herald is a featu
    - Phone scope (planner pick, essential only): group by date (default), status or project; order by updated (default), created or status; pinned on top; Archived page; status filter; row shows preview and updated time. Left out: tokens, cost, PR, profile, manual drag, card rows.
    - Protocol facts: rows carry `pinned`, `archived`, `unread`, `is_active`, `source`, `message_count`, `last_active`, `cwd`, `git_branch`; `order` (`recent`|`created`), `archived` (`exclude`|`only`|`include`), `exclude_sources`, `min_messages` are query options; there is no grouping parameter, so the phone groups the rows itself. Unchecked: how Desktop derives needs-input, working and draft from a row (the REST row has `is_active`, `unread` and `message_count` only); read `session-dot-state.ts` before the status ticket.
    - (built, tickets 33-36) Pin and archive (with Undo) via `PATCH` (`pinned`, `archived`). Already exist: rename, delete, search.
-2. Send-while-running: queue, steer, stop and send, undo and retry. PROTOCOL has `prompt.submit` (`queued`), `session.steer`, `session.redirect`, `session.interrupt`, `session.undo`.
-3. Notification actions: approve or answer from the notification. Needs the watch service to answer server requests over the live link.
+2. (built, tickets 45-47 and 48, 51-52 fixes) Send-while-running: redirect, queue, retry and edit. Original list: queue, steer, stop and send, undo and retry. PROTOCOL has `prompt.submit` (`queued`), `session.steer`, `session.redirect`, `session.interrupt`, `session.undo`.
+3. (built, tickets 49-50; buttons did not show on the Realme, see HANDOFF) Notification actions: approve or answer from the notification. Needs the watch service to answer server requests over the live link.
 Not scheduled (no decision yet): attachments, offline cache, cron and capabilities, voice.

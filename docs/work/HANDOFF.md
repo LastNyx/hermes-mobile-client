@@ -102,7 +102,7 @@ Only the Markdown reply (bold, bullets, inline code) and the new look were seen 
 
 - Slash commands, resolved from the code (not device-checked): suggestions filter as you type and tapping one runs it;
   Send on a typed `/cmd` runs it as a command (`slash.exec`, then `command.dispatch`); output shows in a card cut at 12 lines with Show more.
-- Text size setting, model picker and reasoning chips, and the Stop/Steer button: not seen on a device.
+- Text size setting, model picker and reasoning chips, and the Redirect/Stop button: not seen on a device (the user checked redirect, queue, retry and edit on 2026-10-14 and said they work).
 
 ### Non-blocking reviewer smells (no ticket)
 
