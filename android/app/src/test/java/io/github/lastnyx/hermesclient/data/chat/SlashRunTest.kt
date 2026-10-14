@@ -96,6 +96,7 @@ class SlashRunTest {
                             "review src" -> result("""{"type":"skill","message":"BIG SCAFFOLD","display":"/review src","name":"review"}""")
                             "goal pause" -> error(4018, "skill command: use command.dispatch for /goal")
                             "undo" -> result("""{"type":"prefill","message":"redo me","notice":"Removed 1"}""")
+                            "ask hi" -> result("""{"type":"send","message":"ASK PROMPT"}""")
                             "loop" -> result("""{"type":"alias","target":"/loop"}""")
                             else -> error(5030, "worker died")
                         }
@@ -180,6 +181,15 @@ class SlashRunTest {
         assertEquals("A reply is running. Stop it or wait, then run /review again.", notes().last())
         assertTrue(lastOutput().failed)
         assertEquals(listOf("exec review src"), calls.toList())
+
+        val fresh = ChatController(link, SessionsRepository(authed, base), "stored-1", scope)
+        fresh.open()
+        calls.clear()
+        SlashCommands(fresh).runLine("/ask hi")
+        val sent = fresh.state.value.items
+        assertEquals(1, sent.size)
+        assertTrue(sent[0] is ChatItem.Message && (sent[0] as ChatItem.Message).role == "user" && (sent[0] as ChatItem.Message).text == "/ask hi")
+        assertEquals(listOf("exec ask hi", "submit [session_id, text] ASK PROMPT"), calls.toList())
 
         link.stop()
         scope.coroutineContext[Job]!!.cancel()
