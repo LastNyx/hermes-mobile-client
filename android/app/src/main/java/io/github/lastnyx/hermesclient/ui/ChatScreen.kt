@@ -41,6 +41,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,10 +62,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
@@ -161,8 +168,22 @@ fun ChatScreen(
     }
     var picking by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    LaunchedEffect(state.items.size, state.items.lastOrNull()) {
-        if (state.items.isNotEmpty()) listState.scrollToItem(state.items.size - 1)
+    val slackPx = with(LocalDensity.current) { 24.dp.roundToPx() }
+    var following by remember { mutableStateOf(true) }
+    // Only user drags and flings reach this; programmatic scrolls do not, so content growth never unsets it.
+    val userScrollWatcher = remember(listState, slackPx) {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                following = listState.isNearBottom(slackPx)
+                return Offset.Zero
+            }
+        }
+    }
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            info.totalItemsCount to info.visibleItemsInfo.lastOrNull()?.size
+        }.collect { if (following) listState.scrollToEnd() }
     }
     if (picking) ModelPicker(modelState, models, onDismiss = { picking = false })
 
@@ -187,7 +208,8 @@ fun ChatScreen(
                 )
             }
         }
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+        LazyColumn(Modifier.fillMaxSize().nestedScroll(userScrollWatcher), state = listState) {
             itemsIndexed(state.items, key = { _, it -> it.key }) { index, item ->
                 Box(Modifier.padding(top = itemGapBefore(state.items.getOrNull(index - 1), item).dp)) {
                     when (item) {
@@ -214,6 +236,19 @@ fun ChatScreen(
                 }
             }
         }
+        if (!following) {
+            FilledTonalButton(
+                onClick = {
+                    following = true
+                    scope.launch { listState.scrollToEnd() }
+                },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp),
+            ) {
+                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, Modifier.size(18.dp))
+                Text("Jump to latest")
+            }
+        }
+        }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         if (suggestions.isNotEmpty() && asksForSuggestions(draft)) {
             SlashSuggestionList(suggestions, { setDraft(composerTextFor(it)) })
@@ -233,6 +268,7 @@ fun ChatScreen(
                     if (sendable) {
                         val text = draft
                         setDraft("")
+                        following = true
                         if (parseSlashLine(text) != null) {
                             scope.launch { slash.runLine(text)?.let { setDraft(it) } }
                         } else {
