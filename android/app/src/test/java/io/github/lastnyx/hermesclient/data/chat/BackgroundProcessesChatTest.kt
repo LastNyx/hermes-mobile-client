@@ -129,6 +129,20 @@ class BackgroundProcessesChatTest {
     }
 
     @Test
+    fun reconnectRefreshesProcessesExactlyOnce() = runBlocking {
+        val rig = Rig(NONE, "{}")
+        rig.chat.open()
+        awaitTrue { rig.lists.size == 1 }
+
+        val old = rig.socket
+        old!!.close(1001, "")
+        awaitTrue { rig.socket !== old && rig.link.state.value == LinkState.Connected }
+        awaitTrue { rig.lists.size == 2 }
+        delay(400)
+        assertEquals(2, rig.lists.size)
+    }
+
+    @Test
     fun pollsOnlyWhileSomethingRuns() = runBlocking {
         val rig = Rig(RUNNING, "{}")
         rig.chat.open()

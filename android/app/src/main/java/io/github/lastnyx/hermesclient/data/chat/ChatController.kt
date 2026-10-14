@@ -82,7 +82,11 @@ class ChatController(
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             link.state.collect { link ->
                 // Not yet opened means this is the first connect, which open() handles.
-                if (link == LinkState.Connected && _state.value.sessionId != null) scope.launch { catchUp() }
+                if (link == LinkState.Connected && _state.value.sessionId != null) scope.launch {
+                    catchUp()
+                    // Process changes during the drop are otherwise missed; kept out of adopt() so catch-up stays untouched.
+                    refreshProcesses()
+                }
             }
         }
         // Poll only while something runs; collectLatest cancels the loop when the last one ends.
