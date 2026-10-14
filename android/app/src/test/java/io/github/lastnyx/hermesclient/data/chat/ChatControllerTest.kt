@@ -370,7 +370,69 @@ class ChatControllerTest {
     }
 
     @Test
-    fun chatOpensStreamsSteersStopsAndResumesOn4001() = runBlocking {
+    fun redirectedTextIsHandedBackWhenRejectedOrWhenAnApprovalIsOpen() = runBlocking {
+        val calls = Collections.synchronizedList(mutableListOf<String>())
+        var socket: WebSocket? = null
+        val listener = object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                socket = webSocket
+                webSocket.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"gateway.ready","payload":{"heartbeat":true,"replay_epoch":"ep1"}}}""")
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                val frame = JSONObject(text)
+                val id = frame.optString("id")
+                val method = frame.optString("method")
+                fun result(body: String) = webSocket.send("""{"jsonrpc":"2.0","id":"$id","result":$body}""")
+                calls += method
+                when (method) {
+                    "client.capabilities" -> result("{}")
+                    "session.resume" -> result("""{"session_id":"rt1","stored_session_id":"stored-1","running":true}""")
+                    "session.redirect" -> result("""{"status":"rejected","text":"nope"}""")
+                }
+            }
+        }
+        val gateway = MockWebServer()
+        gateway.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.path == "/api/auth/ws-ticket" -> MockResponse().setBody("""{"ticket":"t","ttl_seconds":30}""")
+                request.path!!.startsWith("/api/ws") -> MockResponse().withWebSocketUpgrade(listener)
+                request.path!!.startsWith("/api/sessions/stored-1/messages") -> MockResponse().setBody("""{"session_id":"stored-1","messages":[]}""")
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val http = OkHttpClient()
+        val authed = AuthedHttp(http, tokens, "gw-1", base, now = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val link = LiveLink(http, authed, base, scope, FakeNetwork(), random = { 0.0 })
+        link.start()
+        awaitTrue { link.state.value == LinkState.Connected }
+
+        val chat = ChatController(link, SessionsRepository(authed, base), "stored-1", scope)
+        chat.open()
+        assertEquals(true, chat.state.value.running)
+
+        assertEquals("fix it", chat.send("fix it"))
+        assertEquals(emptyList<ChatItem>(), chat.state.value.items)
+        assertEquals(true, chat.state.value.running)
+
+        socket!!.send("""{"jsonrpc":"2.0","id":"srq-a","method":"approval","params":{"session_id":"rt1","request_id":"ap_1","command":"ls"}}""")
+        awaitTrue { chat.state.value.prompts.size == 1 }
+        assertEquals("again", chat.send("again"))
+        assertEquals(emptyList<ChatItem>(), chat.state.value.items)
+        assertEquals(listOf("client.capabilities", "session.resume", "session.redirect"), calls.toList())
+
+        link.stop()
+        scope.coroutineContext[Job]!!.cancel()
+        gateway.shutdown()
+    }
+
+    @Test
+    fun chatOpensStreamsRedirectsStopsAndResumesOn4001() = runBlocking {
         val calls = Collections.synchronizedList(mutableListOf<String>())
         var resumes = 0
 
@@ -406,9 +468,9 @@ class ChatControllerTest {
                             webSocket.send(event("message.delta", """{"text":"!"}""", 6))
                         }
                     }
-                    "session.steer" -> {
-                        calls += "$method ${params.getString("session_id")} ${params.getString("text")}"
-                        result("""{"status":"queued"}""")
+                    "session.redirect" -> {
+                        calls += "$method ${params.getString("session_id")} ${params.getString("text")} ${params.keys().asSequence().sorted().joinToString(",")}"
+                        result("""{"status":"redirected","text":"more"}""")
                     }
                     "session.interrupt" -> {
                         calls += "$method ${params.getString("session_id")}"
@@ -476,7 +538,7 @@ class ChatControllerTest {
                 "prompt.submit rt1 go",
                 "session.resume stored-1",
                 "prompt.submit rt2 go",
-                "session.steer rt2 more",
+                "session.redirect rt2 more session_id,text",
                 "session.interrupt rt2",
             ),
             calls.toList(),

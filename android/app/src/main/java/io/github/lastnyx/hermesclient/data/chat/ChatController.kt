@@ -20,7 +20,7 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
-/** One open chat: history, live events, submit / steer / stop. [storedId] is null for a new chat. */
+/** One open chat: history, live events, submit / redirect / stop. [storedId] is null for a new chat. */
 class ChatController(
     private val link: LiveLink,
     private val repo: SessionsRepository,
@@ -207,34 +207,52 @@ class ChatController(
         }
     }
 
-    suspend fun send(text: String) {
+    /** Returns the text if it was not sent, so the caller can keep it. */
+    suspend fun send(text: String): String? {
         val trimmed = text.trim()
-        deliver(trimmed, trimmed)
+        return deliver(trimmed, trimmed)
     }
 
     /** [message] goes to the model; the bubble shows [display] (message may be hidden scaffolding). */
-    suspend fun sendWithDisplay(message: String, display: String) = deliver(message, display)
+    suspend fun sendWithDisplay(message: String, display: String) {
+        deliver(message, display)
+    }
 
     /** Reloads the stored transcript, e.g. after /undo removed turns on the gateway. */
     internal suspend fun reloadHistory() {
         loadHistory(_state.value.storedId ?: throw IOException("Chat not ready"))
     }
 
-    private suspend fun deliver(message: String, display: String) {
-        if (message.isEmpty()) return
-        val wasRunning = _state.value.running
-        _state.update { it.copy(items = it.items + ChatItem.Message("m${it.items.size}", "user", display), running = true, error = null) }
+    /** Returns the text when it was not sent (rejected, failed, or blocked by an open prompt), so the caller can keep it; otherwise null. */
+    private suspend fun deliver(message: String, display: String): String? {
+        if (message.isEmpty()) return null
+        val before = _state.value
+        if (before.running && before.prompts.isNotEmpty()) return message
+        val bubbleId = "m${before.items.size}"
+        _state.update { it.copy(items = it.items + ChatItem.Message(bubbleId, "user", display), running = true, error = null) }
+        fun dropBubble() = _state.update { s -> s.copy(items = s.items.filterNot { it.key == bubbleId }) }
         try {
-            if (wasRunning) {
-                val reply = sessionCall("session.steer") { it.put("text", message) }
-                // Turn ended between tap and call: the text is a normal prompt then.
-                if (reply.optString("status") == "rejected") submit(message)
+            if (before.running) {
+                val reply = sessionCall("session.redirect") { it.put("text", message) }
+                if (reply.optString("status") == "rejected") {
+                    dropBubble()
+                    return message
+                }
             } else {
                 submit(message)
             }
         } catch (e: Exception) {
-            fail(e)
+            if (!before.running) {
+                fail(e)
+            } else {
+                dropBubble()
+                // The turn we tried to redirect is still running.
+                fail(e)
+                _state.update { it.copy(running = true) }
+                return message
+            }
         }
+        return null
     }
 
     /** Puts local text (e.g. slash command output) into the chat without sending it. */

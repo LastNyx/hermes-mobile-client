@@ -127,7 +127,7 @@ fun ChatHost(
         onDispose { controller.state.value.let { s -> (s.storedId ?: s.sessionId)?.let { WatchHub.chatClosed(context, it) } } }
     }
     val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val onSend: suspend (String) -> Unit = { text ->
+    val onSend: suspend (String) -> String? = { text ->
         val current = controller.state.value
         if (!current.running) {
             // Denied permission only silences notifications; the service and chat still work.
@@ -148,7 +148,7 @@ fun ChatScreen(
     models: ModelsController,
     slash: SlashCommands,
     modifier: Modifier = Modifier,
-    onSend: suspend (String) -> Unit = { controller.send(it) },
+    onSend: suspend (String) -> String? = { controller.send(it) },
     title: String,
     onBack: (() -> Unit)? = null,
 ) {
@@ -264,11 +264,11 @@ fun ChatScreen(
                 field, { field = it }, modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                 shape = RoundedCornerShape(24.dp),
                 maxLines = 6,
-                placeholder = { Text(if (state.running) "Steer the reply" else "Message") },
+                placeholder = { Text(if (state.running) "Redirect the reply" else "Message") },
             )
             val sendable = draft.isNotBlank()
             val icon = if (!sendable && state.running) Icons.Filled.Stop else Icons.AutoMirrored.Filled.Send
-            val label = if (sendable) (if (state.running) "Steer" else "Send") else if (state.running) "Stop" else "Send"
+            val label = if (sendable) (if (state.running) "Redirect" else "Send") else if (state.running) "Stop" else "Send"
             FilledIconButton(
                 onClick = {
                     if (sendable) {
@@ -278,7 +278,7 @@ fun ChatScreen(
                         if (parseSlashLine(text) != null) {
                             scope.launch { slash.runLine(text)?.let { setDraft(it) } }
                         } else {
-                            scope.launch { onSend(text) }
+                            scope.launch { onSend(text)?.let { setDraft(it) } }
                         }
                     }
                     else if (state.running) scope.launch { controller.stop() }
