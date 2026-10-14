@@ -67,7 +67,7 @@ internal fun CodeCard(code: String, language: String?, style: TextStyle) {
 }
 
 @Composable
-internal fun CopyReplyButton(text: String) {
+internal fun CopyReplyButton(text: String, trailing: @Composable () -> Unit = {}) {
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) {
@@ -76,7 +76,7 @@ internal fun CopyReplyButton(text: String) {
             copied = false
         }
     }
-    Row(Modifier.fillMaxWidth()) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = {
             clipboard.setText(AnnotatedString(text))
             copied = true
@@ -87,6 +87,7 @@ internal fun CopyReplyButton(text: String) {
                 modifier = Modifier.size(18.dp),
             )
         }
+        trailing()
     }
 }
 

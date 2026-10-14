@@ -218,13 +218,19 @@ fun ChatScreen(
         Box(Modifier.weight(1f).fillMaxWidth()) {
             LazyColumn(Modifier.fillMaxSize().nestedScroll(userScrollWatcher), state = listState) {
                 val rows = groupTools(state.items)
+                val actions = lastActions(state.items, state.running)
                 itemsIndexed(rows, key = { _, it -> it.key }) { index, row ->
                     Box(Modifier.padding(top = itemGapBefore(rows.getOrNull(index - 1)?.last, row.first).dp)) {
                         if (row is ChatRow.ToolGroup) {
                             ToolGroupRow(row)
                         } else {
                             when (val item = (row as ChatRow.Single).item) {
-                                is ChatItem.Message -> MessageBubble(item)
+                                is ChatItem.Message -> MessageBubble(
+                                    item,
+                                    actions,
+                                    onRetry = { scope.launch { slash.runLine("/retry") } },
+                                    onEdit = { scope.launch { slash.runLine("/undo")?.let { setDraft(it) } } },
+                                )
                                 is ChatItem.Reasoning -> ReasoningRow(item)
                                 is ChatItem.Tool -> ToolRow(item)
                                 is ChatItem.CommandOutput -> CommandOutputCard(item)
@@ -473,18 +479,36 @@ internal fun itemGapBefore(previous: ChatItem?, item: ChatItem): Int = when {
     else -> INSIDE_TURN_GAP
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MessageBubble(item: ChatItem.Message) {
+private fun MessageBubble(item: ChatItem.Message, actions: LastActions, onRetry: () -> Unit, onEdit: () -> Unit) {
     val mine = item.role == "user"
     if (mine) {
+        val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+        var menu by remember { mutableStateOf(false) }
+        val editable = actions.editKey == item.key
         BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             Surface(
-                Modifier.widthIn(max = maxWidth * 0.85f),
+                Modifier.widthIn(max = maxWidth * 0.85f).combinedClickable(
+                    enabled = editable,
+                    onClick = {},
+                    onLongClick = { menu = true },
+                ),
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
                 Text(item.text, Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp), style = roles.body)
+            }
+            DropdownMenu(expanded = menu && editable, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(text = { Text("Edit and resend") }, onClick = { menu = false; onEdit() })
+                DropdownMenuItem(
+                    text = { Text("Copy") },
+                    onClick = {
+                        menu = false
+                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(item.text))
+                    },
+                )
             }
         }
     } else if (item.text.isNotEmpty()) {
@@ -496,7 +520,11 @@ private fun MessageBubble(item: ChatItem.Message) {
             ) {
                 MarkdownText(item.text, Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp))
             }
-            if (!item.streaming) CopyReplyButton(replyForCopy(item.text))
+            if (!item.streaming) {
+                CopyReplyButton(replyForCopy(item.text)) {
+                    if (actions.retryKey == item.key) TextButton(onClick = onRetry) { Text("Retry", style = roles.label) }
+                }
+            }
         }
     }
 }
