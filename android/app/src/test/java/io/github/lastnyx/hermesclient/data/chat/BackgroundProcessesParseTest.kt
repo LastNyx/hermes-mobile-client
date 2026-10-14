@@ -33,7 +33,7 @@ class BackgroundProcessesParseTest {
     @Test
     fun mergeDropsDismissedAndKeepsIncomingOrder() {
         fun p(id: String) = BackgroundProcess(id, id, ProcessState.Done, 0, null)
-        val merged = mergeProcesses(listOf(p("z")), listOf(p("c"), p("a"), p("b")), setOf("a"))
+        val merged = mergeProcesses(listOf(p("c"), p("a"), p("b")), setOf("a"))
         assertEquals(listOf("c", "b"), merged.map { it.id })
     }
 }

@@ -37,7 +37,6 @@ import kotlinx.coroutines.launch
 
 private const val MAX_VISIBLE_ROWS = 4
 private const val PROCESS_ROW_HEIGHT = 40
-private const val OUTPUT_MAX_LINES = 12
 
 internal fun processSummary(processes: List<BackgroundProcess>): String {
     val parts = listOf(
@@ -52,7 +51,7 @@ internal fun processSummary(processes: List<BackgroundProcess>): String {
 }
 
 internal fun outputTail(output: String?): String? =
-    output?.takeIf { it.isNotBlank() }?.trimEnd()?.lines()?.takeLast(OUTPUT_MAX_LINES)?.joinToString("\n")
+    output?.takeIf { it.isNotBlank() }?.trimEnd()?.lines()?.takeLast(COMMAND_OUTPUT_MAX_LINES)?.joinToString("\n")
 
 @Composable
 private fun StatusDot(color: Color) {

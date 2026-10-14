@@ -105,7 +105,7 @@ class ChatController(
         try {
             val reply = sessionCall("process.list") { it }
             val incoming = parseProcesses(reply)
-            _state.update { it.copy(processes = mergeProcesses(it.processes, incoming, dismissedProcesses)) }
+            _state.update { it.copy(processes = mergeProcesses(incoming, dismissedProcesses)) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -126,12 +126,10 @@ class ChatController(
     }
 
     fun dismissProcess(id: String) {
-        _state.update { s ->
-            val row = s.processes.firstOrNull { it.id == id } ?: return@update s
-            if (row.state == ProcessState.Running) return@update s
-            dismissedProcesses.add(id)
-            s.copy(processes = s.processes.filterNot { it.id == id })
-        }
+        val row = _state.value.processes.firstOrNull { it.id == id } ?: return
+        if (row.state == ProcessState.Running) return
+        dismissedProcesses.add(id)
+        _state.update { s -> s.copy(processes = s.processes.filterNot { it.id == id }) }
     }
 
     private fun processEvent(event: LinkEvent) {

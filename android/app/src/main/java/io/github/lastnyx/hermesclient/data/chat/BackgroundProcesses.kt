@@ -33,5 +33,5 @@ fun parseProcesses(result: JSONObject?): List<BackgroundProcess> {
     }
 }
 
-fun mergeProcesses(previous: List<BackgroundProcess>, incoming: List<BackgroundProcess>, dismissed: Set<String>): List<BackgroundProcess> =
+fun mergeProcesses(incoming: List<BackgroundProcess>, dismissed: Set<String>): List<BackgroundProcess> =
     incoming.filter { it.id !in dismissed }

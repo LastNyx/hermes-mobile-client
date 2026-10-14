@@ -541,7 +541,7 @@ private fun MessageBubble(item: ChatItem.Message, actions: LastActions, onRetry:
     }
 }
 
-private const val COMMAND_OUTPUT_MAX_LINES = 12
+internal const val COMMAND_OUTPUT_MAX_LINES = 12
 
 @Composable
 private fun CommandOutputCard(item: ChatItem.CommandOutput) {
