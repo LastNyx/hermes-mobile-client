@@ -140,27 +140,3 @@ fun GatewaysScreen(
         }
     }
 }
-
-/** [onSubmit] returns an error message to show, or null when it saved. */
-@Composable
-private fun GatewayForm(initial: Gateway?, onSubmit: (String, String) -> String?, onCancel: () -> Unit) {
-    var name by remember(initial) { mutableStateOf(initial?.name.orEmpty()) }
-    var url by remember(initial) { mutableStateOf(initial?.url.orEmpty()) }
-    var error by remember { mutableStateOf<String?>(null) }
-    Column(Modifier.padding(SCREEN_EDGE.dp), verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
-        OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(url, { url = it }, label = { Text("URL") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        if (GatewayUrl.warnsCleartext(url)) {
-            Text(
-                "This address uses http://, so your credentials would cross the network unencrypted.",
-                style = roles.body,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        error?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.error) }
-        Row {
-            Button(onClick = { error = onSubmit(name, url) }) { Text("Save") }
-            TextButton(onClick = onCancel) { Text("Cancel") }
-        }
-    }
-}
