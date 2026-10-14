@@ -152,8 +152,7 @@ fun ChatScreen(
     fun setDraft(text: String) { field = TextFieldValue(text, TextRange(text.length)) }
     var suggestions by remember { mutableStateOf(emptyList<SlashSuggestion>()) }
     LaunchedEffect(draft) {
-        val wanted = '\n' !in draft && (draft == "/" || parseSlashLine(draft) != null)
-        if (!wanted) {
+        if (!asksForSuggestions(draft)) {
             suggestions = emptyList()
         } else {
             if (draft != "/") delay(150)
@@ -216,7 +215,7 @@ fun ChatScreen(
             }
         }
         state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        if (suggestions.isNotEmpty() && '\n' !in draft && (draft == "/" || parseSlashLine(draft) != null)) {
+        if (suggestions.isNotEmpty() && asksForSuggestions(draft)) {
             SlashSuggestionList(suggestions, { setDraft(composerTextFor(it)) })
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {

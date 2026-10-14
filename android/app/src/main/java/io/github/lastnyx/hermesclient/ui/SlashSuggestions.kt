@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.chat.SlashKind
 import io.github.lastnyx.hermesclient.data.chat.SlashSuggestion
+import io.github.lastnyx.hermesclient.data.chat.parseSlashLine
 
 sealed interface SuggestionRow {
     data class Header(val title: String) : SuggestionRow
@@ -36,6 +37,10 @@ fun suggestionRows(suggestions: List<SlashSuggestion>): List<SuggestionRow> {
     }
     return rows
 }
+
+/** The one rule for showing the list: a single-line draft that is `/` or starts a slash command (not a path). */
+internal fun asksForSuggestions(draft: String): Boolean =
+    '\n' !in draft && (draft == "/" || parseSlashLine(draft) != null)
 
 /** What the composer holds after a tap: commands and skills get a space for the argument. */
 internal fun composerTextFor(s: SlashSuggestion): String = if (s.kind == SlashKind.Option) s.text else s.text + " "

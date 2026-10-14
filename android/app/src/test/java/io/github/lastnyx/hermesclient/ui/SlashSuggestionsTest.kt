@@ -9,6 +9,16 @@ class SlashSuggestionsTest {
     private fun s(text: String, group: String?) = SlashSuggestion(text, text, "d", SlashKind.Command, group)
 
     @Test
+    fun suggestionsAreAskedForOnlyBySlashCommandDrafts() {
+        for (hidden in listOf("hello", "/usr/local", "/re\nmore", "")) {
+            assertEquals(hidden, false, asksForSuggestions(hidden))
+        }
+        for (shown in listOf("/", "/re", "/personality ")) {
+            assertEquals(shown, true, asksForSuggestions(shown))
+        }
+    }
+
+    @Test
     fun headerBeforeEachNewGroupAndNoneForNullGroups() {
         val a = s("/a", "Session")
         val b = s("/b", "Session")
