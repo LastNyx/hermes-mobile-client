@@ -29,7 +29,14 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
+import io.github.lastnyx.hermesclient.data.sessions.SessionOrdering
+import io.github.lastnyx.hermesclient.data.sessions.groupSessions
+import io.github.lastnyx.hermesclient.data.settings.PrefsSessionViewStorage
+import io.github.lastnyx.hermesclient.data.settings.SessionViewStore
+import java.time.ZoneId
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -77,9 +84,13 @@ fun SessionsScreen(
     onOpen: (String?) -> Unit,
     onGateways: () -> Unit,
     modifier: Modifier = Modifier,
+    viewStore: SessionViewStore,
     offline: Boolean = false,
 ) {
     val state by model.state.collectAsState()
+    val grouping = remember { viewStore.grouping() }
+    var ordering by remember { mutableStateOf(viewStore.ordering()) }
+    var viewMenu by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
     var renaming by remember { mutableStateOf<Session?>(null) }
@@ -102,6 +113,17 @@ fun SessionsScreen(
                 TextButton(onClick = { scope.launch { model.closeArchived() } }) { Text("Back") }
             } else {
                 Button(onClick = { onOpen(null) }, contentPadding = ButtonDefaults.TextButtonContentPadding) { Text("New chat") }
+                Box {
+                    TextButton(onClick = { viewMenu = true }) { Text("View") }
+                    DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
+                        SessionOrdering.entries.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text((if (option == ordering) "✓ " else "") + option.label) },
+                                onClick = { viewMenu = false; ordering = option; viewStore.setOrdering(option) },
+                            )
+                        }
+                    }
+                }
                 TextButton(onClick = { scope.launch { query = ""; model.openArchived() } }) { Text("Archived") }
                 TextButton(onClick = onGateways) { Text("Gateways") }
             }
@@ -127,40 +149,20 @@ fun SessionsScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
-                items(state.sessions, key = { it.id }) { session ->
-                    val card = RoundedCornerShape(12.dp)
-                    Column(
-                        Modifier.fillMaxWidth()
-                            .clip(card)
-                            .background(MaterialTheme.colorScheme.surfaceContainerLow, card)
-                            .combinedClickable(onClick = { onOpen(session.id) }, onLongClick = { menuFor = session })
-                            .padding(ROW_PADDING.dp),
-                    ) {
-                        Row {
-                            if (session.pinned) {
-                                Icon(
-                                    Icons.Filled.PushPin, contentDescription = "Pinned",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp).padding(end = LIST_GAP.dp),
-                                )
-                            }
-                            Text(
-                                session.title.ifBlank { "Untitled" },
-                                style = roles.title,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Text(relativeTime(session.lastActive), style = roles.caption)
+                if (state.query.isNotEmpty() || state.archivedPage) {
+                    items(state.sessions, key = { it.id }) { session ->
+                        SessionRow(session, onOpen, { menuFor = session })
+                    }
+                } else {
+                    val groups = groupSessions(
+                        state.sessions, System.currentTimeMillis() / 1000, grouping, ordering, ZoneId.systemDefault(),
+                    )
+                    groups.forEach { group ->
+                        item(key = "group-${group.title}") {
+                            Text(group.title, style = roles.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        if (session.preview.isNotBlank()) {
-                            Text(
-                                session.preview,
-                                style = roles.secondary,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                        items(group.sessions, key = { it.id }) { session ->
+                            SessionRow(session, onOpen, { menuFor = session })
                         }
                     }
                 }
@@ -225,6 +227,46 @@ fun SessionsScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun SessionRow(session: Session, onOpen: (String?) -> Unit, onMenu: () -> Unit) {
+    val card = RoundedCornerShape(12.dp)
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(card)
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, card)
+            .combinedClickable(onClick = { onOpen(session.id) }, onLongClick = onMenu)
+            .padding(ROW_PADDING.dp),
+    ) {
+        Row {
+            if (session.pinned) {
+                Icon(
+                    Icons.Filled.PushPin, contentDescription = "Pinned",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp).padding(end = LIST_GAP.dp),
+                )
+            }
+            Text(
+                session.title.ifBlank { "Untitled" },
+                style = roles.title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Text(relativeTime(session.lastActive), style = roles.caption)
+        }
+        if (session.preview.isNotBlank()) {
+            Text(
+                session.preview,
+                style = roles.secondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
 internal fun relativeTime(epochSeconds: Double, nowMs: Long = System.currentTimeMillis()): String {
     if (epochSeconds <= 0) return ""
     val seconds = (nowMs / 1000 - epochSeconds.toLong()).coerceAtLeast(0)
@@ -258,6 +300,7 @@ fun SessionsHost(
 
     val linkScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val viewStore = remember { SessionViewStore(PrefsSessionViewStorage(context.applicationContext)) }
     val network = remember { AndroidNetworkMonitor(context) }
     DisposableEffect(network) { onDispose { network.close() } }
     val link = remember(authed) { LiveLink(http, authed, gateway.url, linkScope, network) }
@@ -296,7 +339,7 @@ fun SessionsHost(
                 )
             }
         }
-        Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, auth, model, open, onGateways, offline, chat) }
+        Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, auth, model, open, onGateways, offline, viewStore, chat) }
     }
 }
 
@@ -312,17 +355,18 @@ private fun SessionsBody(
     open: (String?) -> Unit,
     onGateways: () -> Unit,
     offline: Boolean,
+    viewStore: SessionViewStore,
     chat: @Composable (Modifier) -> Unit,
 ) {
     if (wide) {
         Row(Modifier.fillMaxSize()) {
-            SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.width(360.dp).fillMaxHeight(), offline)
+            SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.width(360.dp).fillMaxHeight(), viewStore, offline)
             if (chatOpen) chat(Modifier.weight(1f)) else ChatPlaceholder(Modifier.weight(1f))
         }
     } else if (chatOpen) {
         chat(Modifier.fillMaxSize())
     } else {
-        SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.fillMaxSize(), offline)
+        SessionsScreen(model, auth == AuthState.Expired, open, onGateways, Modifier.fillMaxSize(), viewStore, offline)
     }
 }
 

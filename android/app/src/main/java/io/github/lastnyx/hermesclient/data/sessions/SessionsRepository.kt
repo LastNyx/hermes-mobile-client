@@ -18,6 +18,7 @@ data class Session(
     val lastActive: Double,
     val pinned: Boolean = false,
     val archived: Boolean = false,
+    val startedAt: Double = 0.0,
 )
 
 /** Pinned first, then most recent activity first. */
@@ -99,6 +100,7 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
             lastActive = row.optDouble("last_active", 0.0),
             pinned = row.optBoolean("pinned", false),
             archived = row.optBoolean("archived", false),
+            startedAt = row.optDouble("started_at", 0.0),
         )
     }
 
