@@ -29,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
@@ -54,13 +53,12 @@ internal fun CodeCard(code: String, language: String?, style: TextStyle) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(codeLabel(language), style = MaterialTheme.typography.labelMedium)
+                Text(codeLabel(language), style = roles.label)
                 CopyButton(codeForCopy(code))
             }
             Text(
                 codeForCopy(code),
-                style = style,
-                fontFamily = FontFamily.Monospace,
+                style = roles.monospace(style),
                 softWrap = false,
                 modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 10.dp, end = 10.dp, bottom = 10.dp),
             )
@@ -105,5 +103,5 @@ internal fun CopyButton(text: String) {
     TextButton(onClick = {
         clipboard.setText(AnnotatedString(text))
         copied = true
-    }) { Text(if (copied) "Copied" else "Copy", style = MaterialTheme.typography.labelMedium) }
+    }) { Text(if (copied) "Copied" else "Copy", style = roles.label) }
 }

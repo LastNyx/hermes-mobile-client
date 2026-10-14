@@ -74,7 +74,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -197,7 +196,7 @@ fun ChatScreen(
             Text(
                 title,
                 Modifier.weight(1f).padding(start = if (onBack == null) 4.dp else 0.dp),
-                style = MaterialTheme.typography.titleSmall,
+                style = roles.title,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -206,7 +205,7 @@ fun ChatScreen(
                     modelChipLabel(modelState.model, modelState.reasoningEffort),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = roles.label,
                 )
             }
         }
@@ -225,7 +224,7 @@ fun ChatScreen(
                         is ChatItem.Note -> Text(
                             item.text,
                             Modifier.fillMaxWidth(),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = roles.caption,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
@@ -254,7 +253,7 @@ fun ChatScreen(
             }
         }
         }
-        state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        state.error?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.error) }
         if (suggestions.isNotEmpty() && asksForSuggestions(draft)) {
             SlashSuggestionList(suggestions, { setDraft(composerTextFor(it)) })
         }
@@ -297,7 +296,7 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
         LazyColumn(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Model", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                    Text("Model", Modifier.weight(1f), style = roles.title)
                     IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = "Close") }
                 }
             }
@@ -307,19 +306,19 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
                     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.errorContainer) {
                         Column(Modifier.padding(12.dp)) {
                             if (notice != null) {
-                                Text(notice, color = MaterialTheme.colorScheme.onErrorContainer)
+                                Text(notice, style = roles.body, color =MaterialTheme.colorScheme.onErrorContainer)
                                 Row(Modifier.padding(top = 8.dp)) {
                                     Button(onClick = { scope.launch { models.confirmPending() } }) { Text("Confirm") }
                                     OutlinedButton(onClick = { models.cancelConfirm() }, modifier = Modifier.padding(start = 8.dp)) { Text("Cancel") }
                                 }
                             }
-                            state.error?.let { Text(it, color = MaterialTheme.colorScheme.onErrorContainer) }
+                            state.error?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.onErrorContainer) }
                         }
                     }
                 }
             }
             item {
-                Text("Reasoning", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                Text("Reasoning", style = roles.label, modifier = Modifier.padding(top = 8.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     REASONING_LEVELS.forEach { level ->
                         val selected = level == state.reasoningEffort
@@ -337,7 +336,7 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
                     Text(
                         "Current: ${state.reasoningDisplay}",
                         Modifier.padding(top = 4.dp),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = roles.secondary,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -347,7 +346,7 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
                     Text(
                         group.name,
                         Modifier.padding(top = 12.dp),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = roles.label,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -360,7 +359,7 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
                         color = if (current) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
                     ) {
                         Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(model, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                            Text(model, Modifier.weight(1f), style = roles.body)
                             if (current) Icon(Icons.Filled.Check, contentDescription = "Current model")
                         }
                     }
@@ -377,9 +376,9 @@ private fun ApprovalCard(prompt: Prompt.Approval, onChoose: (String) -> Unit) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             SelectionContainer(Modifier.heightIn(max = promptBodyMaxHeight()).verticalScroll(rememberScrollState())) {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(prompt.toolName.ifBlank { "Approval needed" }, style = MaterialTheme.typography.titleSmall)
-                    if (prompt.description.isNotBlank()) Text(prompt.description, style = MaterialTheme.typography.bodyMedium)
-                    Text(prompt.command, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                    Text(prompt.toolName.ifBlank { "Approval needed" }, style = roles.title)
+                    if (prompt.description.isNotBlank()) Text(prompt.description, style = roles.body)
+                    Text(prompt.command, style = roles.code)
                 }
             }
             val labels = listOf("once" to "Allow once", "session" to "Allow for session", "always" to "Always allow", "deny" to "Deny")
@@ -410,7 +409,7 @@ private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) 
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 prompt.questions.forEach { q ->
-                    SelectionContainer { Text(q.question, style = MaterialTheme.typography.bodyMedium) }
+                    SelectionContainer { Text(q.question, style = roles.body) }
                     q.choices.forEach { choice ->
                         val picked = answers[q.qid] == choice
                         val pick = { answers = answers + (q.qid to choice) }
@@ -457,7 +456,7 @@ private fun MessageBubble(item: ChatItem.Message) {
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
-                Text(item.text, Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                Text(item.text, Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = roles.body)
             }
         }
     } else if (item.text.isNotEmpty()) {
@@ -491,15 +490,14 @@ private fun CommandOutputCard(item: ChatItem.CommandOutput) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Text(
                 item.command,
-                style = MaterialTheme.typography.labelMedium,
-                fontFamily = FontFamily.Monospace,
+                style = roles.code,
                 color = content.copy(alpha = 0.7f),
             )
             SelectionContainer {
                 Text(
                     item.text,
                     Modifier.padding(top = 4.dp),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = roles.body,
                     maxLines = if (long && !expanded) COMMAND_OUTPUT_MAX_LINES else Int.MAX_VALUE,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -525,13 +523,13 @@ private fun ReasoningRow(item: ChatItem.Reasoning) {
                 Text(
                     if (item.streaming) "Thinking…" else "Thought",
                     Modifier.padding(start = if (item.streaming) 8.dp else 0.dp),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = roles.label,
                 )
                 val preview = if (open) "" else reasoningPreview(item.text, item.streaming)
                 Text(
                     preview,
                     Modifier.weight(1f).padding(start = 8.dp),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = roles.secondary,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -542,7 +540,7 @@ private fun ReasoningRow(item: ChatItem.Reasoning) {
                     modifier = Modifier.size(20.dp),
                 )
             }
-            if (open) Text(item.text, style = MaterialTheme.typography.bodySmall)
+            if (open) Text(item.text, style = roles.body)
         }
     }
 }
@@ -564,17 +562,16 @@ private fun ToolRow(item: ChatItem.Tool) {
             ) {
                 if (item.status == ToolStatus.Running) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 else Icon(Icons.Filled.Check, contentDescription = "Done", modifier = Modifier.size(16.dp))
-                Text(toolLabel(item.name), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                Text(toolLabel(item.name), style = roles.label, maxLines = 1)
                 Text(
                     item.preview,
                     Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
+                    style = roles.code,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                item.durationS?.let { Text(durationText(it), style = MaterialTheme.typography.labelSmall) }
+                item.durationS?.let { Text(durationText(it), style = roles.caption) }
                 Icon(
                     if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                     contentDescription = if (open) "Collapse" else "Expand",
@@ -586,8 +583,7 @@ private fun ToolRow(item: ChatItem.Tool) {
                     toolDetailPreview(item.detail, 4000),
                     Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())
                         .padding(horizontal = 12.dp, vertical = TOOL_DETAIL_VERTICAL_PADDING.dp),
-                    fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = roles.code,
                 )
                 CopyButton(toolDetailPreview(item.detail, 4000))
             }
@@ -612,7 +608,7 @@ private fun ToolGroupRow(group: ChatRow.ToolGroup) {
             ) {
                 if (group.running) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 else Icon(Icons.Filled.Check, contentDescription = "Done", modifier = Modifier.size(16.dp))
-                Text("Used ${group.tools.size} tools", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                Text("Used ${group.tools.size} tools", Modifier.weight(1f), style = roles.label)
                 Icon(
                     if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                     contentDescription = if (open) "Collapse" else "Expand",

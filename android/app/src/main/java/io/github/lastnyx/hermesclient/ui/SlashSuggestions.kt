@@ -15,7 +15,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.chat.SlashKind
@@ -59,7 +58,7 @@ fun SlashSuggestionList(suggestions: List<SlashSuggestion>, onPick: (SlashSugges
                     is SuggestionRow.Header -> Text(
                         row.title,
                         Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp),
-                        style = MaterialTheme.typography.labelMedium,
+                        style = roles.label,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     is SuggestionRow.Item -> {
@@ -68,12 +67,12 @@ fun SlashSuggestionList(suggestions: List<SlashSuggestion>, onPick: (SlashSugges
                             Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onPick(s) }.padding(horizontal = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(s.label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                            Text(s.label, style = roles.code)
                             if (s.kind != SlashKind.Option) {
                                 Text(
                                     s.description,
                                     Modifier.weight(1f).padding(start = 8.dp),
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = roles.secondary,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -83,7 +82,7 @@ fun SlashSuggestionList(suggestions: List<SlashSuggestion>, onPick: (SlashSugges
                                 Text(
                                     "skill",
                                     Modifier.padding(start = 8.dp),
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = roles.caption,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }

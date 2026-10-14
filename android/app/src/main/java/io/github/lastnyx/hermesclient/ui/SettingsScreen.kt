@@ -56,15 +56,15 @@ fun SettingsScreen(
                     ) {
                         RadioButton(selected = option == textScale, onClick = null)
                         Column(Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp)) {
-                            Text(option.label)
-                            Text("The quick brown fox", style = MaterialTheme.typography.bodySmall)
+                            Text(option.label, style = roles.body)
+                            Text("The quick brown fox", style = roles.secondary)
                         }
                     }
                 }
             }
         }
         Section("About") {
-            Text("Version $versionName")
+            Text("Version $versionName", style = roles.body)
             Button(enabled = !ui.busy, onClick = { scope.launch { updates.check(silent = false) } }) {
                 Text("Check for updates")
             }
@@ -73,7 +73,7 @@ fun SettingsScreen(
                     Text("Install ${ui.available?.version}")
                 }
             }
-            if (ui.status.isNotEmpty()) Text(ui.status)
+            if (ui.status.isNotEmpty()) Text(ui.status, style = roles.body)
         }
     }
 }
@@ -87,7 +87,7 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(title, style = MaterialTheme.typography.titleSmall)
+        Text(title, style = roles.title)
         content()
     }
 }

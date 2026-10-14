@@ -3,14 +3,12 @@ package io.github.lastnyx.hermesclient.ui
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.compose.elements.MarkdownCodeBlock
@@ -44,16 +42,16 @@ fun MarkdownText(text: String, modifier: Modifier = Modifier) {
             }
         },
     )
-    val type = MaterialTheme.typography
     val typography = markdownTypography(
-        text = type.bodyMedium,
-        code = type.bodySmall,
-        h1 = type.titleMedium,
-        h2 = type.titleSmall,
-        h3 = type.titleSmall,
-        h4 = type.bodyMedium.copy(fontWeight = FontWeight.Bold),
-        h5 = type.bodyMedium.copy(fontWeight = FontWeight.Bold),
-        h6 = type.bodyMedium.copy(fontWeight = FontWeight.Bold),
+        text = roles.body,
+        code = roles.code,
+        inlineCode = roles.code,
+        h1 = roles.title,
+        h2 = roles.title,
+        h3 = roles.title,
+        h4 = roles.label,
+        h5 = roles.label,
+        h6 = roles.label,
     )
     CompositionLocalProvider(LocalUriHandler provides handler) {
         Markdown(

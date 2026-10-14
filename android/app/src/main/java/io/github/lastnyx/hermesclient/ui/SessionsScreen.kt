@@ -89,7 +89,7 @@ fun SessionsScreen(
             TextButton(onClick = onGateways) { Text("Gateways") }
         }
         if (expired) {
-            Text("Signed out, sign in again", color = MaterialTheme.colorScheme.error)
+            Text("Signed out, sign in again", style = roles.body, color = MaterialTheme.colorScheme.error)
             Button(onClick = onGateways) { Text("Go to Gateways") }
         }
         OutlinedTextField(
@@ -98,9 +98,9 @@ fun SessionsScreen(
         )
         state.error?.let {
             if (offline && it == CANT_REACH_GATEWAY) {
-                Text("Offline", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Offline", style = roles.body, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
-                Text(it, color = MaterialTheme.colorScheme.error)
+                Text(it, style = roles.body, color = MaterialTheme.colorScheme.error)
             }
         }
         PullToRefreshBox(
@@ -121,17 +121,17 @@ fun SessionsScreen(
                         Row {
                             Text(
                                 session.title.ifBlank { "Untitled" },
-                                style = MaterialTheme.typography.titleSmall,
+                                style = roles.title,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
-                            Text(relativeTime(session.lastActive), style = MaterialTheme.typography.labelSmall)
+                            Text(relativeTime(session.lastActive), style = roles.caption)
                         }
                         if (session.preview.isNotBlank()) {
                             Text(
                                 session.preview,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = roles.secondary,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
@@ -278,6 +278,6 @@ private fun SessionsBody(
 @Composable
 fun ChatPlaceholder(modifier: Modifier = Modifier) {
     Column(modifier.padding(16.dp)) {
-        Text("Select or start a chat", style = MaterialTheme.typography.titleMedium)
+        Text("Select or start a chat", style = roles.title)
     }
 }

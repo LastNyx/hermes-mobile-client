@@ -62,7 +62,7 @@ fun GatewaysScreen(
         ScreenTopBar("Gateways") {
             TextButton(onClick = onOpenSettings) { Text("Settings") }
         }
-        if (updateStatus.startsWith("Update available")) Text(updateStatus)
+        if (updateStatus.startsWith("Update available")) Text(updateStatus, style = roles.body)
         val activeState = activeId?.let { signStates[it] ?: signIn.stateOf(it) }
         if (activeState is SignInState.SignedIn) {
             Button(onClick = onOpenSessions) { Text("Open sessions") }
@@ -91,13 +91,15 @@ fun GatewaysScreen(
                         Row {
                             RadioButton(selected = gateway.id == activeId, onClick = { registry.setActive(gateway.id); refresh() })
                             Column {
-                                Text(gateway.name, style = MaterialTheme.typography.titleMedium)
-                                Text(gateway.url, style = MaterialTheme.typography.bodySmall)
+                                Text(gateway.name, style = roles.title)
+                                Text(gateway.url, style = roles.secondary)
                             }
                         }
-                        testResults[gateway.id]?.let { Text(it) }
+                        testResults[gateway.id]?.let { Text(it, style = roles.body) }
                         val state = signStates[gateway.id] ?: signIn.stateOf(gateway.id)
                         Text(
+                            style = roles.body,
+                            text =
                             when (state) {
                                 is SignInState.SignedIn -> if (state.name == "Signed in") state.name else "Signed in as ${state.name}"
                                 SignInState.SigningIn -> "Signing in…"
@@ -126,7 +128,7 @@ fun GatewaysScreen(
                             }) { Text("Test") }
                             TextButton(onClick = { editing = gateway }) { Text("Edit") }
                             TextButton(onClick = { registry.remove(gateway.id); refresh() }) {
-                                Text("Remove", style = MaterialTheme.typography.labelLarge)
+                                Text("Remove")
                             }
                         }
                     }
@@ -148,10 +150,11 @@ private fun GatewayForm(initial: Gateway?, onSubmit: (String, String) -> String?
         if (GatewayUrl.warnsCleartext(url)) {
             Text(
                 "This address uses http://, so your credentials would cross the network unencrypted.",
+                style = roles.body,
                 color = MaterialTheme.colorScheme.error,
             )
         }
-        error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        error?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.error) }
         Row {
             Button(onClick = { error = onSubmit(name, url) }) { Text("Save") }
             TextButton(onClick = onCancel) { Text("Cancel") }
