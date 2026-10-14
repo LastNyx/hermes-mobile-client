@@ -132,7 +132,7 @@ fun ChatHost(
         onDispose { controller.state.value.let { s -> (s.storedId ?: s.sessionId)?.let { WatchHub.chatClosed(context, it) } } }
     }
     val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val onSend: suspend (String) -> String? = { text ->
+    val onSend: suspend (String) -> Unit = { text ->
         val current = controller.state.value
         if (!current.running) {
             // Denied permission only silences notifications; the service and chat still work.
@@ -154,7 +154,7 @@ fun ChatScreen(
     models: ModelsController,
     slash: SlashCommands,
     modifier: Modifier = Modifier,
-    onSend: suspend (String) -> String? = { controller.send(it) },
+    onSend: suspend (String) -> Unit = { controller.send(it) },
     title: String,
     onBack: (() -> Unit)? = null,
 ) {
@@ -304,7 +304,7 @@ fun ChatScreen(
                         if (parseSlashLine(text) != null) {
                             scope.launch { slash.runLine(text)?.let { setDraft(it) } }
                         } else {
-                            scope.launch { onSend(text)?.let { setDraft(it) } }
+                            scope.launch { onSend(text) }
                         }
                     }
                     else if (state.running) scope.launch { controller.stop() }

@@ -286,10 +286,10 @@ class ChatController(
         }
     }
 
-    /** Always null now: text that could not be sent is queued instead of handed back. */
-    suspend fun send(text: String): String? {
+    /** Text that could not be sent is queued. */
+    suspend fun send(text: String) {
         val trimmed = text.trim()
-        return deliver(trimmed, trimmed)
+        deliver(trimmed, trimmed)
     }
 
     /** [message] goes to the model; the bubble shows [display] (message may be hidden scaffolding). */
@@ -302,13 +302,13 @@ class ChatController(
         loadHistory(_state.value.storedId ?: throw IOException("Chat not ready"))
     }
 
-    /** Text that cannot go now (redirect rejected or failed, or a prompt is open) is queued. Always returns null. */
-    private suspend fun deliver(message: String, display: String): String? {
-        if (message.isEmpty()) return null
+    /** Text that cannot go now (redirect rejected or failed, or a prompt is open) is queued. */
+    private suspend fun deliver(message: String, display: String) {
+        if (message.isEmpty()) return
         val before = _state.value
         if (before.running && before.prompts.isNotEmpty()) {
             queue(message)
-            return null
+            return
         }
         val bubbleId = "m${before.items.size}"
         _state.update { it.copy(items = it.items + ChatItem.Message(bubbleId, "user", display), running = true, error = null) }
@@ -319,7 +319,6 @@ class ChatController(
                 if (reply.optString("status") == "rejected") {
                     dropBubble()
                     queue(message)
-                    return null
                 }
             } else {
                 submit(message)
@@ -329,14 +328,11 @@ class ChatController(
                 fail(e)
             } else {
                 dropBubble()
-                // The turn we tried to redirect is still running.
-                fail(e)
-                _state.update { it.copy(running = true) }
+                // The turn we tried to redirect is still running, so leave `running` alone.
+                _state.update { it.copy(error = errorText(e)) }
                 queue(message)
-                return null
             }
         }
-        return null
     }
 
     /** Puts local text (e.g. slash command output) into the chat without sending it. */
@@ -393,8 +389,10 @@ class ChatController(
         }
     }
 
+    private fun errorText(e: Exception) =
+        if (e is IOException) "Can't reach the gateway. Check your connection." else e.message ?: "Something went wrong"
+
     private fun fail(e: Exception) {
-        val message = if (e is IOException) "Can't reach the gateway. Check your connection." else e.message ?: "Something went wrong"
-        _state.update { it.copy(error = message, running = false) }
+        _state.update { it.copy(error = errorText(e), running = false) }
     }
 }
