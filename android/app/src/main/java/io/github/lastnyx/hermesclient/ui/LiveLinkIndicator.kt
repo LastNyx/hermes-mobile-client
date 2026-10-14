@@ -1,6 +1,7 @@
 package io.github.lastnyx.hermesclient.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -42,7 +43,7 @@ fun LiveLinkDot(link: LiveLink, modifier: Modifier = Modifier) {
     val state by link.state.collectAsState()
     val (label, error) = linkLabel(state)
     val color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-    androidx.compose.foundation.layout.Box(
+    Box(
         modifier.size(SESSION_DOT_SIZE.dp).background(color, CircleShape)
             .semantics { contentDescription = "Live link: $label" },
     )
