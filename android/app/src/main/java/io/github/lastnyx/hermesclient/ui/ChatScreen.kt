@@ -416,19 +416,37 @@ private fun MessageBubble(item: ChatItem.Message) {
     }
 }
 
-/** Desktop shows a command's output as plain text under the command, so no card and no cut. */
+private const val COMMAND_OUTPUT_MAX_LINES = 12
+
 @Composable
 private fun CommandOutputCard(item: ChatItem.CommandOutput) {
-    val color = if (item.failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-    SelectionContainer {
-        Column(Modifier.fillMaxWidth()) {
+    var expanded by rememberSaveable(item.key) { mutableStateOf(false) }
+    val long = item.text.lineSequence().count() > COMMAND_OUTPUT_MAX_LINES
+    val container = if (item.failed) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
+    val content = if (item.failed) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    Surface(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = container,
+        contentColor = content,
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
             Text(
                 item.command,
                 style = MaterialTheme.typography.labelMedium,
                 fontFamily = FontFamily.Monospace,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = content.copy(alpha = 0.7f),
             )
-            Text(item.text, style = MaterialTheme.typography.bodyMedium, color = color)
+            SelectionContainer {
+                Text(
+                    item.text,
+                    Modifier.padding(top = 4.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = if (long && !expanded) COMMAND_OUTPUT_MAX_LINES else Int.MAX_VALUE,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (long) TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Show less" else "Show more") }
         }
     }
 }

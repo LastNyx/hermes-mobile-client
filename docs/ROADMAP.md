@@ -51,7 +51,7 @@ Gap today: suggestions only run when tapped, Enter sends `/cmd` as plain text, a
 ### Starting notes for the next session
 Read from the code on 2026-10-13. No Phase 3 tickets are written yet.
 - Works now: `SlashCommands.load()` calls `commands.catalog` when a chat opens. Suggestions filter locally as you type (`slash.filter(draft)`, first 6); tapping one runs it. `run()` calls `slash.exec` and, on an RPC error other than 4001, falls back to `command.dispatch`. The result shows as a note using `output`, `warning` or `notice`. The reasoning level is read on open with `config.get` (key `reasoning`, ticket 22).
-- Missing: `complete.slash` is unused; Enter on a typed `/cmd` sends it as plain text; the dispatch types `send`, `skill`, `prefill` and `alias` show nothing; error text from `SlashCommands` and `ModelsController.fail` is raw `e.message`.
+- Missing: `complete.slash` is unused; (stale, fixed by tickets 23-26: Send runs `/cmd` as a command, output card cut at 12 lines); error text from `SlashCommands` and `ModelsController.fail` is raw `e.message`.
 - Where the code is: `SlashCommands`; `ChatScreen.kt` (the composer, with the round Send/Steer/Stop button and the 44 dp field); `ModelsController`.
 - Before cutting tickets, read `docs/PROTOCOL.md` lines ~383-386 (`commands.catalog`, `complete.slash`, `slash.exec`, `command.dispatch`) and Herald's `docs/hermes-protocol-research.md` (https://github.com/Giton22/herald). Herald's notes have not been read yet. Do not add any method or field that PROTOCOL.md does not list.
 

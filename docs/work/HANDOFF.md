@@ -101,7 +101,7 @@ Only the Markdown reply (bold, bullets, inline code) and the new look were seen 
 ### Unchecked
 
 - Slash commands, resolved from the code (not device-checked): suggestions filter as you type and tapping one runs it;
-  Enter on a typed `/cmd` sends it as plain text. CHANGELOG says the same.
+  Send on a typed `/cmd` runs it as a command (`slash.exec`, then `command.dispatch`); output shows in a card cut at 12 lines with Show more.
 - Text size setting, model picker and reasoning chips, and the Stop/Steer button: not seen on a device.
 
 ### Non-blocking reviewer smells (no ticket)
