@@ -434,6 +434,90 @@ class ChatControllerTest {
     }
 
     @Test
+    fun redirectOutcomesKeepOrDropTheBubbleAndStaleIdIsRetriedOnce() = runBlocking {
+        val calls = Collections.synchronizedList(mutableListOf<String>())
+        var resumes = 0
+        val listener = object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                webSocket.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"gateway.ready","payload":{"heartbeat":true,"replay_epoch":"ep1"}}}""")
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                val frame = JSONObject(text)
+                val id = frame.optString("id")
+                val method = frame.optString("method")
+                val params = frame.optJSONObject("params") ?: JSONObject()
+                fun result(body: String) = webSocket.send("""{"jsonrpc":"2.0","id":"$id","result":$body}""")
+                when (method) {
+                    "client.capabilities" -> result("{}")
+                    "session.resume" -> {
+                        resumes++
+                        calls += "resume"
+                        result("""{"session_id":"rt$resumes","stored_session_id":"stored-1","running":true}""")
+                    }
+                    "session.redirect" -> {
+                        val sid = params.getString("session_id")
+                        val body = params.getString("text")
+                        calls += "redirect $sid $body"
+                        when {
+                            body == "boom" -> webSocket.send("""{"jsonrpc":"2.0","id":"$id","error":{"code":-32000,"message":"gateway broke"}}""")
+                            body == "stale" && sid == "rt1" -> webSocket.send("""{"jsonrpc":"2.0","id":"$id","error":{"code":4001,"message":"session not found"}}""")
+                            body == "later" -> result("""{"status":"queued","text":"later"}""")
+                            else -> result("""{"status":"redirected","text":"$body"}""")
+                        }
+                    }
+                }
+            }
+        }
+        val gateway = MockWebServer()
+        gateway.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.path == "/api/auth/ws-ticket" -> MockResponse().setBody("""{"ticket":"t","ttl_seconds":30}""")
+                request.path!!.startsWith("/api/ws") -> MockResponse().withWebSocketUpgrade(listener)
+                request.path!!.startsWith("/api/sessions/stored-1/messages") -> MockResponse().setBody("""{"session_id":"stored-1","messages":[]}""")
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val http = OkHttpClient()
+        val authed = AuthedHttp(http, tokens, "gw-1", base, now = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val link = LiveLink(http, authed, base, scope, FakeNetwork(), random = { 0.0 })
+        link.start()
+        awaitTrue { link.state.value == LinkState.Connected }
+
+        val chat = ChatController(link, SessionsRepository(authed, base), "stored-1", scope)
+        fun users() = chat.state.value.items.filterIsInstance<ChatItem.Message>().map { it.text }
+        chat.open()
+
+        chat.send("more")
+        assertEquals(listOf("more"), users())
+        chat.send("later")
+        assertEquals(listOf("more", "later"), users())
+        assertEquals(emptyList<String>(), chat.state.value.queue.map { it.text })
+
+        chat.send("boom")
+        assertEquals(listOf("more", "later"), users())
+        assertEquals("gateway broke", chat.state.value.error)
+        assertEquals(true, chat.state.value.running)
+        assertEquals(listOf("boom"), chat.state.value.queue.map { it.text })
+
+        chat.send("stale")
+        assertEquals(listOf("more", "later", "stale"), users())
+        assertEquals(
+            listOf("resume", "redirect rt1 more", "redirect rt1 later", "redirect rt1 boom", "redirect rt1 stale", "resume", "redirect rt2 stale"),
+            calls.toList().drop(0),
+        )
+
+        link.stop()
+        scope.coroutineContext[Job]!!.cancel()
+        gateway.shutdown()
+    }
+
+    @Test
     fun chatOpensStreamsRedirectsStopsAndResumesOn4001() = runBlocking {
         val calls = Collections.synchronizedList(mutableListOf<String>())
         var resumes = 0
