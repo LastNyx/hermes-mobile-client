@@ -10,7 +10,8 @@ sealed interface WatchAction {
     data class Done(override val sessionId: String) : WatchAction
     data class Failed(override val sessionId: String) : WatchAction
     data class NeedsApproval(override val sessionId: String, val toolName: String, val promptId: String) : WatchAction
-    data class NeedsAnswer(override val sessionId: String) : WatchAction
+    /** [qid] is set only for a single-question clarify, the only kind that can be answered in place. */
+    data class NeedsAnswer(override val sessionId: String, val promptId: String, val qid: String?, val hasChoices: Boolean) : WatchAction
     data class Clear(override val sessionId: String) : WatchAction
 }
 
@@ -48,7 +49,10 @@ class WatchPolicy {
             if (p.id in entry.seenRequests) continue
             actions += when (p) {
                 is Prompt.Approval -> WatchAction.NeedsApproval(sessionId, p.toolName, p.id)
-                is Prompt.Clarify -> WatchAction.NeedsAnswer(sessionId)
+                is Prompt.Clarify -> {
+                    val only = p.questions.singleOrNull()
+                    WatchAction.NeedsAnswer(sessionId, p.id, only?.qid, only?.choices?.isNotEmpty() == true)
+                }
             }
         }
         if (entry.seenRequests.any { it !in now }) actions += WatchAction.Clear(sessionId)

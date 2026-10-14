@@ -5,6 +5,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.RemoteInput
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -73,7 +74,22 @@ class WatchNotifier(private val context: Context) {
             builder.addAction(choiceAction(action, "Allow once", "once"))
             builder.addAction(choiceAction(action, "Deny", "deny"))
         }
+        if (action is WatchAction.NeedsAnswer && action.qid != null) builder.addAction(replyAction(action, action.qid))
         manager.notify(action.sessionId.hashCode(), builder.build())
+    }
+
+    private fun replyAction(action: WatchAction.NeedsAnswer, qid: String): Notification.Action {
+        val intent = Intent(context, WatchActionReceiver::class.java)
+            .putExtra(EXTRA_SESSION_ID, action.sessionId)
+            .putExtra(EXTRA_PROMPT_ID, action.promptId)
+            .putExtra(EXTRA_QID, qid)
+        // Mutable so the system can attach the typed text to the intent.
+        val pending = PendingIntent.getBroadcast(
+            context, (action.sessionId + "answer").hashCode(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
+        )
+        val input = RemoteInput.Builder(REMOTE_INPUT_ANSWER).setLabel("Your answer").build()
+        return Notification.Action.Builder(null, "Reply", pending).addRemoteInput(input).build()
     }
 
     private fun choiceAction(action: WatchAction.NeedsApproval, label: String, choice: String): Notification.Action {

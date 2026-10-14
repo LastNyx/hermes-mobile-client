@@ -148,6 +148,7 @@ fun ChatHost(
                 WatchHub.track(context, it, controller.state, link) { reply ->
                     when (reply) {
                         is WatchReply.Approve -> controller.answerApproval(reply.promptId, reply.choice)
+                        is WatchReply.Answer -> controller.answerClarify(reply.promptId, mapOf(reply.qid to reply.text))
                     }
                 }
             }

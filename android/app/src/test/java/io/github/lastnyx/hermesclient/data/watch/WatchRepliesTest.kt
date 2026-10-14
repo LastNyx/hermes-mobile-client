@@ -28,4 +28,19 @@ class WatchRepliesTest {
         assertFalse(replies.reply("s1", answer))
         assertEquals(1, got1.size)
     }
+
+    @Test
+    fun typedAnswerReachesCallbackOnceAndBlankDoesNot() {
+        val replies = WatchReplies()
+        val got = mutableListOf<WatchReply>()
+        replies.register("s1") { got += it }
+
+        assertNull(watchText("srq-2", "q1", "  "))
+        assertNull(watchText("srq-2", "q1", ""))
+        val answer = watchText("srq-2", "q1", "yes")
+        assertEquals(WatchReply.Answer("srq-2", "q1", "yes"), answer)
+
+        assertTrue(replies.reply("s1", answer!!))
+        assertEquals(listOf<WatchReply>(WatchReply.Answer("srq-2", "q1", "yes")), got)
+    }
 }
