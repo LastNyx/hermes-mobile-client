@@ -114,7 +114,7 @@ Only the Markdown reply (bold, bullets, inline code) and the new look were seen 
 
 ### Next steps
 
-1. Phase 3 is done (batches 10, 11). Session list work (roadmap item 1): tickets 33-35 plus 36-fix passed reviewer round 2 (`review-12-2.md`); phone check of pin, archive, grouping, order, status and filter is the user's. Not released (no release by user decision).
+1. Phase 3 is done (batches 10, 11). Session list work (roadmap item 1) and the redesign of Chats, Gateways and the gateway form: batches 12 and 13 (tickets 33-44) passed reviewer (`review-12-2.md`, `review-13-4.md`). The user checked them on the phone. Not released (no release by user decision).
 2. Phase 4 docs worker ran (2026-10-14): 5 CHANGELOG entries added, drift list in `.scratch/v1/drift.md`.
 3. No release for now: the user uses the debug build himself (2026-10-14). Do not tag or publish.
 4. Ask the user to approve the 51 lines in `.scratch/dev-notes.md`.
