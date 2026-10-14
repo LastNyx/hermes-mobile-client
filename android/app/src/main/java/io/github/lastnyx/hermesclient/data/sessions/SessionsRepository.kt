@@ -11,7 +11,18 @@ import java.io.IOException
 
 const val CANT_REACH_GATEWAY = "Can't reach the gateway. Check your connection."
 
-data class Session(val id: String, val title: String, val preview: String, val lastActive: Double)
+data class Session(
+    val id: String,
+    val title: String,
+    val preview: String,
+    val lastActive: Double,
+    val pinned: Boolean = false,
+    val archived: Boolean = false,
+)
+
+/** Pinned first, then most recent activity first. */
+internal fun List<Session>.pinnedFirst(): List<Session> =
+    sortedWith(compareByDescending<Session> { it.pinned }.thenByDescending { it.lastActive })
 
 data class HistoryMessage(val role: String, val text: String)
 
@@ -19,15 +30,17 @@ data class HistoryMessage(val role: String, val text: String)
 class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
     private val base = baseUrl.trimEnd('/')
 
-    fun list(): Result<List<Session>> = call(
+    /** [archived] is the gateway's filter: `exclude` (default), `only` or `include`. */
+    fun list(archived: String = "exclude"): Result<List<Session>> = call(
         Request.Builder().url(
             "$base/api/sessions".toHttpUrl().newBuilder()
                 .addQueryParameter("order", "recent")
+                .addQueryParameter("archived", archived)
                 // Human chats only: Desktop hides scheduled/automated sources from recents.
                 .addQueryParameter("exclude_sources", "cron")
                 .build(),
         ).build(),
-    ) { parse(it.getJSONArray("sessions"), "id") }.map { it.sortedByDescending(Session::lastActive) }
+    ) { parse(it.getJSONArray("sessions"), "id") }.map { it.pinnedFirst() }
 
     fun search(query: String): Result<List<Session>> = call(
         Request.Builder().url(
@@ -41,6 +54,16 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
     fun rename(id: String, title: String): Result<Unit> = call(
         Request.Builder().url("$base/api/sessions/$id")
             .patch(JSONObject().put("title", title).toString().toRequestBody("application/json".toMediaType()))
+            .build(),
+    ) { }
+
+    fun setPinned(id: String, pinned: Boolean): Result<Unit> = patch(id, JSONObject().put("pinned", pinned))
+
+    fun setArchived(id: String, archived: Boolean): Result<Unit> = patch(id, JSONObject().put("archived", archived))
+
+    private fun patch(id: String, body: JSONObject): Result<Unit> = call(
+        Request.Builder().url("$base/api/sessions/$id")
+            .patch(body.toString().toRequestBody("application/json".toMediaType()))
             .build(),
     ) { }
 
@@ -74,6 +97,8 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
             title = row.optString("title", "").takeIf { !row.isNull("title") } ?: "",
             preview = if (row.isNull("preview")) "" else row.optString("preview"),
             lastActive = row.optDouble("last_active", 0.0),
+            pinned = row.optBoolean("pinned", false),
+            archived = row.optBoolean("archived", false),
         )
     }
 

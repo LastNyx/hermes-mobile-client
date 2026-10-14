@@ -16,6 +16,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -77,16 +85,26 @@ fun SessionsScreen(
     var renaming by remember { mutableStateOf<Session?>(null) }
     var deleting by remember { mutableStateOf<Session?>(null) }
 
+    var menuFor by remember { mutableStateOf<Session?>(null) }
+    val snackbar = remember { SnackbarHostState() }
+
     LaunchedEffect(Unit) { model.load() }
     LaunchedEffect(query) {
         if (query.isNotEmpty()) delay(300)
         if (query != model.state.value.query) model.search(query)
     }
+    BackHandler(enabled = state.archivedPage) { scope.launch { model.closeArchived() } }
 
-    Column(modifier.padding(horizontal = SCREEN_EDGE.dp), verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
-        ScreenTopBar("Sessions") {
-            Button(onClick = { onOpen(null) }, contentPadding = ButtonDefaults.TextButtonContentPadding) { Text("New chat") }
-            TextButton(onClick = onGateways) { Text("Gateways") }
+    Box(modifier) {
+    Column(Modifier.padding(horizontal = SCREEN_EDGE.dp), verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
+        ScreenTopBar(if (state.archivedPage) "Archived" else "Sessions") {
+            if (state.archivedPage) {
+                TextButton(onClick = { scope.launch { model.closeArchived() } }) { Text("Back") }
+            } else {
+                Button(onClick = { onOpen(null) }, contentPadding = ButtonDefaults.TextButtonContentPadding) { Text("New chat") }
+                TextButton(onClick = { scope.launch { query = ""; model.openArchived() } }) { Text("Archived") }
+                TextButton(onClick = onGateways) { Text("Gateways") }
+            }
         }
         if (expired) {
             Text("Signed out, sign in again", style = roles.body, color = MaterialTheme.colorScheme.error)
@@ -115,10 +133,17 @@ fun SessionsScreen(
                         Modifier.fillMaxWidth()
                             .clip(card)
                             .background(MaterialTheme.colorScheme.surfaceContainerLow, card)
-                            .combinedClickable(onClick = { onOpen(session.id) }, onLongClick = { renaming = session })
+                            .combinedClickable(onClick = { onOpen(session.id) }, onLongClick = { menuFor = session })
                             .padding(ROW_PADDING.dp),
                     ) {
                         Row {
+                            if (session.pinned) {
+                                Icon(
+                                    Icons.Filled.PushPin, contentDescription = "Pinned",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp).padding(end = LIST_GAP.dp),
+                                )
+                            }
                             Text(
                                 session.title.ifBlank { "Untitled" },
                                 style = roles.title,
@@ -142,7 +167,39 @@ fun SessionsScreen(
             }
         }
     }
+    SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+    }
 
+    menuFor?.let { session ->
+        AlertDialog(
+            onDismissRequest = { menuFor = null },
+            title = { Text(session.title.ifBlank { "Untitled" }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            text = {
+                Column {
+                    if (state.archivedPage) {
+                        TextButton(onClick = { menuFor = null; scope.launch { model.setArchived(session.id, false) } }) { Text("Unarchive") }
+                    } else {
+                        TextButton(onClick = { menuFor = null; scope.launch { model.setPinned(session.id, !session.pinned) } }) {
+                            Text(if (session.pinned) "Unpin" else "Pin")
+                        }
+                        TextButton(onClick = {
+                            menuFor = null
+                            scope.launch {
+                                model.setArchived(session.id, true)
+                                if (model.state.value.error == null) {
+                                    val result = snackbar.showSnackbar("Archived", actionLabel = "Undo", duration = SnackbarDuration.Short)
+                                    if (result == SnackbarResult.ActionPerformed) model.setArchived(session.id, false)
+                                }
+                            }
+                        }) { Text("Archive") }
+                        TextButton(onClick = { menuFor = null; renaming = session }) { Text("Rename") }
+                    }
+                    TextButton(onClick = { menuFor = null; deleting = session }) { Text("Delete") }
+                }
+            },
+            confirmButton = { TextButton(onClick = { menuFor = null }) { Text("Cancel") } },
+        )
+    }
     renaming?.let { session ->
         var title by remember(session.id) { mutableStateOf(session.title) }
         AlertDialog(
@@ -152,12 +209,7 @@ fun SessionsScreen(
             confirmButton = {
                 TextButton(onClick = { renaming = null; scope.launch { model.rename(session.id, title.trim()) } }) { Text("Rename") }
             },
-            dismissButton = {
-                Row {
-                    TextButton(onClick = { renaming = null; deleting = session }) { Text("Delete") }
-                    TextButton(onClick = { renaming = null }) { Text("Cancel") }
-                }
-            },
+            dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } },
         )
     }
     deleting?.let { session ->
