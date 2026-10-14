@@ -78,11 +78,13 @@ class WatchNotifier(private val context: Context) {
         manager.notify(action.sessionId.hashCode(), builder.build())
     }
 
+    private fun actionIntent(sessionId: String, promptId: String?) =
+        Intent(context, WatchActionReceiver::class.java)
+            .putExtra(EXTRA_SESSION_ID, sessionId)
+            .putExtra(EXTRA_PROMPT_ID, promptId)
+
     private fun replyAction(action: WatchAction.NeedsAnswer, qid: String): Notification.Action {
-        val intent = Intent(context, WatchActionReceiver::class.java)
-            .putExtra(EXTRA_SESSION_ID, action.sessionId)
-            .putExtra(EXTRA_PROMPT_ID, action.promptId)
-            .putExtra(EXTRA_QID, qid)
+        val intent = actionIntent(action.sessionId, action.promptId).putExtra(EXTRA_QID, qid)
         // Mutable so the system can attach the typed text to the intent.
         val pending = PendingIntent.getBroadcast(
             context, (action.sessionId + "answer").hashCode(), intent,
@@ -93,10 +95,7 @@ class WatchNotifier(private val context: Context) {
     }
 
     private fun choiceAction(action: WatchAction.NeedsApproval, label: String, choice: String): Notification.Action {
-        val intent = Intent(context, WatchActionReceiver::class.java)
-            .putExtra(EXTRA_SESSION_ID, action.sessionId)
-            .putExtra(EXTRA_PROMPT_ID, action.promptId)
-            .putExtra(EXTRA_CHOICE, choice)
+        val intent = actionIntent(action.sessionId, action.promptId).putExtra(EXTRA_CHOICE, choice)
         val pending = PendingIntent.getBroadcast(
             context, (action.sessionId + choice).hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,

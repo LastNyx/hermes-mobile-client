@@ -314,8 +314,10 @@ class ChatController(
         loadHistory(_state.value.storedId ?: throw IOException("Chat not ready"))
     }
 
-    /** Text that cannot go now (redirect rejected or failed, or a prompt is open) is queued. */
-    /** Returns false only when a plain submit failed, so the caller can keep the text. */
+    /**
+     * Text that cannot go now (redirect rejected or failed, or a prompt is open) is queued.
+     * Returns false only when a plain submit failed, so the caller can keep the text.
+     */
     private suspend fun deliver(message: String, display: String): Boolean {
         if (message.isEmpty()) return true
         val before = _state.value

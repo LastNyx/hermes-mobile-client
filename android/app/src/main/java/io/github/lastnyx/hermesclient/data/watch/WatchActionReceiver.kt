@@ -1,15 +1,15 @@
 package io.github.lastnyx.hermesclient.data.watch
 
 import android.app.NotificationManager
+import android.app.RemoteInput
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.app.RemoteInput
 import android.content.Intent
 
-const val EXTRA_QID = "hermes.qid"
-const val REMOTE_INPUT_ANSWER = "answer"
 const val EXTRA_PROMPT_ID = "hermes.prompt_id"
+const val EXTRA_QID = "hermes.qid"
 const val EXTRA_CHOICE = "hermes.choice"
+const val REMOTE_INPUT_ANSWER = "answer"
 
 /** Thin glue: routes a notification button to [WatchHub]. If nobody listens it only cancels the notification. */
 class WatchActionReceiver : BroadcastReceiver() {
