@@ -32,7 +32,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.HorizontalDivider
+import io.github.lastnyx.hermesclient.data.sessions.SessionGrouping
 import io.github.lastnyx.hermesclient.data.sessions.SessionOrdering
+import io.github.lastnyx.hermesclient.data.sessions.SessionStatus
+import io.github.lastnyx.hermesclient.data.sessions.sessionStatus
+import androidx.compose.foundation.shape.CircleShape
 import io.github.lastnyx.hermesclient.data.sessions.groupSessions
 import io.github.lastnyx.hermesclient.data.settings.PrefsSessionViewStorage
 import io.github.lastnyx.hermesclient.data.settings.SessionViewStore
@@ -88,7 +93,8 @@ fun SessionsScreen(
     offline: Boolean = false,
 ) {
     val state by model.state.collectAsState()
-    val grouping = remember { viewStore.grouping() }
+    var grouping by remember { mutableStateOf(viewStore.grouping()) }
+    var statuses by remember { mutableStateOf(viewStore.statusFilter()) }
     var ordering by remember { mutableStateOf(viewStore.ordering()) }
     var viewMenu by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -120,6 +126,25 @@ fun SessionsScreen(
                             DropdownMenuItem(
                                 text = { Text((if (option == ordering) "✓ " else "") + option.label) },
                                 onClick = { viewMenu = false; ordering = option; viewStore.setOrdering(option) },
+                            )
+                        }
+                        HorizontalDivider()
+                        Text("Group by", style = roles.caption, modifier = Modifier.padding(horizontal = ROW_PADDING.dp))
+                        SessionGrouping.entries.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text((if (option == grouping) "✓ " else "") + option.label) },
+                                onClick = { viewMenu = false; grouping = option; viewStore.setGrouping(option) },
+                            )
+                        }
+                        HorizontalDivider()
+                        Text("Show", style = roles.caption, modifier = Modifier.padding(horizontal = ROW_PADDING.dp))
+                        SessionStatus.entries.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text((if (option in statuses) "☑ " else "☐ ") + option.label) },
+                                onClick = {
+                                    statuses = if (option in statuses) statuses - option else statuses + option
+                                    viewStore.setStatusFilter(statuses)
+                                },
                             )
                         }
                     }
@@ -155,7 +180,7 @@ fun SessionsScreen(
                     }
                 } else {
                     val groups = groupSessions(
-                        state.sessions, System.currentTimeMillis() / 1000, grouping, ordering, ZoneId.systemDefault(),
+                        state.sessions, System.currentTimeMillis() / 1000, grouping, ordering, ZoneId.systemDefault(), statuses,
                     )
                     groups.forEach { group ->
                         item(key = "group-${group.title}") {
@@ -244,6 +269,17 @@ private fun SessionRow(session: Session, onOpen: (String?) -> Unit, onMenu: () -
                     Icons.Filled.PushPin, contentDescription = "Pinned",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(16.dp).padding(end = LIST_GAP.dp),
+                )
+            }
+            val dot = when (sessionStatus(session)) {
+                SessionStatus.Working -> MaterialTheme.colorScheme.tertiary
+                SessionStatus.Unread -> MaterialTheme.colorScheme.primary
+                else -> null
+            }
+            if (dot != null) {
+                Box(
+                    Modifier.align(Alignment.CenterVertically).padding(end = LIST_GAP.dp)
+                        .size(8.dp).background(dot, CircleShape),
                 )
             }
             Text(

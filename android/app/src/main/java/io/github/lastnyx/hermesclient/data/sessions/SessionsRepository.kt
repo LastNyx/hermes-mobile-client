@@ -19,6 +19,11 @@ data class Session(
     val pinned: Boolean = false,
     val archived: Boolean = false,
     val startedAt: Double = 0.0,
+    val active: Boolean = false,
+    val unread: Boolean = false,
+    // Absent count must not read as an empty draft.
+    val messageCount: Int = 1,
+    val cwd: String? = null,
 )
 
 /** Pinned first, then most recent activity first. */
@@ -101,6 +106,10 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
             pinned = row.optBoolean("pinned", false),
             archived = row.optBoolean("archived", false),
             startedAt = row.optDouble("started_at", 0.0),
+            active = row.optBoolean("is_active", false),
+            unread = row.optBoolean("unread", false),
+            messageCount = row.optInt("message_count", 1),
+            cwd = if (row.isNull("cwd")) null else row.optString("cwd").ifBlank { null },
         )
     }
 
