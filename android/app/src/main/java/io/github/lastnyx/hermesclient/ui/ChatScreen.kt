@@ -101,6 +101,7 @@ import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
 import io.github.lastnyx.hermesclient.data.watch.WatchHub
+import io.github.lastnyx.hermesclient.data.watch.WatchReply
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -143,7 +144,13 @@ fun ChatHost(
                 WatchHub.askedForNotifications = true
                 askPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
-            (current.storedId ?: current.sessionId)?.let { WatchHub.track(context, it, controller.state, link) }
+            (current.storedId ?: current.sessionId)?.let {
+                WatchHub.track(context, it, controller.state, link) { reply ->
+                    when (reply) {
+                        is WatchReply.Approve -> controller.answerApproval(reply.promptId, reply.choice)
+                    }
+                }
+            }
         }
         controller.send(text)
     }

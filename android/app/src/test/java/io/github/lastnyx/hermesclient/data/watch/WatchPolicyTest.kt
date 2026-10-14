@@ -31,7 +31,7 @@ class WatchPolicyTest {
         val policy = WatchPolicy()
         policy.turnStarted("s1")
         val asked = policy.onState("s1", ChatState(storedId = "s1", running = true, openRequests = listOf(approval(), clarify())))
-        assertEquals(listOf<WatchAction>(WatchAction.NeedsApproval("s1", "bash"), WatchAction.NeedsAnswer("s1")), asked)
+        assertEquals(listOf<WatchAction>(WatchAction.NeedsApproval("s1", "bash", "srq-1"), WatchAction.NeedsAnswer("s1")), asked)
         assertTrue(policy.shouldRun)
 
         val cleared = policy.onState("s1", ChatState(storedId = "s1", running = true))

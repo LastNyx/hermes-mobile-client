@@ -63,15 +63,28 @@ class WatchNotifier(private val context: Context) {
             is WatchAction.NeedsAnswer -> "Hermes has a question" to "Tap to answer"
             is WatchAction.Clear -> return
         }
-        manager.notify(
-            action.sessionId.hashCode(),
-            Notification.Builder(context, CHANNEL_NEEDS_YOU)
-                .setSmallIcon(android.R.drawable.stat_notify_chat)
-                .setContentTitle(title)
-                .setContentText(text)
-                .setAutoCancel(true)
-                .setContentIntent(open(action.sessionId))
-                .build(),
+        val builder = Notification.Builder(context, CHANNEL_NEEDS_YOU)
+            .setSmallIcon(android.R.drawable.stat_notify_chat)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setContentIntent(open(action.sessionId))
+        if (action is WatchAction.NeedsApproval) {
+            builder.addAction(choiceAction(action, "Allow once", "once"))
+            builder.addAction(choiceAction(action, "Deny", "deny"))
+        }
+        manager.notify(action.sessionId.hashCode(), builder.build())
+    }
+
+    private fun choiceAction(action: WatchAction.NeedsApproval, label: String, choice: String): Notification.Action {
+        val intent = Intent(context, WatchActionReceiver::class.java)
+            .putExtra(EXTRA_SESSION_ID, action.sessionId)
+            .putExtra(EXTRA_PROMPT_ID, action.promptId)
+            .putExtra(EXTRA_CHOICE, choice)
+        val pending = PendingIntent.getBroadcast(
+            context, (action.sessionId + choice).hashCode(), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        return Notification.Action.Builder(null, label, pending).build()
     }
 }

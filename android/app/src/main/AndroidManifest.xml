@@ -36,6 +36,10 @@
             android:name=".data.update.InstallStatusReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".data.watch.WatchActionReceiver"
+            android:exported="false" />
+
         <service
             android:name=".data.watch.WatchService"
             android:exported="false"

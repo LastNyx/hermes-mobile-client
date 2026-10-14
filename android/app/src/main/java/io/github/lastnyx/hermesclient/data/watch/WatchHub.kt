@@ -17,6 +17,7 @@ object WatchHub {
     private val policy = WatchPolicy()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val jobs = mutableMapOf<String, Job>()
+    private val replies = WatchReplies()
 
     @Volatile var active = false
         private set
@@ -29,10 +30,11 @@ object WatchHub {
     @Volatile var askedForNotifications = false
 
     /** Call while the app is in the foreground, as a phone-started turn begins. */
-    fun track(context: Context, sessionId: String, state: StateFlow<ChatState>, link: LiveLink) {
+    fun track(context: Context, sessionId: String, state: StateFlow<ChatState>, link: LiveLink, answer: (WatchReply) -> Unit) {
         val app = context.applicationContext
         val notifier = WatchNotifier(app)
         this.link = link
+        replies.register(sessionId, answer)
         val alreadyWatched = policy.watching(sessionId)
         policy.turnStarted(sessionId)
         if (!active) {
@@ -46,13 +48,17 @@ object WatchHub {
                 !policy.watching(sessionId)
             }
             jobs.remove(sessionId)
+            replies.forget(sessionId)
             stopIfIdle(app)
         }
     }
 
+    fun reply(sessionId: String, reply: WatchReply): Boolean = replies.reply(sessionId, reply)
+
     /** Call when the chat screen goes away: its state flow no longer updates, so the watch ends here. */
     fun chatClosed(context: Context, sessionId: String) {
         val app = context.applicationContext
+        replies.forget(sessionId)
         val actions = policy.chatClosed(sessionId)
         if (actions.isEmpty()) return
         jobs.remove(sessionId)?.cancel()
