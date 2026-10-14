@@ -288,6 +288,7 @@ fun ChatScreen(
             onEdit = { id -> controller.takeQueued(id)?.let { setDraft(it) } },
             onRemove = { controller.removeQueued(it) },
         )
+        ProcessPanel(state.processes, onStop = { controller.killProcess(it) }, onDismiss = { controller.dismissProcess(it) })
         Row(Modifier.fillMaxWidth().padding(vertical = COMPOSER_VERTICAL_PADDING.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 field, { field = it }, modifier = Modifier.weight(1f).heightIn(min = 44.dp),
