@@ -370,7 +370,7 @@ class ChatControllerTest {
     }
 
     @Test
-    fun redirectedTextIsHandedBackWhenRejectedOrWhenAnApprovalIsOpen() = runBlocking {
+    fun redirectedTextIsQueuedWhenRejectedOrWhenAnApprovalIsOpen() = runBlocking {
         val calls = Collections.synchronizedList(mutableListOf<String>())
         var socket: WebSocket? = null
         val listener = object : WebSocketListener() {
@@ -509,7 +509,7 @@ class ChatControllerTest {
         assertEquals(listOf("more", "later", "stale"), users())
         assertEquals(
             listOf("resume", "redirect rt1 more", "redirect rt1 later", "redirect rt1 boom", "redirect rt1 stale", "resume", "redirect rt2 stale"),
-            calls.toList().drop(0),
+            calls.toList(),
         )
 
         link.stop()

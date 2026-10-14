@@ -75,10 +75,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
@@ -485,7 +487,7 @@ internal fun itemGapBefore(previous: ChatItem?, item: ChatItem): Int = when {
 private fun MessageBubble(item: ChatItem.Message, actions: LastActions, onRetry: () -> Unit, onEdit: () -> Unit) {
     val mine = item.role == "user"
     if (mine) {
-        val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+        val clipboard = LocalClipboardManager.current
         var menu by remember { mutableStateOf(false) }
         val editable = actions.editKey == item.key
         BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
@@ -507,7 +509,7 @@ private fun MessageBubble(item: ChatItem.Message, actions: LastActions, onRetry:
                     text = { Text("Copy") },
                     onClick = {
                         menu = false
-                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(item.text))
+                        clipboard.setText(AnnotatedString(item.text))
                     },
                 )
             }
