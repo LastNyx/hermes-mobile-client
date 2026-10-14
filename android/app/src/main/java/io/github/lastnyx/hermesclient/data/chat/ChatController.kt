@@ -6,7 +6,12 @@ import io.github.lastnyx.hermesclient.data.live.LiveLink
 import io.github.lastnyx.hermesclient.data.live.ServerRequest
 import io.github.lastnyx.hermesclient.data.live.RpcError
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +32,10 @@ class ChatController(
     storedId: String?,
     private val scope: CoroutineScope,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    private val processPollMs: Long = 5000,
 ) {
+    private val dismissedProcesses = ConcurrentHashMap.newKeySet<String>()
+
     private val queueLock = Any()
     private val queue = MessageQueue()
     private var drainPending = false
@@ -77,6 +85,56 @@ class ChatController(
                 if (link == LinkState.Connected && _state.value.sessionId != null) scope.launch { catchUp() }
             }
         }
+        // Poll only while something runs; collectLatest cancels the loop when the last one ends.
+        scope.launch {
+            _state.map { s -> s.processes.any { it.state == ProcessState.Running } }.distinctUntilChanged().collectLatest { running ->
+                while (running) {
+                    delay(processPollMs)
+                    refreshProcesses()
+                }
+            }
+        }
+    }
+
+    /** Re-reads the session's background processes; a failure leaves the old list. */
+    suspend fun refreshProcesses() {
+        try {
+            val reply = sessionCall("process.list") { it }
+            val incoming = parseProcesses(reply)
+            _state.update { it.copy(processes = mergeProcesses(it.processes, incoming, dismissedProcesses)) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Nothing to show: the card simply stays as it was.
+        }
+    }
+
+    suspend fun killProcess(id: String) {
+        try {
+            val reply = sessionCall("process.kill") { it.put("process_id", id) }
+            if (reply.optString("status") == "error") return
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return
+        }
+        refreshProcesses()
+    }
+
+    fun dismissProcess(id: String) {
+        _state.update { s ->
+            val row = s.processes.firstOrNull { it.id == id } ?: return@update s
+            if (row.state == ProcessState.Running) return@update s
+            dismissedProcesses.add(id)
+            s.copy(processes = s.processes.filterNot { it.id == id })
+        }
+    }
+
+    private fun processEvent(event: LinkEvent) {
+        val kind = event.payload?.optString("kind")
+        if (event.type == "tool.complete" || (event.type == "status.update" && kind == "process")) {
+            scope.launch { refreshProcesses() }
+        }
     }
 
     /** Applies one event unless its seq was already seen. Callers hold [lock]. */
@@ -88,6 +146,7 @@ class ChatController(
             lastSeen = seq
         }
         _state.update { reduceChat(it, event) }
+        processEvent(event)
         if (event.type == "message.complete") turnEnded(event.payload?.optString("status").orEmpty())
     }
 
@@ -289,6 +348,7 @@ class ChatController(
                 loadHistory(stored)
                 resume()
             }
+            scope.launch { refreshProcesses() }
         } catch (e: Exception) {
             fail(e)
         }
