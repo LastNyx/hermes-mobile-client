@@ -56,7 +56,7 @@ Read from the code on 2026-10-13. No Phase 3 tickets are written yet.
 - Before cutting tickets, read `docs/PROTOCOL.md` lines ~383-386 (`commands.catalog`, `complete.slash`, `slash.exec`, `command.dispatch`) and Herald's `docs/hermes-protocol-research.md` (https://github.com/Giton22/herald). Herald's notes have not been read yet. Do not add any method or field that PROTOCOL.md does not list.
 
 ## Phase 4: close out
-- [ ] Docs worker, drift report.
+- [x] Docs worker, drift report (2026-10-14).
 - [ ] Ask the user: tag `v0.1.1` (includes phases 1 to 3), or keep working first.
 
 ## Backlog (not scheduled; the user picks after Phase 3)
