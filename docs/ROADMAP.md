@@ -61,7 +61,12 @@ Read from the code on 2026-10-13. No Phase 3 tickets are written yet.
 
 ## Backlog (user decision 2026-10-14)
 Goal: usable almost like Hermes Desktop, essential usage only. Herald is a feature reference, not a plan to follow. Picked by the user: session tools, send-while-running, notification actions. Order is the planner's; each one gets its own ticket batch after a protocol check.
-1. Session tools: pin and archive (rename, delete, search exist). PROTOCOL has `session.archive`, `session.delete`, `session.title` and the REST PATCH with `pinned`, `archived`, `unread`.
+1. Session list like Desktop (user added 2026-10-14: grouping, ordering, what is shown). Facts from PROTOCOL `GET /api/sessions` and `PATCH`: rows carry `pinned`, `archived`, `unread`, `is_active`, `source`, `model`, `message_count`, `last_active`, `cwd`, `git_branch`; query has `order` (`recent`|`created`), `archived` (`exclude`|`only`|`include`), `sources`/`exclude_sources`, `min_messages`, `cwd_prefix`. The protocol has no grouping parameter, so grouping is done on the phone from those fields. How Desktop itself groups is unchecked: read its code before cutting tickets.
+   - Pin and archive (with Undo), via `PATCH` (`pinned`, `archived`); pinned chats on top.
+   - Grouping: pinned, then by last activity (for example Today, Yesterday, Earlier); optional by project (`cwd`). Exact groups after the Desktop check.
+   - Ordering: last activity (default) or created; the user can switch.
+   - Showing: an Archived page (`archived=only`), unread dot, a running dot (`is_active`), source label for non-human sources, and a filter for source. Hide empty chats (`min_messages`).
+   - Already exist: rename, delete, search.
 2. Send-while-running: queue, steer, stop and send, undo and retry. PROTOCOL has `prompt.submit` (`queued`), `session.steer`, `session.redirect`, `session.interrupt`, `session.undo`.
 3. Notification actions: approve or answer from the notification. Needs the watch service to answer server requests over the live link.
 Not scheduled (no decision yet): attachments, offline cache, cron and capabilities, voice.
