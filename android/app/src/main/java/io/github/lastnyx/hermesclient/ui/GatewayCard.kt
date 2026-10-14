@@ -3,6 +3,7 @@ package io.github.lastnyx.hermesclient.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -64,9 +65,9 @@ fun GatewayCard(
         Row(Modifier.padding(start = ROW_PADDING.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(vertical = ROW_PADDING.dp), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
-                    Row(
+                    Box(
                         Modifier.size(GATEWAY_DOT_SIZE.dp).background(if (active) scheme.primary else scheme.outline, CircleShape),
-                    ) {}
+                    )
                     Text(gateway.name, Modifier.weight(1f, fill = false), style = roles.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (active) Text("Active", style = roles.caption, color = scheme.primary)
                 }

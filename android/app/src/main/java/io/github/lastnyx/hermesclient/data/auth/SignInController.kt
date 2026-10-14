@@ -104,7 +104,7 @@ class SignInController(
         }
     }.getOrDefault(FALLBACK_NAME)
 
-    private companion object {
+    companion object {
         const val FALLBACK_NAME = "Signed in"
         const val SIGNED_OUT_MESSAGE = "Signed out — sign in again"
     }
