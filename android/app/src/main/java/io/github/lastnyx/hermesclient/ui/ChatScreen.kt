@@ -7,9 +7,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -29,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -44,6 +42,8 @@ import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
@@ -78,6 +78,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
@@ -289,40 +290,40 @@ fun ChatScreen(
             val label = if (sendable) (if (state.running) "Redirect" else "Send") else if (state.running) "Stop" else "Send"
             var queueMenu by remember { mutableStateOf(false) }
             Box {
-            Surface(
-                shape = CircleShape,
-                color = if (sendable || state.running) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.padding(start = ROW_PADDING.dp).size(40.dp).combinedClickable(
-                    enabled = sendable || state.running,
-                    onLongClick = { if (sendable && state.running) queueMenu = true },
-                    onClick = {
-                    if (sendable) {
-                        val text = draft
-                        setDraft("")
-                        following = true
-                        if (parseSlashLine(text) != null) {
-                            scope.launch { slash.runLine(text)?.let { setDraft(it) } }
-                        } else {
-                            scope.launch { onSend(text) }
-                        }
-                    }
-                    else if (state.running) scope.launch { controller.stop() }
-                    },
-                ),
-            ) {
-                Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = label) }
-            }
-            DropdownMenu(expanded = queueMenu, onDismissRequest = { queueMenu = false }) {
-                DropdownMenuItem(
-                    text = { Text("Queue for later") },
-                    onClick = {
-                        queueMenu = false
-                        controller.queue(draft)
-                        setDraft("")
-                    },
-                )
-            }
+                Surface(
+                    shape = CircleShape,
+                    color = if (sendable || state.running) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.padding(start = ROW_PADDING.dp).size(40.dp).combinedClickable(
+                        enabled = sendable || state.running,
+                        role = Role.Button,
+                        onLongClick = { if (sendable && state.running) queueMenu = true },
+                        onClick = {
+                            if (sendable) {
+                                val text = draft
+                                setDraft("")
+                                following = true
+                                if (parseSlashLine(text) != null) {
+                                    scope.launch { slash.runLine(text)?.let { setDraft(it) } }
+                                } else {
+                                    scope.launch { onSend(text) }
+                                }
+                            } else if (state.running) scope.launch { controller.stop() }
+                        },
+                    ),
+                ) {
+                    Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = label) }
+                }
+                DropdownMenu(expanded = queueMenu, onDismissRequest = { queueMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Queue for later") },
+                        onClick = {
+                            queueMenu = false
+                            controller.queue(draft)
+                            setDraft("")
+                        },
+                    )
+                }
             }
         }
     }
