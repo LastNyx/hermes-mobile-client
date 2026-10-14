@@ -71,4 +71,5 @@ Goal: usable almost like Hermes Desktop, essential usage only. Herald is a featu
    - (built, tickets 33-36) Pin and archive (with Undo) via `PATCH` (`pinned`, `archived`). Already exist: rename, delete, search.
 2. (built, tickets 45-47 and 48, 51-52 fixes) Send-while-running: redirect, queue, retry and edit. Original list: queue, steer, stop and send, undo and retry. PROTOCOL has `prompt.submit` (`queued`), `session.steer`, `session.redirect`, `session.interrupt`, `session.undo`.
 3. (built, tickets 49-50; buttons did not show on the Realme, see HANDOFF) Notification actions: approve or answer from the notification. Needs the watch service to answer server requests over the live link.
+4. (built, tickets 53-56, user request 2026-10-14) Background processes panel: list, output, Stop, Dismiss.
 Not scheduled (no decision yet): attachments, offline cache, cron and capabilities, voice.

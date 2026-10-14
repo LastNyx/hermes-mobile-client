@@ -116,6 +116,8 @@ Only the Markdown reply (bold, bullets, inline code) and the new look were seen 
 
 1. Phase 3 is done (batches 10, 11). Session list work (roadmap item 1) and the redesign of Chats, Gateways and the gateway form: batches 12 and 13 (tickets 33-44) passed reviewer (`review-12-2.md`, `review-13-4.md`). The user checked them on the phone. Not released (no release by user decision).
 1b. Send-while-running (batch 14: redirect, queue, retry and edit) and notification actions (batch 15) passed reviewer (`review-14-3.md`, round 2 of batch 15 had no findings) and are pushed. All three picks of the user's roadmap are built.
+1c. Batch 16 (tickets 53-56, background processes via `process.list` / `process.kill`, added to PROTOCOL.md from the gateway source) passed reviewer round 2 and was checked on the phone. Finished rows stay until dismissed by the user's choice. Docs and CHANGELOG are current as of this batch. The user said this is enough for current use (2026-10-14).
+1d. Not scheduled: attachments (check PROTOCOL and Desktop's composer first), offline cache, cron and capabilities, voice. Small leftovers: shared 12 dp corner constant, `SignInState`/`AuthState`/`LinkState` naming, a few glossary terms (Slash command, Reasoning, Model picker, Catch-up, Composer, Markdown, Background process).
 2. Phase 4 docs worker ran (2026-10-14): 5 CHANGELOG entries added, drift list in `.scratch/v1/drift.md`.
 3. No release for now: the user uses the debug build himself (2026-10-14). Do not tag or publish.
 4. Ask the user to approve the 51 lines in `.scratch/dev-notes.md`.

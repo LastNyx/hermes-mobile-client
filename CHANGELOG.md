@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Background processes: a "Background · N running" bar above the composer lists processes the agent started with its terminal tool. Tap it to expand; tap a row for the last 12 lines of output; Stop kills a running process, Dismiss removes a finished one. Finished rows stay until dismissed, so you can see whether each one finished or failed. The list refreshes on open, after a tool finishes, when the gateway reports a process, after a reconnect, and every 5 seconds while one runs.
+- Notification actions: the approval notification has Allow once and Deny; a clarify with one question has a Reply box. They work while the chat screen is open and the watch runs; leaving the chat clears the notification. They did not show on the Realme RMX1921 (see HANDOFF).
+- Retry and edit: Retry sits next to Copy on the last reply, and a long-press on your last message offers Edit and resend. Both show only while the chat is idle.
+- Queue: while a reply runs, long-press the button for Queue for later. A "Queued · N" panel has Send now, Edit and Remove. The queue sends one message after each clean finish, not after an error or a stop, and a message whose send fails goes back to the front. It is kept in memory only.
+- Redirect: text typed while a reply runs now redirects the reply (as Desktop does) instead of steering it. The button and placeholder say Redirect.
+- Gateways: a card per gateway with a status dot, an Active chip, a status line and a menu (Test connection, Sign in or out, Edit, Remove); Add and Settings are icons. Add and Edit use a sheet with a title, field icons, a live address hint, banners for the cleartext warning and errors, and a Save button that waits for both fields.
+- Chats list: a top bar with the title, a Live link dot and icons (search, view, new chat, more); search is collapsed behind its icon. Rows are flat with one-line previews that hide URLs and `@file:` tokens, and group headers are sticky with counts.
+- Session list: pin and archive from the long-press menu (archive has Undo) and an Archived page. Group by date (Pinned, Today, Yesterday, Last week, Older), status or project; order by last activity or created; filter by status. A status dot shows Working, Unread, Draft or Idle. Choices are saved on the device. There is no "Needs input" status because the gateway's list does not report it.
 - Spacing: space around prompts, between turns and inside replies is about a quarter tighter. Text size is unchanged; tool, group and Thinking headers stay compact.
 - Type: each kind of text uses one style (body, secondary, label, caption, title, code). Command output and the Thinking text now use the body size.
 - Tool and Thinking rows: a tool row shows a readable label, a short preview and the duration. Three or more tool calls in a row collapse into one "Used N tools" row. The tool detail has a Copy button. The Thinking row shows a one-line preview and a spinner while it streams.
