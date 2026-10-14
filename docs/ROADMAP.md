@@ -68,7 +68,7 @@ Goal: usable almost like Hermes Desktop, essential usage only. Herald is a featu
    - Row details the user can switch on: updated time, preview (both on by default), tokens, cost, PR, profile. There is also an archived list and a project filter.
    - Phone scope (planner pick, essential only): group by date (default), status or project; order by updated (default), created or status; pinned on top; Archived page; status filter; row shows preview and updated time. Left out: tokens, cost, PR, profile, manual drag, card rows.
    - Protocol facts: rows carry `pinned`, `archived`, `unread`, `is_active`, `source`, `message_count`, `last_active`, `cwd`, `git_branch`; `order` (`recent`|`created`), `archived` (`exclude`|`only`|`include`), `exclude_sources`, `min_messages` are query options; there is no grouping parameter, so the phone groups the rows itself. Unchecked: how Desktop derives needs-input, working and draft from a row (the REST row has `is_active`, `unread` and `message_count` only); read `session-dot-state.ts` before the status ticket.
-   - Pin and archive (with Undo) via `PATCH` (`pinned`, `archived`). Already exist: rename, delete, search.
+   - (built, tickets 33-36) Pin and archive (with Undo) via `PATCH` (`pinned`, `archived`). Already exist: rename, delete, search.
 2. Send-while-running: queue, steer, stop and send, undo and retry. PROTOCOL has `prompt.submit` (`queued`), `session.steer`, `session.redirect`, `session.interrupt`, `session.undo`.
 3. Notification actions: approve or answer from the notification. Needs the watch service to answer server requests over the live link.
 Not scheduled (no decision yet): attachments, offline cache, cron and capabilities, voice.
