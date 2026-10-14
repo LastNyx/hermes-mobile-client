@@ -16,6 +16,8 @@ sealed interface ChatItem {
         val name: String,
         val status: ToolStatus,
         val detail: String = "",
+        val preview: String = "",
+        val durationS: Double? = null,
     ) : ChatItem
 
     data class Reasoning(override val key: String, val text: String, val streaming: Boolean = false) : ChatItem
@@ -118,8 +120,11 @@ fun reduceChat(state: ChatState, event: LinkEvent): ChatState {
         }
         "tool.start" -> {
             val id = payload?.optString("tool_id").orEmpty()
+            val preview = payload?.optString("preview").orEmpty().ifEmpty { payload?.optString("context").orEmpty() }
+                .lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
             state.copy(
-                items = sealed(state.items) + ChatItem.Tool("t$id", id, payload?.optString("name").orEmpty(), ToolStatus.Running),
+                items = sealed(state.items) +
+                    ChatItem.Tool("t$id", id, payload?.optString("name").orEmpty(), ToolStatus.Running, preview = preview),
                 running = true,
             )
         }
@@ -127,11 +132,14 @@ fun reduceChat(state: ChatState, event: LinkEvent): ChatState {
             val id = payload?.optString("tool_id").orEmpty()
             val detail = payload?.optString("result_text").orEmpty().ifEmpty { payload?.optString("summary").orEmpty() }
             val name = payload?.optString("name").orEmpty()
-            val done = state.items.map { if (it is ChatItem.Tool && it.toolId == id) it.copy(status = ToolStatus.Done, detail = detail) else it }
+            val duration = if (payload?.has("duration_s") == true && !payload.isNull("duration_s")) payload.optDouble("duration_s") else null
+            val done = state.items.map {
+                if (it is ChatItem.Tool && it.toolId == id) it.copy(status = ToolStatus.Done, detail = detail, durationS = duration) else it
+            }
             if (done.any { it is ChatItem.Tool && it.toolId == id }) {
                 state.copy(items = done)
             } else {
-                state.copy(items = state.items + ChatItem.Tool("t$id", id, name, ToolStatus.Done, detail))
+                state.copy(items = state.items + ChatItem.Tool("t$id", id, name, ToolStatus.Done, detail, durationS = duration))
             }
         }
         "message.complete" -> {

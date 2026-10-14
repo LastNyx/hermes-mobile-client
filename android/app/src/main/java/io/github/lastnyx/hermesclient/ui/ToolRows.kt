@@ -1,0 +1,64 @@
+package io.github.lastnyx.hermesclient.ui
+
+import io.github.lastnyx.hermesclient.data.chat.ChatItem
+import io.github.lastnyx.hermesclient.data.chat.ToolStatus
+
+internal fun toolLabel(name: String): String {
+    val words = name.trim().replace('_', ' ').trim()
+    return if (words.isEmpty()) "Tool" else words.replaceFirstChar { it.uppercase() }
+}
+
+internal fun durationText(seconds: Double): String {
+    val s = seconds.coerceAtLeast(0.0)
+    return when {
+        s < 60 -> "%.1f s".format(java.util.Locale.ROOT, s)
+        else -> {
+            val total = Math.round(s).toInt()
+            val sec = total % 60
+            if (sec == 0) "${total / 60} min" else "${total / 60} min $sec s"
+        }
+    }
+}
+
+internal fun reasoningPreview(text: String, streaming: Boolean): String {
+    val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+    return (if (streaming) lines.lastOrNull() else lines.firstOrNull()).orEmpty()
+}
+
+internal sealed interface ChatRow {
+    val key: String
+    val first: ChatItem
+    val last: ChatItem
+
+    data class Single(val item: ChatItem) : ChatRow {
+        override val key get() = item.key
+        override val first get() = item
+        override val last get() = item
+    }
+
+    data class ToolGroup(val tools: List<ChatItem.Tool>) : ChatRow {
+        override val key get() = "g${tools.first().key}"
+        override val first get() = tools.first()
+        override val last get() = tools.last()
+        val running get() = tools.any { it.status == ToolStatus.Running }
+    }
+}
+
+internal const val MIN_GROUPED_TOOLS = 3
+
+internal fun groupTools(items: List<ChatItem>): List<ChatRow> {
+    val rows = mutableListOf<ChatRow>()
+    var i = 0
+    while (i < items.size) {
+        if (items[i] !is ChatItem.Tool) {
+            rows += ChatRow.Single(items[i++])
+            continue
+        }
+        var end = i
+        while (end < items.size && items[end] is ChatItem.Tool) end++
+        val run = items.subList(i, end).filterIsInstance<ChatItem.Tool>()
+        if (run.size >= MIN_GROUPED_TOOLS) rows += ChatRow.ToolGroup(run) else run.forEach { rows += ChatRow.Single(it) }
+        i = end
+    }
+    return rows
+}

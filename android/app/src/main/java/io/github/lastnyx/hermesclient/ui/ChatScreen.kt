@@ -212,8 +212,11 @@ fun ChatScreen(
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
         LazyColumn(Modifier.fillMaxSize().nestedScroll(userScrollWatcher), state = listState) {
-            itemsIndexed(state.items, key = { _, it -> it.key }) { index, item ->
-                Box(Modifier.padding(top = itemGapBefore(state.items.getOrNull(index - 1), item).dp)) {
+            val rows = groupTools(state.items)
+            itemsIndexed(rows, key = { _, it -> it.key }) { index, row ->
+                Box(Modifier.padding(top = itemGapBefore(rows.getOrNull(index - 1)?.last, row.first).dp)) {
+                    if (row is ChatRow.ToolGroup) { ToolGroupRow(row); return@Box }
+                    val item = (row as ChatRow.Single).item
                     when (item) {
                         is ChatItem.Message -> MessageBubble(item)
                         is ChatItem.Reasoning -> ReasoningRow(item)
@@ -518,10 +521,20 @@ private fun ReasoningRow(item: ChatItem.Reasoning) {
     ) {
         Column(Modifier.clickable { open = !open }.padding(horizontal = 12.dp, vertical = REASONING_VERTICAL_PADDING.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (item.streaming) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 Text(
                     if (item.streaming) "Thinking…" else "Thought",
-                    Modifier.weight(1f),
+                    Modifier.padding(start = if (item.streaming) 8.dp else 0.dp),
                     style = MaterialTheme.typography.labelLarge,
+                )
+                val preview = if (open) "" else reasoningPreview(item.text, item.streaming)
+                Text(
+                    preview,
+                    Modifier.weight(1f).padding(start = 8.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Icon(
                     if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
@@ -551,7 +564,17 @@ private fun ToolRow(item: ChatItem.Tool) {
             ) {
                 if (item.status == ToolStatus.Running) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                 else Icon(Icons.Filled.Check, contentDescription = "Done", modifier = Modifier.size(16.dp))
-                Text(item.name.ifBlank { "tool" }, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                Text(toolLabel(item.name), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                Text(
+                    item.preview,
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                item.durationS?.let { Text(durationText(it), style = MaterialTheme.typography.labelSmall) }
                 Icon(
                     if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                     contentDescription = if (open) "Collapse" else "Expand",
@@ -566,7 +589,37 @@ private fun ToolRow(item: ChatItem.Tool) {
                     fontFamily = FontFamily.Monospace,
                     style = MaterialTheme.typography.bodySmall,
                 )
+                CopyButton(toolDetailPreview(item.detail, 4000))
             }
         }
+    }
+}
+
+@Composable
+private fun ToolGroupRow(group: ChatRow.ToolGroup) {
+    var open by rememberSaveable(group.key) { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(INSIDE_TURN_GAP.dp)) {
+        Surface(
+            Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        ) {
+            Row(
+                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = 12.dp, vertical = TOOL_HEADER_VERTICAL_PADDING.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (group.running) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                else Icon(Icons.Filled.Check, contentDescription = "Done", modifier = Modifier.size(16.dp))
+                Text("Used ${group.tools.size} tools", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                Icon(
+                    if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (open) "Collapse" else "Expand",
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        if (open) group.tools.forEach { ToolRow(it) }
     }
 }
