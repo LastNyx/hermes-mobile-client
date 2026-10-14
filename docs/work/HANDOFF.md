@@ -114,7 +114,7 @@ Only the Markdown reply (bold, bullets, inline code) and the new look were seen 
 
 ### Next steps
 
-1. Phase 3: phone check of 23-26 (checklist in the chat that sent the APK), then a reviewer round for the batch, then the phone check of 23-25 (checklist in the chat that sent the APK).
+1. Phase 3: batch 10 (23-26 plus 24-fix, 25-fix, 26-fix) passed reviewer round 2 (`review-10-2.md`) and is `done`. Next: the user's phone check (Send on `/status` runs a command, card cut at 12 lines with Show more, suggestion list). Not pushed, not released.
 2. Then the docs worker (Phase 4).
 3. Then ask the user about tagging v0.1.1 (the fixes are not in 0.1.0).
 4. Ask the user to approve the 51 lines in `.scratch/dev-notes.md`.
