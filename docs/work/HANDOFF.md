@@ -114,7 +114,7 @@ Only the Markdown reply (bold, bullets, inline code) and the new look were seen 
 
 ### Next steps
 
-1. Phase 3: batch 10 (23-26 plus 24-fix, 25-fix, 26-fix) passed reviewer round 2 (`review-10-2.md`) and is `done`. Next: the user's phone check (Send on `/status` runs a command, card cut at 12 lines with Show more, suggestion list). Not pushed, not released.
+1. Phase 3 is done: batches 10 and 11 (tickets 23-31 plus fixes) passed reviewer round 2 (`review-10-2.md`, `review-11-2.md`) and the user did a phone check. Not pushed, not released (user said: do not release first).
 2. Then the docs worker (Phase 4).
 3. Then ask the user about tagging v0.1.1 (the fixes are not in 0.1.0).
 4. Ask the user to approve the 51 lines in `.scratch/dev-notes.md`.
