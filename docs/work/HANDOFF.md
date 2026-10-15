@@ -124,6 +124,30 @@ Only the Markdown reply (bold, bullets, inline code) and the new look were seen 
 5. `kit/linkcheck.py` in the dev-team repo: the user said to forget the dev-team repo.
 - Raising the Markdown library above 0.33.0 needs a Compose BOM bump first (planner decision).
 
+## Session 2026-10-15: research and tickets 57-97 (read this first on the other machine)
+
+State: nothing built this session. Research rounds 1 to 3 are done and committed, and 41 new tickets (57-97) are written
+(24 `todo`, 17 `blocked`). No ticket is `in-progress`. Next: user approval, then batch 17.
+
+- Research (all read-only, dev-team researcher): master list `.scratch/research-improvements-all.md`, round 3 (Hermes source, Desktop,
+  own defects, other apps) `.scratch/research-round3-verified.md`, plus `research-mobile-remote-vs-client.md`, `research-ui-smoothness.md`,
+  `research-three-bugs.md`, `research-improvements-chat-ux.md`. Cited findings: `.scratch/v1/research/*/findings.md`.
+  The clones under `C:/Users/User/research/src` do not travel; re-clone with `kit/research.py clone <url>` if needed.
+- Tickets: groups = fixes 57-63, robustness 64-68, performance 69-72, chat features 73-78, media 79-83, organisation 84-90,
+  agent visibility 91-97. Batches 17-27 are in `.scratch/v1/batches.md`. Writer brief: `.scratch/v1/ticket-brief.md`.
+- **Planner task P1 (do before dispatching any `blocked` ticket):** add verified rows to `docs/PROTOCOL.md`; the exact list is
+  `.scratch/v1/p1-protocol-rows.md`. Verified against the Hermes checkout (`dce1e9b375`), NOT WorkLab (its `/api/status` timed out
+  from this PC, version unknown; WorkLab has rejected a param the checkout accepts, so keep minimal params and test on the phone).
+- Decisions made: dismissed background processes are memory-only and process-wide (Desktop precedent), no device storage;
+  the table bug waits for a captured bad reply; `process.stop` kills ALL processes, never wire it per chat.
+- Waiting on the user: follow-all-sessions notifications (changes DESIGN Q9), app lock (needs androidx.biometric), offline cache,
+  dictation (mic permission), notification toggles and boot receiver, and the slow debug build (build files are protected).
+- Own-app defects found (tickets 60-63, 67): offline approval looks answered, `stop()` failure clears `running`, updater
+  receiver may never get its broadcast, events can drop silently, rotation resets the chat (ticket 64, 65).
+- Ticket 68 is an investigation (does a second client's `session.resume` take over the event stream?): needs the user's phone test.
+- Held or dropped: select-and-act on replies, goal/loop strip, voice, config page, threads, three-mode steer, empty-chat starters,
+  New-messages divider, haptics.
+
 ## Working agreement with the user
 
 - One ticket at a time. After each: verify (`git log --stat -1`, `./build.sh test`, `assembleDebug`, parse
