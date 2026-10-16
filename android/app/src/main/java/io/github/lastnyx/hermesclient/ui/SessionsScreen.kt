@@ -343,15 +343,14 @@ private fun SessionsBody(
     chat: @Composable (Modifier) -> Unit,
 ) {
     val expired = auth == AuthState.Expired || auth == AuthState.Unreadable
-    if (wide) {
-        Row(Modifier.fillMaxSize()) {
-            SessionsScreen(model, expired, open, onGateways, viewStore, Modifier.width(360.dp).fillMaxHeight(), offline, statusDot)
-            if (chatOpen) chat(Modifier.weight(1f)) else ChatPlaceholder(Modifier.weight(1f))
+    val plan = paneLayout(wide, chatOpen)
+    // One chat call site for every layout: Compose keys state by call site, so a rotation must not move it.
+    Row(Modifier.fillMaxSize()) {
+        if (plan.showList) {
+            val listModifier = if (plan.listFixedWidth) Modifier.width(360.dp).fillMaxHeight() else Modifier.weight(1f).fillMaxHeight()
+            SessionsScreen(model, expired, open, onGateways, viewStore, listModifier, offline, statusDot)
         }
-    } else if (chatOpen) {
-        chat(Modifier.fillMaxSize())
-    } else {
-        SessionsScreen(model, expired, open, onGateways, viewStore, Modifier.fillMaxSize(), offline, statusDot)
+        if (plan.showChat) chat(Modifier.weight(1f)) else if (plan.showPlaceholder) ChatPlaceholder(Modifier.weight(1f))
     }
 }
 
