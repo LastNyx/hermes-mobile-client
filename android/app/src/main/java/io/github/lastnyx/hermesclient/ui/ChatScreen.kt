@@ -91,6 +91,7 @@ import io.github.lastnyx.hermesclient.data.live.LiveLink
 import io.github.lastnyx.hermesclient.data.media.MediaKind
 import io.github.lastnyx.hermesclient.data.media.MediaRepository
 import io.github.lastnyx.hermesclient.data.media.extractReplyMedia
+import io.github.lastnyx.hermesclient.data.media.isImagePath
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
 import io.github.lastnyx.hermesclient.data.settings.DraftStore
 import io.github.lastnyx.hermesclient.data.settings.DraftTracker
@@ -170,7 +171,7 @@ fun ChatHost(
     CompositionLocalProvider(LocalMedia provides access, LocalOpenGatewayFile provides { viewing = it }) {
         ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack, promptActionsEnabled(linkState), seed, onBranched, beforeSend)
         viewing?.let { path ->
-            if (mimeFor(path).startsWith("image/")) MediaViewer(path) { viewing = null } else FileTextViewer(path) { viewing = null }
+            if (isImagePath(path)) MediaViewer(path) { viewing = null } else FileTextViewer(path) { viewing = null }
         }
     }
 }

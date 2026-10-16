@@ -37,6 +37,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.lastnyx.hermesclient.data.media.clampOffset
 import io.github.lastnyx.hermesclient.data.media.clampScale
+import io.github.lastnyx.hermesclient.data.media.pathName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -54,7 +55,7 @@ fun MediaViewer(path: String, onDismiss: () -> Unit) {
     var offsetY by remember { mutableFloatStateOf(0f) }
     var widthPx by remember { mutableFloatStateOf(0f) }
     var heightPx by remember { mutableFloatStateOf(0f) }
-    val name = path.substringAfterLast('/').substringAfterLast('\\')
+    val name = pathName(path)
     LaunchedEffect(path) {
         val loaded = loadViewerBitmap(access, path)
         if (loaded == null) failed = true else bitmap = loaded

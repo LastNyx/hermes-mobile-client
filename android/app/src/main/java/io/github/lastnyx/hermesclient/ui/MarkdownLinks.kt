@@ -1,9 +1,9 @@
 package io.github.lastnyx.hermesclient.ui
 
+import io.github.lastnyx.hermesclient.data.media.WINDOWS_PATH
 import java.net.URLDecoder
 
 private val allowedPrefixes = listOf("http://", "https://", "mailto:")
-private val drivePath = Regex("^[A-Za-z]:[\\\\/].*")
 
 /** Only web and mail links may open; anything else a reply carries is ignored. */
 fun isAllowedLink(uri: String): Boolean {
@@ -28,9 +28,9 @@ fun gatewayFilePath(uri: String): String? {
             return null
         }
         if (decoded.any { it.isISOControl() }) return null
-        if (decoded.length > 2 && decoded[0] == '/' && drivePath.matches(decoded.substring(1))) decoded.substring(1) else decoded
+        if (decoded.length > 2 && decoded[0] == '/' && WINDOWS_PATH.matches(decoded.substring(1))) decoded.substring(1) else decoded
     } else link
-    val absolute = (path.startsWith("/") && !path.startsWith("//")) || drivePath.matches(path)
+    val absolute = (path.startsWith("/") && !path.startsWith("//")) || WINDOWS_PATH.matches(path)
     if (!absolute || path.endsWith("/") || path.endsWith("\\")) return null
     if (path.split('/', '\\').any { it == ".." }) return null
     return path

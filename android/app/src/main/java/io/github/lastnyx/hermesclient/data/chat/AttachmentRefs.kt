@@ -1,5 +1,7 @@
 package io.github.lastnyx.hermesclient.data.chat
 
+import io.github.lastnyx.hermesclient.data.media.pathName
+
 data class AttachmentRef(val kind: AttachmentKind, val name: String, val path: String)
 
 private const val PATH = "(?:\"([^\"]+)\"|`([^`]+)`|(\\S+))"
@@ -7,11 +9,9 @@ private val REF_LINE = Regex("^@(file|image):$PATH$")
 private val FOOTER = Regex("(?:^|\\n)--- (?:Context Warnings|Attached Context) ---[ \\t]*(?:\\n|$)")
 private val FOOTER_FILE = Regex("@file:$PATH")
 
-private fun nameOf(path: String) = path.substringAfterLast('/').substringAfterLast('\\')
-
 private fun MatchResult.path() = groupValues.drop(groupValues.size - 3).first { it.isNotEmpty() }
 
-private fun refOf(kind: AttachmentKind, path: String) = AttachmentRef(kind, nameOf(path), path)
+private fun refOf(kind: AttachmentKind, path: String) = AttachmentRef(kind, pathName(path), path)
 
 fun splitAttachmentRefs(text: String): Pair<List<AttachmentRef>, String> {
     val footer = FOOTER.find(text)

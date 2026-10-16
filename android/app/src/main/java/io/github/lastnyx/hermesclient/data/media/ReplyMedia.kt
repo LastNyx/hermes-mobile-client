@@ -12,14 +12,19 @@ data class ReplyMedia(val text: String, val refs: List<MediaRef>)
 private val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp")
 private val MEDIA_LINE = Regex("^MEDIA:\\s*(.*)$")
 private val MARKDOWN_IMAGE = Regex("!\\[[^\\]]*]\\(([^)\\s]+)\\)")
-private val WINDOWS_PATH = Regex("^[A-Za-z]:[\\\\/].*")
 private val BLANK_RUNS = Regex("\\n{3,}")
 
-private fun refFor(path: String): MediaRef {
-    val name = path.substringAfterLast('/').substringAfterLast('\\')
-    val kind = if (name.substringAfterLast('.', "").lowercase() in IMAGE_EXTENSIONS) MediaKind.Image else MediaKind.File
-    return MediaRef(kind, path, name)
-}
+/** A Windows drive path such as `C:\a` or `C:/a`. */
+val WINDOWS_PATH = Regex("^[A-Za-z]:[\\\\/].*")
+
+/** The file name: the last segment after `/` or `\`. */
+fun pathName(path: String): String = path.substringAfterLast('/').substringAfterLast('\\')
+
+/** True when [path] names a picture Android can decode. */
+fun isImagePath(path: String): Boolean = pathName(path).substringAfterLast('.', "").lowercase() in IMAGE_EXTENSIONS
+
+private fun refFor(path: String): MediaRef =
+    MediaRef(if (isImagePath(path)) MediaKind.Image else MediaKind.File, path, pathName(path))
 
 private fun unwrap(raw: String): String {
     val s = raw.trim()

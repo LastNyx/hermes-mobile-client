@@ -31,6 +31,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import io.github.lastnyx.hermesclient.data.media.FileText
 import io.github.lastnyx.hermesclient.data.media.numberLines
+import io.github.lastnyx.hermesclient.data.media.pathName
 import io.github.lastnyx.hermesclient.data.media.viewerNotice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,7 +46,7 @@ fun FileTextViewer(path: String, onDismiss: () -> Unit) {
     var file by remember(path) { mutableStateOf<FileText?>(null) }
     var failure by remember(path) { mutableStateOf<String?>(null) }
     var saveFailure by remember(path) { mutableStateOf<String?>(null) }
-    val name = path.substringAfterLast('/').substringAfterLast('\\')
+    val name = pathName(path)
     LaunchedEffect(path) {
         withContext(Dispatchers.IO) { access.repo.readText(path) }
             .onSuccess { file = it }

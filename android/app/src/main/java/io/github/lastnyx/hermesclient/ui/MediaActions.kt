@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
 import io.github.lastnyx.hermesclient.data.media.MediaRef
+import io.github.lastnyx.hermesclient.data.media.isImagePath
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -50,7 +51,7 @@ class MediaActions internal constructor(
     private var pending: ByteArray? = null
     private var pendingWhat = "file"
 
-    private fun whatFor(name: String) = if (mimeFor(name).startsWith("image/")) "picture" else "file"
+    private fun whatFor(name: String) = if (isImagePath(name)) "picture" else "file"
 
     fun save(name: String, bytes: ByteArray) {
         error = null

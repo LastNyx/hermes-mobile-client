@@ -2,11 +2,13 @@ package io.github.lastnyx.hermesclient.data.media
 
 import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
 import io.github.lastnyx.hermesclient.data.sessions.CANT_REACH_GATEWAY
+import java.io.ByteArrayOutputStream
 import java.io.IOException
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Request
 import okhttp3.Response
 import org.json.JSONObject
+import org.json.JSONTokener
 
 private const val MAX_IMAGE_BODY = 40L * 1024 * 1024
 
@@ -54,7 +56,7 @@ class MediaRepository(
         http.execute(request("/api/fs/read-text", "path" to path)).use { response ->
             if (!response.isSuccessful) throw Refused(textSentence(response.code))
             val body = readBounded(response, MAX_TEXT_BODY) ?: throw Refused(OPEN_FAILED)
-            parseFileText(org.json.JSONTokener(String(body, Charsets.UTF_8)).nextValue() as? JSONObject ?: JSONObject())
+            parseFileText(JSONTokener(String(body, Charsets.UTF_8)).nextValue() as? JSONObject ?: JSONObject())
         }
     }
 
@@ -79,7 +81,7 @@ class MediaRepository(
     private fun readBounded(response: Response, cap: Long): ByteArray? {
         val body = response.body ?: return ByteArray(0)
         if (body.contentLength() > cap) return null
-        val out = java.io.ByteArrayOutputStream()
+        val out = ByteArrayOutputStream()
         val buffer = ByteArray(8192)
         val stream = body.byteStream()
         while (true) {
