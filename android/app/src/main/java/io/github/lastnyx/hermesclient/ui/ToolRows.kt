@@ -27,6 +27,14 @@ internal fun reasoningPreview(text: String, streaming: Boolean): String {
     return (if (streaming) lines.lastOrNull() else lines.firstOrNull()).orEmpty()
 }
 
+internal const val TOOL_STILL_RUNNING = "Still running…"
+
+internal fun toolExpandedText(status: ToolStatus, detail: String): String? = when {
+    detail.isNotBlank() -> detail
+    status == ToolStatus.Running -> TOOL_STILL_RUNNING
+    else -> null
+}
+
 internal sealed interface ChatRow {
     val key: String
     val first: ChatItem

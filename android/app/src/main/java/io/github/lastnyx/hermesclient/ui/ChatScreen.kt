@@ -621,7 +621,9 @@ private fun ReasoningRow(item: ChatItem.Reasoning) {
 
 @Composable
 private fun ToolRow(item: ChatItem.Tool) {
-    var open by remember(item.key) { mutableStateOf(false) }
+    // Keyed on status so a finished tool collapses to its final state.
+    var open by remember(item.key, item.status) { mutableStateOf(false) }
+    val body = toolExpandedText(item.status, item.detail)
     Surface(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -630,7 +632,7 @@ private fun ToolRow(item: ChatItem.Tool) {
     ) {
         Column {
             Row(
-                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = CARD_PADDING_H.dp, vertical = TOOL_HEADER_VERTICAL_PADDING.dp),
+                Modifier.fillMaxWidth().then(if (body != null) Modifier.clickable { open = !open } else Modifier).padding(horizontal = CARD_PADDING_H.dp, vertical = TOOL_HEADER_VERTICAL_PADDING.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(ROW_PADDING.dp),
             ) {
@@ -646,20 +648,20 @@ private fun ToolRow(item: ChatItem.Tool) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 item.durationS?.let { Text(durationText(it), style = roles.caption) }
-                Icon(
+                if (body != null) Icon(
                     if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                     contentDescription = if (open) "Collapse" else "Expand",
                     modifier = Modifier.size(20.dp),
                 )
             }
-            if (open && item.detail.isNotBlank()) {
+            if (open && body != null) {
                 Text(
-                    toolDetailPreview(item.detail, 4000),
+                    toolDetailPreview(body, 4000),
                     Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())
                         .padding(horizontal = CARD_PADDING_H.dp, vertical = TOOL_DETAIL_VERTICAL_PADDING.dp),
                     style = roles.code,
                 )
-                CopyButton(toolDetailPreview(item.detail, 4000))
+                if (item.detail.isNotBlank()) CopyButton(toolDetailPreview(item.detail, 4000))
             }
         }
     }

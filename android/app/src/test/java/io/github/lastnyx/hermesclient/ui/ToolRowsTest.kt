@@ -49,5 +49,14 @@ class ToolRowsTest {
         assertEquals(5, groupTools(listOf(tool(1), tool(2), msg, tool(3), tool(4))).size)
         val running = ChatItem.Tool("t9", "9", "x", io.github.lastnyx.hermesclient.data.chat.ToolStatus.Running)
         assertTrue((groupTools(listOf(tool(1), tool(2), running))[0] as ChatRow.ToolGroup).running)
+
+        val done = io.github.lastnyx.hermesclient.data.chat.ToolStatus.Done
+        val live = io.github.lastnyx.hermesclient.data.chat.ToolStatus.Running
+        assertEquals("out", toolExpandedText(done, "out"))
+        assertNull(toolExpandedText(done, ""))
+        assertNull(toolExpandedText(done, "   \n"))
+        assertEquals("Still running…", toolExpandedText(live, ""))
+        assertEquals("out", toolExpandedText(live, "out"))
+        assertEquals("Still running…", TOOL_STILL_RUNNING)
     }
 }
