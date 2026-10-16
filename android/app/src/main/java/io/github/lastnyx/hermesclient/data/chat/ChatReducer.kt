@@ -164,7 +164,8 @@ fun reduceChat(state: ChatState, event: LinkEvent): ChatState {
             val failure = if (payload?.optString("status") == "error") {
                 payload.optString("error").ifEmpty { "The turn failed" }
             } else null
-            state.copy(items = finished, running = false, error = failure)
+            // Another client's answer sends no request.cancel; nothing can still wait on a person once the turn is over.
+            state.copy(items = finished, running = false, error = failure, openRequests = emptyList())
         }
         "error" -> state.copy(error = payload?.optString("message").orEmpty().ifEmpty { "Something went wrong" }, running = false)
         else -> state

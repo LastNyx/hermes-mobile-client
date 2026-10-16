@@ -1,6 +1,7 @@
 package io.github.lastnyx.hermesclient.data.chat
 
 import io.github.lastnyx.hermesclient.data.live.LinkEvent
+import io.github.lastnyx.hermesclient.data.live.ServerRequest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -45,6 +46,20 @@ class ChatReducerTest {
     }
 
     private fun complete(json: String) = LinkEvent("message.complete", "s1", JSONObject(json), null)
+
+    @Test
+    fun completeClearsOpenRequestsButOtherEventsKeepThem() {
+        val open = ChatState(
+            openRequests = listOf(
+                ServerRequest("srq-1", "approval", JSONObject().put("command", "ls")),
+                ServerRequest("srq-2", "clarify", JSONObject()),
+            ),
+        )
+        assertEquals(2, reduceChat(open, ev("message.delta", "x")).openRequests.size)
+        for (json in listOf("""{"status":"complete"}""", """{"status":"error"}""", """{"status":"interrupted"}""")) {
+            assertEquals(emptyList<ServerRequest>(), reduceChat(open, complete(json)).openRequests)
+        }
+    }
 
     private fun usages(s: ChatState) = s.items.filterIsInstance<ChatItem.Message>().map { it.usage }
 

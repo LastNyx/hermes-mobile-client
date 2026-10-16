@@ -559,6 +559,11 @@ class ChatControllerTest {
         assertEquals(emptyList<ChatItem>(), chat.state.value.items)
         assertEquals(listOf("client.capabilities", "session.resume", "session.redirect"), calls.toList())
 
+        socket!!.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"message.complete","session_id":"rt1","payload":{"text":"done","status":"complete"},"seq":1}}""")
+        awaitTrue { chat.state.value.prompts.isEmpty() }
+        awaitTrue { "prompt.submit" in calls }
+        assertEquals(listOf("client.capabilities", "session.resume", "session.redirect", "prompt.submit"), calls.toList())
+
         link.stop()
         scope.coroutineContext[Job]!!.cancel()
         gateway.shutdown()

@@ -2,6 +2,7 @@ package io.github.lastnyx.hermesclient.ui
 
 import android.Manifest
 import android.os.Build
+import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -165,7 +166,8 @@ fun ChatHost(
         }
         controller.send(text)
     }
-    ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack)
+    val linkState by link.state.collectAsState()
+    ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack, promptActionsEnabled(linkState))
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -180,6 +182,7 @@ fun ChatScreen(
     onSend: suspend (String) -> Boolean = { controller.send(it) },
     title: String,
     onBack: (() -> Unit)? = null,
+    promptsEnabled: Boolean = true,
 ) {
     val state by controller.state.collectAsState()
     val modelState by models.state.collectAsState()
@@ -299,10 +302,11 @@ fun ChatScreen(
                     }
                 }
                 items(state.prompts, key = { it.id }) { prompt ->
+                    val guard = remember(prompt.id) { TapGuard({ SystemClock.elapsedRealtime() }) }
                     Box(Modifier.padding(top = INSIDE_TURN_GAP.dp)) {
                         when (prompt) {
-                            is Prompt.Approval -> ApprovalCard(prompt) { controller.answerApproval(prompt.id, it) }
-                            is Prompt.Clarify -> ClarifyCard(prompt) { controller.answerClarify(prompt.id, it) }
+                            is Prompt.Approval -> ApprovalCard(prompt, promptsEnabled, guard) { controller.answerApproval(prompt.id, it) }
+                            is Prompt.Clarify -> ClarifyCard(prompt, promptsEnabled, guard) { controller.answerClarify(prompt.id, it) }
                         }
                     }
                 }
@@ -478,20 +482,24 @@ private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss:
 }
 
 @Composable
-private fun ApprovalCard(prompt: Prompt.Approval, onChoose: (String) -> Unit) {
+private fun ApprovalCard(prompt: Prompt.Approval, enabled: Boolean, guard: TapGuard, onChoose: (String) -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(PROMPT_CARD_PADDING.dp), verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp)) {
+            val preview = commandPreview(prompt.command)
+            var full by rememberSaveable(prompt.id) { mutableStateOf(false) }
             SelectionContainer(Modifier.heightIn(max = promptBodyMaxHeight()).verticalScroll(rememberScrollState())) {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp)) {
                     Text(prompt.toolName.ifBlank { "Approval needed" }, style = roles.title)
                     if (prompt.description.isNotBlank()) Text(prompt.description, style = roles.body)
-                    Text(prompt.command, style = roles.code)
+                    Text(if (preview.cut && !full) preview.text else prompt.command, style = roles.code)
                 }
             }
+            if (preview.cut) TextButton(onClick = { full = !full }) { Text(if (full) "Show less" else "Show full command") }
             val labels = listOf("once" to "Allow once", "session" to "Allow for session", "always" to "Always allow", "deny" to "Deny")
             labels.filter { it.first in prompt.choices }.forEach { (choice, label) ->
-                if (choice == "deny") OutlinedButton(onClick = { onChoose(choice) }, Modifier.fillMaxWidth()) { WrappedLabel(label) }
-                else Button(onClick = { onChoose(choice) }, Modifier.fillMaxWidth()) { WrappedLabel(label) }
+                val tap = { if (guard.allows()) onChoose(choice) }
+                if (choice == "deny") OutlinedButton(onClick = tap, Modifier.fillMaxWidth(), enabled = enabled) { WrappedLabel(label) }
+                else Button(onClick = tap, Modifier.fillMaxWidth(), enabled = enabled) { WrappedLabel(label) }
             }
         }
     }
@@ -506,7 +514,7 @@ private fun promptBodyMaxHeight(): Dp = promptBodyMaxHeight(LocalConfiguration.c
 private fun WrappedLabel(text: String) = Text(text, Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
 
 @Composable
-private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) -> Unit) {
+private fun ClarifyCard(prompt: Prompt.Clarify, enabled: Boolean, guard: TapGuard, onAnswer: (Map<String, String>) -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(PROMPT_CARD_PADDING.dp), verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp)) {
             // §5.1 documents one string per question id, so multi-select is answered as a single value too.
@@ -532,7 +540,7 @@ private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) 
                 }
             }
             val ready = prompt.questions.all { !answers[it.qid].isNullOrBlank() }
-            Button(onClick = { onAnswer(answers.mapValues { it.value.trim() }) }, enabled = ready) { Text("Answer") }
+            Button(onClick = { if (guard.allows()) onAnswer(answers.mapValues { it.value.trim() }) }, enabled = ready && enabled) { Text("Answer") }
         }
     }
 }
