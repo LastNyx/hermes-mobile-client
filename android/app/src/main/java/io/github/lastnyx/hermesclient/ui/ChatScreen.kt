@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.AlertDialog
@@ -97,6 +98,7 @@ import io.github.lastnyx.hermesclient.data.chat.AttachSendResult
 import io.github.lastnyx.hermesclient.data.chat.AttachmentReader
 import io.github.lastnyx.hermesclient.data.chat.ChatController
 import io.github.lastnyx.hermesclient.data.chat.ChatItem
+import io.github.lastnyx.hermesclient.data.chat.CheckpointsController
 import io.github.lastnyx.hermesclient.data.chat.ModelsController
 import io.github.lastnyx.hermesclient.data.chat.ModelsState
 import io.github.lastnyx.hermesclient.data.chat.NoticeLevel
@@ -272,6 +274,14 @@ fun ChatScreen(
         }
     }
     if (picking) ModelPicker(modelState, models, onDismiss = { picking = false })
+    var checkpointsOpen by remember { mutableStateOf(false) }
+    var overflow by remember { mutableStateOf(false) }
+    val checkpoints = remember(controller) { CheckpointsController(controller) }
+    val checkpointsState by checkpoints.state.collectAsState()
+    if (checkpointsOpen) {
+        LaunchedEffect(Unit) { checkpoints.load() }
+        CheckpointsSheet(checkpointsState, checkpoints, state.running, onDismiss = { checkpointsOpen = false })
+    }
 
     Column(modifier.fillMaxSize().padding(horizontal = SCREEN_EDGE.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -292,6 +302,12 @@ fun ChatScreen(
                     overflow = TextOverflow.Ellipsis,
                     style = roles.label,
                 )
+            }
+            Box {
+                IconButton(onClick = { overflow = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
+                DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
+                    DropdownMenuItem(text = { Text("Checkpoints") }, onClick = { overflow = false; checkpointsOpen = true })
+                }
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
