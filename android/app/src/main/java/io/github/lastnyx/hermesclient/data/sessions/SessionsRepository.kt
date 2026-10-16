@@ -44,9 +44,11 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String, profile:
     private val base = baseUrl.trimEnd('/')
     private val profileName = profileParam(profile)
 
-    private fun String.withProfile(): HttpUrl = toHttpUrl().newBuilder().apply {
+    private fun HttpUrl.Builder.withProfile(): HttpUrl.Builder = apply {
         profileName?.let { addQueryParameter("profile", it) }
-    }.build()
+    }
+
+    private fun String.withProfile(): HttpUrl = toHttpUrl().newBuilder().withProfile().build()
 
     /** [archived] is the gateway's filter: `exclude` (default), `only` or `include`. */
     fun list(archived: String = "exclude"): Result<List<Session>> = call(
@@ -56,7 +58,7 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String, profile:
                 .addQueryParameter("archived", archived)
                 // Human chats only: Desktop hides scheduled/automated sources from recents.
                 .addQueryParameter("exclude_sources", "cron")
-                .apply { profileName?.let { addQueryParameter("profile", it) } }
+                .withProfile()
                 .build(),
         ).build(),
     ) { parse(it.getJSONArray("sessions"), "id") }.map { it.pinnedFirst() }
@@ -66,7 +68,7 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String, profile:
             "$base/api/sessions/search".toHttpUrl().newBuilder()
                 .addQueryParameter("q", query)
                 .addQueryParameter("limit", "20")
-                .apply { profileName?.let { addQueryParameter("profile", it) } }
+                .withProfile()
                 .build(),
         ).build(),
     ) { parse(it.getJSONArray("results"), "session_id") }
@@ -99,7 +101,7 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String, profile:
                 .addQueryParameter("limit", limit.toString())
                 .addQueryParameter("offset", offset.toString())
                 .addQueryParameter("inline_images", "false")
-                .apply { profileName?.let { addQueryParameter("profile", it) } }
+                .withProfile()
                 .build(),
         ).build(),
     ) { body ->

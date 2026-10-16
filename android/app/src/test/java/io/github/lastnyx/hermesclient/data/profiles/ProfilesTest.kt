@@ -103,7 +103,8 @@ class ProfilesTest {
         gateway.enqueue(MockResponse().setResponseCode(500).setBody("""{"detail":"secret server detail"}"""))
         runBlocking { model.load() }
         assertEquals("Could not load profiles", model.state.value.error)
-        assertEquals("/api/profiles", gateway.takeRequest().path)
+        val recorded = mutableListOf(gateway.takeRequest())
+        assertEquals("/api/profiles", recorded[0].path)
 
         gateway.enqueue(MockResponse().setBody("""{"profiles":[{"name":"default","is_default":true},{"name":"work"}]}"""))
         gateway.enqueue(MockResponse().setBody("""{"active":"default","current":"work"}"""))
@@ -119,9 +120,11 @@ class ProfilesTest {
         assertNull(model.state.value.selected)
         assertNull(store.selected("gw-1"))
 
-        gateway.takeRequest()
-        gateway.takeRequest()
+        recorded += gateway.takeRequest()
+        recorded += gateway.takeRequest()
         assertEquals(0, gateway.requestCount - 3)
+        assertEquals(listOf("GET", "GET", "GET"), recorded.map { it.method })
+        assertFalse(recorded.any { it.path!!.startsWith("/api/profiles/active") && it.method != "GET" })
         gateway.shutdown()
     }
 
