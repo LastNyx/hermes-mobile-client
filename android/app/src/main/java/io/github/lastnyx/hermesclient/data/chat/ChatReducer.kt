@@ -83,6 +83,7 @@ data class ChatState(
     /** Drafts waiting for the running turn to end; in memory only. */
     val queue: List<QueueEntry> = emptyList(),
     val processes: List<BackgroundProcess> = emptyList(),
+    val hasOlder: Boolean = false,
 ) {
     val prompts: List<Prompt> get() = openRequests.mapNotNull { it.toPrompt() }
 }

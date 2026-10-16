@@ -5,7 +5,10 @@ import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
 import io.github.lastnyx.hermesclient.data.live.ServerRequest
 import io.github.lastnyx.hermesclient.data.live.RpcError
+import io.github.lastnyx.hermesclient.data.sessions.HISTORY_PAGE
+import io.github.lastnyx.hermesclient.data.sessions.HistoryMessage
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.delay
@@ -273,9 +276,50 @@ class ChatController(
         synchronized(lock) { held.clear(); lastSeen = watermark }
     }
 
+    private var history: List<HistoryMessage> = emptyList()
+    private var historyOffset = 0
+    private var historyGeneration = 0
+    private val loadingOlder = AtomicBoolean(false)
+
+    private fun historyItem(m: HistoryMessage, index: Int) =
+        ChatItem.Message(m.rowId?.let { "h$it" } ?: "h-$index", m.role, m.text)
+
     private suspend fun loadHistory(stored: String) {
-        val history = withContext(io) { repo.messages(stored) }.getOrThrow()
-        _state.update { it.copy(items = history.mapIndexed { i, m -> ChatItem.Message("m$i", m.role, m.text) }) }
+        val page = withContext(io) { repo.messages(stored) }.getOrThrow()
+        synchronized(lock) {
+            historyGeneration++
+            history = page.messages
+            historyOffset = page.returned
+        }
+        _state.update { it.copy(items = page.messages.mapIndexed { i, m -> historyItem(m, i) }, hasOlder = page.returned >= HISTORY_PAGE) }
+    }
+
+    /** Prepends the next older page; live items are never touched. One load at a time. */
+    suspend fun loadOlder() {
+        if (!_state.value.hasOlder || !loadingOlder.compareAndSet(false, true)) return
+        try {
+            val stored = _state.value.storedId ?: return
+            val (generation, offset) = synchronized(lock) { historyGeneration to historyOffset }
+            val page = try {
+                withContext(io) { repo.messages(stored, offset = offset, limit = HISTORY_PAGE) }.getOrThrow()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(error = "Couldn't load earlier messages") }
+                return
+            }
+            synchronized(lock) {
+                // A reload replaced the transcript while this page was in flight.
+                if (generation != historyGeneration) return
+                val merged = mergeHistory(history, page.messages)
+                val added = merged.take(merged.size - history.size).mapIndexed { i, m -> historyItem(m, i) }
+                history = merged
+                historyOffset += page.returned
+                _state.update { it.copy(items = added + it.items, hasOlder = page.returned >= HISTORY_PAGE) }
+            }
+        } finally {
+            loadingOlder.set(false)
+        }
     }
 
     private fun readRequests(result: JSONObject) {

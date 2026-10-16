@@ -203,6 +203,12 @@ fun ChatScreen(
             info.totalItemsCount to info.visibleItemsInfo.lastOrNull()?.size
         }.collect { if (following) listState.scrollToEnd() }
     }
+    // Not while following: the list sits at the end on first open, before it has scrolled there.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex }.collect { index ->
+            if (index <= 3 && !following && controller.state.value.hasOlder) controller.loadOlder()
+        }
+    }
     if (picking) ModelPicker(modelState, models, onDismiss = { picking = false })
 
     Column(modifier.fillMaxSize().padding(horizontal = SCREEN_EDGE.dp)) {

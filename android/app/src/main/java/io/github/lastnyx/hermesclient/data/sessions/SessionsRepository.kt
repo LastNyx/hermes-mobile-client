@@ -30,7 +30,12 @@ data class Session(
 internal fun List<Session>.pinnedFirst(): List<Session> =
     sortedWith(compareByDescending<Session> { it.pinned }.thenByDescending { it.lastActive })
 
-data class HistoryMessage(val role: String, val text: String)
+const val HISTORY_PAGE = 120
+
+data class HistoryMessage(val role: String, val text: String, val rowId: Long? = null)
+
+/** [returned] is the raw row count of the reply, before tool/hidden/empty rows were dropped. */
+data class HistoryPage(val messages: List<HistoryMessage>, val returned: Int)
 
 /** Sessions of one gateway over REST. Blocking; call off the main thread. */
 class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
@@ -77,23 +82,31 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
         Request.Builder().url("$base/api/sessions/$id").delete().build(),
     ) { }
 
-    /** Durable transcript, oldest first; images are never inlined on mobile. */
-    fun messages(id: String): Result<List<HistoryMessage>> = call(
+    /**
+     * One page of the durable transcript, chronological inside the page. `order=latest` makes
+     * offset 0 the newest page and each larger offset an older one; images are never inlined on mobile.
+     */
+    fun messages(id: String, offset: Int = 0, limit: Int = HISTORY_PAGE): Result<HistoryPage> = call(
         Request.Builder().url(
             "$base/api/sessions/$id/messages".toHttpUrl().newBuilder()
-                .addQueryParameter("order", "oldest")
-                .addQueryParameter("limit", "500")
+                .addQueryParameter("order", "latest")
+                .addQueryParameter("limit", limit.toString())
+                .addQueryParameter("offset", offset.toString())
                 .addQueryParameter("inline_images", "false")
                 .build(),
         ).build(),
     ) { body ->
         val rows = body.getJSONArray("messages")
-        (0 until rows.length()).map { rows.getJSONObject(it) }.mapNotNull { row ->
+        val kept = (0 until rows.length()).map { rows.getJSONObject(it) }.mapNotNull { row ->
             val role = row.optString("role")
             val text = rowText(row)
             val hidden = row.optString("display_kind") == "hidden"
-            if (!hidden && (role == "user" || role == "assistant") && text.isNotBlank()) HistoryMessage(role, text) else null
+            // optLong would turn a missing or null id into 0.
+            val rowId = if (row.isNull("id")) null else row.optLong("id")
+            if (!hidden && (role == "user" || role == "assistant") && text.isNotBlank()) HistoryMessage(role, text, rowId) else null
         }
+        // Rows are filtered above, so paging must go by the raw count.
+        HistoryPage(kept, body.optJSONObject("pagination")?.optInt("returned", rows.length()) ?: rows.length())
     }
 
     private fun parse(rows: JSONArray, idKey: String): List<Session> = List(rows.length()) { i ->

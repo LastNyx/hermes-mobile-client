@@ -83,4 +83,42 @@ class SessionsRepositoryTest {
         assertEquals("Session is active", repo.delete("s2").exceptionOrNull()!!.message)
         gateway.shutdown()
     }
+
+    @Test
+    fun messagesAskForTheLatestPageAndKeepRowIds() {
+        val gateway = MockWebServer()
+        gateway.start()
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val base = gateway.url("/").toString().trimEnd('/')
+        val repo = SessionsRepository(AuthedHttp(OkHttpClient(), tokens, "gw-1", base, now = { 1000 }), base)
+
+        gateway.enqueue(
+            MockResponse().setBody(
+                """{"messages":[
+                {"id":7,"role":"user","content":"hi"},
+                {"id":8,"role":"tool","content":"x"},
+                {"id":9,"role":"assistant","content":"hidden","display_kind":"hidden"},
+                {"id":10,"role":"assistant","content":""},
+                {"id":null,"role":"assistant","content":"yo"}],
+                "pagination":{"limit":120,"offset":0,"order":"latest","returned":5}}""",
+            ),
+        )
+        val page = repo.messages("s1").getOrThrow()
+        val url = gateway.takeRequest().requestUrl!!
+        assertEquals("latest", url.queryParameter("order"))
+        assertEquals("120", url.queryParameter("limit"))
+        assertEquals("0", url.queryParameter("offset"))
+        assertEquals("false", url.queryParameter("inline_images"))
+        assertEquals(listOf("hi", "yo"), page.messages.map { it.text })
+        assertEquals(7L, page.messages[0].rowId)
+        assertEquals(null, page.messages[1].rowId)
+        assertEquals(5, page.returned)
+
+        gateway.enqueue(MockResponse().setBody("""{"messages":[{"id":1,"role":"user","content":"a"},{"role":"user","content":"b"}]}"""))
+        val older = repo.messages("s1", 120).getOrThrow()
+        assertEquals("120", gateway.takeRequest().requestUrl!!.queryParameter("offset"))
+        assertEquals(2, older.returned)
+        gateway.shutdown()
+    }
 }
