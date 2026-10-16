@@ -626,6 +626,7 @@ class ChatController(
     suspend fun stop(): Boolean {
         try {
             sessionCall("session.interrupt") { it }
+            _state.update { it.copy(error = null) }
             return true
         } catch (e: CancellationException) {
             throw e
