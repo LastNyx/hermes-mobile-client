@@ -5,6 +5,7 @@ import io.github.lastnyx.hermesclient.data.auth.SecretCipher
 import io.github.lastnyx.hermesclient.data.auth.TokenPair
 import io.github.lastnyx.hermesclient.data.auth.TokenStorage
 import io.github.lastnyx.hermesclient.data.auth.TokenStore
+import io.github.lastnyx.hermesclient.data.HttpFailure
 import io.github.lastnyx.hermesclient.data.sessions.CANT_REACH_GATEWAY
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
@@ -110,13 +111,13 @@ class CronTest {
         assertEquals("/api/cron/jobs/a%20b%2Fc/pause", gateway.takeRequest().path)
 
         gateway.enqueue(MockResponse().setResponseCode(409).setBody("""{"detail":"Job is already running or was claimed by another scheduler"}"""))
-        val err = repo.trigger("j1").exceptionOrNull() as CronHttpError
+        val err = repo.trigger("j1").exceptionOrNull() as HttpFailure
         assertEquals(409, err.code)
         assertTrue(err.detail.contains("already running"))
         gateway.takeRequest()
 
         gateway.enqueue(MockResponse().setResponseCode(404).setBody("""{"detail":"Job not found"}"""))
-        val gone = repo.pause("j1").exceptionOrNull() as CronHttpError
+        val gone = repo.pause("j1").exceptionOrNull() as HttpFailure
         assertEquals(404, gone.code)
         assertEquals("Job not found", gone.detail)
         gateway.takeRequest()
@@ -226,10 +227,10 @@ class CronTest {
         assertEquals("/api/cron/jobs/j1", del.path)
 
         gateway.enqueue(MockResponse().setResponseCode(400).setBody("""{"detail":"Invalid schedule 'banana'"}"""))
-        assertEquals(400, (repo.create("", "p", "banana").exceptionOrNull() as CronHttpError).code)
+        assertEquals(400, (repo.create("", "p", "banana").exceptionOrNull() as HttpFailure).code)
         gateway.takeRequest()
         gateway.enqueue(MockResponse().setResponseCode(404).setBody("""{"detail":"Job not found"}"""))
-        assertEquals(404, (repo.delete("j1").exceptionOrNull() as CronHttpError).code)
+        assertEquals(404, (repo.delete("j1").exceptionOrNull() as HttpFailure).code)
         gateway.takeRequest()
 
         val model = CronListModel(repo, Dispatchers.Unconfined)

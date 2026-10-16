@@ -4,7 +4,7 @@ import io.github.lastnyx.hermesclient.data.live.RpcError
 import io.github.lastnyx.hermesclient.data.sessions.CANT_REACH_GATEWAY
 import java.io.IOException
 
-class HttpFailure(val code: Int) : Exception("HTTP $code")
+class HttpFailure(val code: Int, val detail: String = "") : Exception("HTTP $code")
 
 private const val GENERIC = "Something went wrong. Try again."
 private const val GATEWAY_ERROR = "The gateway hit an error. Try again."

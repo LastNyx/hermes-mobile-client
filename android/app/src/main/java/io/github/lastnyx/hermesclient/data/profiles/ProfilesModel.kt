@@ -1,7 +1,6 @@
 package io.github.lastnyx.hermesclient.data.profiles
 
 import io.github.lastnyx.hermesclient.data.sessions.CANT_REACH_GATEWAY
-import java.io.IOException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +36,7 @@ class ProfilesModel(
                 profiles = list.getOrDefault(it.profiles),
                 current = if (list.isSuccess) current else it.current,
                 loading = false,
-                error = list.exceptionOrNull()?.let { f -> if (f is IOException) CANT_REACH_GATEWAY else LOAD_FAILED },
+                error = list.exceptionOrNull()?.let { f -> if (f.message == CANT_REACH_GATEWAY) CANT_REACH_GATEWAY else LOAD_FAILED },
             )
         }
     }

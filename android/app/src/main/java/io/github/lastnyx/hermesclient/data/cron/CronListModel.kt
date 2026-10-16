@@ -1,5 +1,6 @@
 package io.github.lastnyx.hermesclient.data.cron
 
+import io.github.lastnyx.hermesclient.data.HttpFailure
 import io.github.lastnyx.hermesclient.data.sessions.CANT_REACH_GATEWAY
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,7 +49,7 @@ class CronListModel(private val repo: CronRepository, private val io: CoroutineD
             load()
             return
         }
-        val http = failure as? CronHttpError
+        val http = failure as? HttpFailure
         when {
             http?.code == 409 && http.detail.contains("already running", ignoreCase = true) ->
                 _state.update { it.copy(notice = "Already running") }
@@ -85,7 +86,7 @@ class CronListModel(private val repo: CronRepository, private val io: CoroutineD
             load()
             return true
         }
-        val http = failure as? CronHttpError
+        val http = failure as? HttpFailure
         val text = when {
             http?.code == 400 -> "The gateway didn't accept that schedule or prompt."
             http?.code == 404 -> "That job no longer exists."
@@ -102,7 +103,7 @@ class CronListModel(private val repo: CronRepository, private val io: CoroutineD
         _state.update { it.copy(busy = it.busy + id) }
         val failure = withContext(io) { repo.delete(id) }.exceptionOrNull()
         _state.update { it.copy(busy = it.busy - id) }
-        val http = failure as? CronHttpError
+        val http = failure as? HttpFailure
         when {
             failure == null -> { _state.update { it.copy(notice = null) }; load() }
             http?.code == 404 -> { _state.update { it.copy(notice = "Job not found") }; load() }

@@ -1,9 +1,7 @@
 package io.github.lastnyx.hermesclient.data.profiles
 
-import io.github.lastnyx.hermesclient.data.HttpFailure
 import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
-import io.github.lastnyx.hermesclient.data.sessions.CANT_REACH_GATEWAY
-import java.io.IOException
+import io.github.lastnyx.hermesclient.data.gatewayCall
 import okhttp3.Request
 import org.json.JSONObject
 
@@ -15,17 +13,6 @@ class ProfilesRepository(private val http: AuthedHttp, baseUrl: String) {
 
     fun current(): Result<String?> = call("/api/profiles/active") { parseActiveProfile(it) }
 
-    private fun <T> call(path: String, map: (JSONObject) -> T): Result<T> = try {
-        Result.success(
-            http.execute(Request.Builder().url(base + path).build()).use { response ->
-                val text = response.body?.string().orEmpty()
-                if (!response.isSuccessful) throw HttpFailure(response.code)
-                map(JSONObject(text))
-            },
-        )
-    } catch (e: IOException) {
-        Result.failure(IOException(CANT_REACH_GATEWAY))
-    } catch (e: Exception) {
-        Result.failure(e)
-    }
+    private fun <T> call(path: String, map: (JSONObject) -> T): Result<T> =
+        gatewayCall(http, Request.Builder().url(base + path).build()) { map(JSONObject(it)) }
 }

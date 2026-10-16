@@ -1,19 +1,14 @@
 package io.github.lastnyx.hermesclient.data.capabilities
 
 import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
-import io.github.lastnyx.hermesclient.data.sessions.CANT_REACH_GATEWAY
-import java.io.IOException
+import io.github.lastnyx.hermesclient.data.JSON_MEDIA
+import io.github.lastnyx.hermesclient.data.gatewayCall
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-
-private val JSON = "application/json".toMediaType()
-
-class CapabilitiesHttpError(val code: Int, val detail: String) : Exception("Gateway returned $code")
 
 /** Skills, toolsets and MCP servers of one gateway over REST. Blocking; call off the main thread. */
 class CapabilitiesRepository(private val http: AuthedHttp, baseUrl: String) {
@@ -45,27 +40,7 @@ class CapabilitiesRepository(private val http: AuthedHttp, baseUrl: String) {
     private fun get(vararg segments: String) = Request.Builder().url(url(*segments)).build()
 
     private fun put(url: HttpUrl, body: JSONObject): Result<Unit> =
-        call(Request.Builder().url(url).put(body.toString().toRequestBody(JSON)).build()) { }
+        call(Request.Builder().url(url).put(body.toString().toRequestBody(JSON_MEDIA)).build()) { }
 
-    private fun <T> call(request: Request, map: (String) -> T): Result<T> = try {
-        Result.success(
-            http.execute(request).use { response ->
-                val text = response.body?.string().orEmpty()
-                if (!response.isSuccessful) throw CapabilitiesHttpError(response.code, detailOf(text))
-                map(text)
-            },
-        )
-    } catch (e: CapabilitiesHttpError) {
-        Result.failure(e)
-    } catch (e: IOException) {
-        Result.failure(Exception(CANT_REACH_GATEWAY))
-    } catch (e: Exception) {
-        Result.failure(e)
-    }
-
-    private fun detailOf(text: String): String = try {
-        (JSONObject(text).opt("detail") as? String).orEmpty()
-    } catch (e: Exception) {
-        ""
-    }
+    private fun <T> call(request: Request, map: (String) -> T): Result<T> = gatewayCall(http, request, map)
 }
