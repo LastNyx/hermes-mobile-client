@@ -210,7 +210,7 @@ fun ChatScreen(
     var picking by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val slackPx = with(LocalDensity.current) { 24.dp.roundToPx() }
-    var following by remember { mutableStateOf(true) }
+    var following by rememberSaveable { mutableStateOf(true) }
     // Only user drags and flings reach this; programmatic scrolls do not, so content growth never unsets it.
     val userScrollWatcher = remember(listState, slackPx) {
         object : NestedScrollConnection {

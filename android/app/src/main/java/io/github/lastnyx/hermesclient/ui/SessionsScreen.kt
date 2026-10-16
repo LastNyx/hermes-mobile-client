@@ -47,6 +47,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -251,10 +252,10 @@ fun SessionsHost(
     val authed = remember(gateway.id, gateway.url) { signIn.authed(gateway.id, gateway.url) }
     val model = remember(authed) { SessionListModel(SessionsRepository(authed, gateway.url), Dispatchers.IO) }
     val auth by authed.state.collectAsState()
-    var chatOpen by remember(gateway.id) { mutableStateOf(false) }
-    var chatId by remember(gateway.id) { mutableStateOf<String?>(null) }
+    var chatOpen by rememberSaveable(gateway.id) { mutableStateOf(false) }
+    var chatId by rememberSaveable(gateway.id) { mutableStateOf<String?>(null) }
     val wide = LocalConfiguration.current.screenWidthDp >= 720
-    var chatKey by remember(gateway.id) { mutableStateOf(0) }
+    var chatKey by rememberSaveable(gateway.id) { mutableStateOf(0) }
     val open = { id: String? -> chatId = id; chatKey++; chatOpen = true }
     BackHandler(enabled = chatOpen && !wide) { chatOpen = false }
     LaunchedEffect(openSessionId) { if (openSessionId != null) open(openSessionId) }

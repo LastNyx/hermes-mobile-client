@@ -16,6 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import io.github.lastnyx.hermesclient.data.auth.CustomTabBrowserLauncher
@@ -83,10 +84,10 @@ class MainActivity : ComponentActivity() {
                 typography = scaledTypography(Typography(), textScale),
             ) {
                 Surface(Modifier.fillMaxSize().safeDrawingPadding()) {
-                    var showGateways by remember {
+                    var showGateways by rememberSaveable {
                         mutableStateOf(registry.active()?.let { signIn.stateOf(it.id) } !is SignInState.SignedIn)
                     }
-                    var showSettings by remember { mutableStateOf(false) }
+                    var showSettings by rememberSaveable { mutableStateOf(false) }
                     LaunchedEffect(Unit) { updates.check(silent = true) }
                     LaunchedEffect(Unit) {
                         io.github.lastnyx.hermesclient.data.update.InstallFailures.messages.collect { updates.installFailed(it) }
