@@ -28,6 +28,7 @@ import io.github.lastnyx.hermesclient.data.auth.TokenStore
 import io.github.lastnyx.hermesclient.data.gateway.GatewayClient
 import io.github.lastnyx.hermesclient.data.gateway.GatewayRegistry
 import io.github.lastnyx.hermesclient.data.gateway.PrefsGatewayStorage
+import io.github.lastnyx.hermesclient.data.gateway.restClient
 import io.github.lastnyx.hermesclient.data.settings.PrefsTextScaleStorage
 import io.github.lastnyx.hermesclient.data.update.ApkInstaller
 import io.github.lastnyx.hermesclient.data.update.UpdateController
@@ -57,10 +58,12 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val registry = GatewayRegistry(PrefsGatewayStorage(applicationContext))
         val http = OkHttpClient()
-        val client = GatewayClient(http)
+        // LiveLink (WebSocket, readTimeout 0) and Updater (long APK download) stay on plain `http`: a call limit would kill them.
+        val rest = restClient(http)
+        val client = GatewayClient(rest)
         val tokens = TokenStore(FileTokenStorage(applicationContext), KeystoreSecretCipher())
         val signIn = SignInController(
-            http,
+            rest,
             tokens,
             CustomTabBrowserLauncher(this),
             onFinished = {

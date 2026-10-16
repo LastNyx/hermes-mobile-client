@@ -1,5 +1,6 @@
 package io.github.lastnyx.hermesclient.data.chat
 
+import io.github.lastnyx.hermesclient.data.friendlyError
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -98,6 +99,6 @@ class ModelsController(private val chat: ChatController) {
     }
 
     private fun fail(e: Exception) {
-        _state.update { it.copy(error = e.message ?: "Something went wrong") }
+        _state.update { it.copy(error = friendlyError(e)) }
     }
 }

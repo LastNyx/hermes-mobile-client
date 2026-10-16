@@ -59,7 +59,7 @@ class SessionPinArchiveTest {
         model.setArchived("b", true)
         assertEquals("""{"archived":true}""", gateway.takeRequest().body.readUtf8())
         assertEquals(listOf("a", "b", "c"), model.state.value.sessions.map { it.id })
-        assertEquals("nope", model.state.value.error)
+        assertEquals("The gateway hit an error. Try again.", model.state.value.error)
 
         gateway.enqueue(MockResponse().setBody("""{"ok":true}"""))
         model.setArchived("b", true)

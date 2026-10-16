@@ -1,5 +1,6 @@
 package io.github.lastnyx.hermesclient.data.auth
 
+import io.github.lastnyx.hermesclient.data.signInErrorText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,7 +45,7 @@ class SignInController(
                 gatewayId,
                 result.fold(
                     { SignInState.SignedIn(it) },
-                    { SignInState.SignedOut(it.message ?: "Sign-in failed") },
+                    { SignInState.SignedOut(signInErrorText(it)) },
                 ),
             )
         } finally {

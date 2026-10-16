@@ -1,5 +1,6 @@
 package io.github.lastnyx.hermesclient.data.chat
 
+import io.github.lastnyx.hermesclient.data.friendlyError
 import io.github.lastnyx.hermesclient.data.live.LinkEvent
 import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
@@ -541,8 +542,7 @@ class ChatController(
         }
     }
 
-    private fun errorText(e: Exception) =
-        if (e is IOException) "Can't reach the gateway. Check your connection." else e.message ?: "Something went wrong"
+    private fun errorText(e: Exception) = friendlyError(e)
 
     private fun fail(e: Exception) {
         _state.update { it.copy(error = errorText(e), running = false) }

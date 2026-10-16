@@ -1,5 +1,6 @@
 package io.github.lastnyx.hermesclient.data.update
 
+import io.github.lastnyx.hermesclient.data.friendlyError
 import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -32,7 +33,7 @@ class UpdateController(
                     UpdateOutcome.NonePublished -> if (silent) UpdateUi() else UpdateUi("No updates published yet")
                 }
             },
-            onFailure = { if (silent) UpdateUi() else UpdateUi(it.message ?: CANT_REACH_GITHUB) },
+            onFailure = { if (silent) UpdateUi() else UpdateUi(updateErrorText(it)) },
         )
     }
 
@@ -53,6 +54,9 @@ class UpdateController(
             } catch (e: Exception) {
                 _state.value = UpdateUi(INSTALL_START_FAILED, info)
             }
-        }.onFailure { _state.value = UpdateUi(it.message ?: CANT_REACH_GITHUB, info) }
+        }.onFailure { _state.value = UpdateUi(updateErrorText(it), info) }
     }
 }
+
+private fun updateErrorText(t: Throwable): String =
+    t.message?.takeIf { it == CANT_REACH_GITHUB || it == CHECKSUM_MISMATCH } ?: friendlyError(t)

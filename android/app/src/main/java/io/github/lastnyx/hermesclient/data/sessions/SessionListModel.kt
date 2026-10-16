@@ -1,5 +1,6 @@
 package io.github.lastnyx.hermesclient.data.sessions
 
+import io.github.lastnyx.hermesclient.data.friendlyError
 import io.github.lastnyx.hermesclient.data.live.LinkState
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +39,7 @@ class SessionListModel(private val repo: SessionsRepository, private val io: Cor
     suspend fun rename(id: String, title: String) {
         withContext(io) { repo.rename(id, title) }.fold(
             { _state.value = _state.value.copy(error = null, sessions = _state.value.sessions.map { if (it.id == id) it.copy(title = title) else it }) },
-            { _state.value = _state.value.copy(error = it.message ?: "Rename failed") },
+            { _state.value = _state.value.copy(error = friendlyError(it)) },
         )
     }
 
@@ -46,7 +47,7 @@ class SessionListModel(private val repo: SessionsRepository, private val io: Cor
         val before = _state.value.sessions
         _state.value = _state.value.copy(error = null, sessions = before.map { if (it.id == id) it.copy(pinned = pinned) else it }.pinnedFirst())
         withContext(io) { repo.setPinned(id, pinned) }.onFailure {
-            _state.value = _state.value.copy(sessions = before, error = it.message ?: "Could not update the chat")
+            _state.value = _state.value.copy(sessions = before, error = friendlyError(it))
         }
     }
 
@@ -56,7 +57,7 @@ class SessionListModel(private val repo: SessionsRepository, private val io: Cor
         _state.value = _state.value.copy(error = null, sessions = before.filter { it.id != id })
         withContext(io) { repo.setArchived(id, archived) }.fold(
             { if (!archived && !_state.value.archivedPage) refresh() },
-            { _state.value = _state.value.copy(sessions = before, error = it.message ?: "Could not update the chat") },
+            { _state.value = _state.value.copy(sessions = before, error = friendlyError(it)) },
         )
     }
 
@@ -73,7 +74,7 @@ class SessionListModel(private val repo: SessionsRepository, private val io: Cor
     suspend fun delete(id: String) {
         withContext(io) { repo.delete(id) }.fold(
             { _state.value = _state.value.copy(error = null, sessions = _state.value.sessions.filter { it.id != id }) },
-            { _state.value = _state.value.copy(error = it.message ?: "Delete failed") },
+            { _state.value = _state.value.copy(error = friendlyError(it)) },
         )
     }
 
@@ -82,7 +83,7 @@ class SessionListModel(private val repo: SessionsRepository, private val io: Cor
         val result = withContext(io) { call(query) }
         _state.value = result.fold(
             { _state.value.copy(sessions = it, loading = false, error = null) },
-            { _state.value.copy(loading = false, error = it.message ?: "Could not load sessions") },
+            { _state.value.copy(loading = false, error = friendlyError(it)) },
         )
     }
 }

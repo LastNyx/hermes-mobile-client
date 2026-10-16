@@ -44,7 +44,7 @@ class SessionListModelTest {
 
         gateway.enqueue(MockResponse().setResponseCode(500).setBody("""{"detail":"gateway down"}"""))
         model.load()
-        assertEquals("gateway down", model.state.value.error)
+        assertEquals("The gateway hit an error. Try again.", model.state.value.error)
         assertFalse(model.state.value.loading)
 
         gateway.takeRequest()

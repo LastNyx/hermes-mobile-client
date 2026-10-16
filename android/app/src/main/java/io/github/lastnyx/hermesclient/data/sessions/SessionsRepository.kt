@@ -1,5 +1,6 @@
 package io.github.lastnyx.hermesclient.data.sessions
 
+import io.github.lastnyx.hermesclient.data.HttpFailure
 import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
@@ -148,15 +149,11 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
             http.execute(request).use { response ->
                 val text = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {
-                    val detail = runCatching { JSONObject(text).optString("detail") }.getOrDefault("")
-                    throw Exception(detail.ifEmpty { "Gateway returned ${response.code}" })
+                    throw HttpFailure(response.code)
                 }
                 map(JSONObject(text))
             },
         )
-    } catch (e: IOException) {
-        // Never surface OkHttp's text ("failed to connect to ... after 10000ms").
-        Result.failure(Exception(CANT_REACH_GATEWAY))
     } catch (e: Exception) {
         Result.failure(e)
     }

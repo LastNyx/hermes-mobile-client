@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.auth.SignInController
+import io.github.lastnyx.hermesclient.data.friendlyError
 import io.github.lastnyx.hermesclient.data.auth.SignInState
 import io.github.lastnyx.hermesclient.data.gateway.Gateway
 import io.github.lastnyx.hermesclient.data.gateway.GatewayClient
@@ -100,7 +101,7 @@ fun GatewaysScreen(
                             val result = withContext(Dispatchers.IO) { client.status(gateway.url) }
                             testResults[gateway.id] = result.fold(
                                 { "Online, Hermes ${it.version}" },
-                                { "Unreachable: ${it.message ?: "error"}" },
+                                { friendlyError(it) },
                             )
                         }
                     },

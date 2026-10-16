@@ -1,5 +1,6 @@
 package io.github.lastnyx.hermesclient.data.sessions
 
+import io.github.lastnyx.hermesclient.data.friendlyError
 import io.github.lastnyx.hermesclient.data.auth.SecretCipher
 import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
 import io.github.lastnyx.hermesclient.data.auth.TokenPair
@@ -80,7 +81,7 @@ class SessionsRepositoryTest {
         assertEquals("/api/sessions/s1", del.path)
 
         gateway.enqueue(MockResponse().setResponseCode(409).setBody("""{"detail":"Session is active"}"""))
-        assertEquals("Session is active", repo.delete("s2").exceptionOrNull()!!.message)
+        assertEquals("That can't be done right now. Try again in a moment.", friendlyError(repo.delete("s2").exceptionOrNull()!!))
         gateway.shutdown()
     }
 

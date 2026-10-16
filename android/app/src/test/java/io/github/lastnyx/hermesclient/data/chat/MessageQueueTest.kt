@@ -123,7 +123,7 @@ class MessageQueueTest {
         chat.queue("one")
         chat.queue("two")
         complete()
-        awaitTrue { submits.size == 1 && chat.state.value.error == "boom" }
+        awaitTrue { submits.size == 1 && chat.state.value.error == "The gateway hit an error. Try again." }
         assertEquals(listOf("one", "two"), chat.state.value.queue.map { it.text })
 
         complete()
@@ -268,7 +268,7 @@ class MessageQueueTest {
         chat.sendNow(chat.state.value.queue[0].id)
         assertEquals(listOf("one"), chat.state.value.queue.map { it.text })
         assertEquals(true, chat.state.value.running)
-        assertEquals("boom", chat.state.value.error)
+        assertEquals("The gateway hit an error. Try again.", chat.state.value.error)
 
         socket!!.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"message.complete","session_id":"rt1","payload":{"text":"done","status":"interrupted"},"seq":1}}""")
         delay(300)

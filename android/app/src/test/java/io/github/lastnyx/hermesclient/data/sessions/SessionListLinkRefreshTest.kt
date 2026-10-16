@@ -1,5 +1,8 @@
 package io.github.lastnyx.hermesclient.data.sessions
 
+import io.github.lastnyx.hermesclient.data.HttpFailure
+import io.github.lastnyx.hermesclient.data.friendlyError
+import io.github.lastnyx.hermesclient.data.gateway.restClient
 import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
 import io.github.lastnyx.hermesclient.data.auth.SecretCipher
 import io.github.lastnyx.hermesclient.data.auth.TokenPair
@@ -43,20 +46,36 @@ class SessionListLinkRefreshTest {
         val refused = MockWebServer().also { it.start() }
         val refusedBase = refused.url("/").toString().trimEnd('/')
         refused.shutdown()
-        assertEquals(CANT_REACH_GATEWAY, repo(OkHttpClient(), refusedBase).list().exceptionOrNull()!!.message)
+        assertEquals(CANT_REACH_GATEWAY, friendlyError(repo(OkHttpClient(), refusedBase).list().exceptionOrNull()!!))
 
         val silent = MockWebServer().also { it.start() }
         silent.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
         val shortClient = OkHttpClient.Builder().readTimeout(200, TimeUnit.MILLISECONDS).build()
-        assertEquals(CANT_REACH_GATEWAY, repo(shortClient, silent.url("/").toString().trimEnd('/')).list().exceptionOrNull()!!.message)
+        assertEquals(CANT_REACH_GATEWAY, friendlyError(repo(shortClient, silent.url("/").toString().trimEnd('/')).list().exceptionOrNull()!!))
         silent.shutdown()
 
-        assertEquals(CANT_REACH_GATEWAY, repo(OkHttpClient(), "http://no-such-host.invalid").list().exceptionOrNull()!!.message)
+        assertEquals(CANT_REACH_GATEWAY, friendlyError(repo(OkHttpClient(), "http://no-such-host.invalid").list().exceptionOrNull()!!))
 
         val broken = MockWebServer().also { it.start() }
         broken.enqueue(MockResponse().setResponseCode(500).setBody("""{"detail":"gateway down"}"""))
-        assertEquals("gateway down", repo(OkHttpClient(), broken.url("/").toString().trimEnd('/')).list().exceptionOrNull()!!.message)
+        val failure = repo(OkHttpClient(), broken.url("/").toString().trimEnd('/')).list().exceptionOrNull()!!
+        assertEquals("The gateway hit an error. Try again.", friendlyError(failure))
+        assertTrue(failure is HttpFailure && failure.code == 500 && !failure.message!!.contains("gateway down"))
         broken.shutdown()
+    }
+
+    @Test
+    fun restClientCallTimeoutTurnsASlowGatewayIntoCantReach() {
+        val slow = MockWebServer().also { it.start() }
+        slow.enqueue(MockResponse().setBody("""{"sessions":[]}""").setBodyDelay(2, TimeUnit.SECONDS))
+        val base = OkHttpClient()
+        val rest = restClient(base, 200)
+        assertEquals(200, rest.callTimeoutMillis)
+        assertEquals(0, base.callTimeoutMillis)
+        assertEquals(base.readTimeoutMillis, rest.readTimeoutMillis)
+        assertEquals(30_000, restClient(base).callTimeoutMillis)
+        assertEquals(CANT_REACH_GATEWAY, friendlyError(repo(rest, slow.url("/").toString().trimEnd('/')).list().exceptionOrNull()!!))
+        slow.shutdown()
     }
 
     @Test
@@ -67,7 +86,7 @@ class SessionListLinkRefreshTest {
 
         gateway.enqueue(MockResponse().setResponseCode(500).setBody("""{"detail":"gateway down"}"""))
         model.load()
-        assertEquals("gateway down", model.state.value.error)
+        assertEquals("The gateway hit an error. Try again.", model.state.value.error)
 
         model.onLinkState(LinkState.Connecting)
         assertEquals(1, gateway.requestCount)

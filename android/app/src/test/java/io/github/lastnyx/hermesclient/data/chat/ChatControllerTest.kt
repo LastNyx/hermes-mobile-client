@@ -632,7 +632,7 @@ class ChatControllerTest {
 
         chat.send("boom")
         assertEquals(listOf("more", "later"), users())
-        assertEquals("gateway broke", chat.state.value.error)
+        assertEquals("Something went wrong. Try again.", chat.state.value.error)
         assertEquals(true, chat.state.value.running)
         assertEquals(listOf("boom"), chat.state.value.queue.map { it.text })
 
