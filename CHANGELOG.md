@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.2.0 - 2026-10-16
+
+- First release from this repository, which is now public (MIT). Earlier builds were published to a separate releases repo; an app installed from v0.1.0 does not look here, so install v0.2.0 by hand once.
+
 - Edit and branch: long-press one of your messages for Edit (the later messages are removed and the edited text is sent) or Branch from here (opens a new chat with the turns up to that message). The last reply has Retry and Regenerate. Edit and Regenerate show only while the chat is idle.
 - Rotation: turning the phone keeps the open chat, its scroll position and the live connection, in both layouts.
 - Reconnect: after the connection drops and comes back, the open chat re-attaches to its running turn, so the rest of the reply keeps arriving and Stop works without leaving the chat.

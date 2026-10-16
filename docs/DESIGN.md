@@ -32,8 +32,8 @@ store for no gain. We copy its **documentation layout** and its **self-update me
 | Q13 | `.team.json` test = `./gradlew testDebugUnitTest`; JVM tests against a fake gateway (OkHttp MockWebServer) for auth, refresh, ws events. UI is verified by the user on the phone. |
 | Q14 | FULL lane (dev → reviewer → docs). Docs mirror hermes-mobile-remote: README, INSTALL, FEATURES, ARCHITECTURE, SECURITY, TROUBLESHOOTING (+ PROTOCOL). |
 | Q15 | Tokens in Keystore-backed encrypted storage, excluded from backup; logout calls `/auth/logout` and wipes the gateway's tokens. |
-| Q16 | Source repo is private. Release APKs are published by CI to a separate **public** repo `LastNyx/hermes-mobile-client-releases`; the Updater reads that repo's latest release without a token (`BuildConfig.RELEASES_REPO`). |
-| Q17 | Work must be resumable on another PC: tickets (`.scratch/<feature>/issues/`) and `docs/work/HANDOFF.md` are committed on the feature branch, and the branch is pushed after every ticket. |
+| Q16 | The repo is **public**. CI publishes release APKs as GitHub Releases of this same repo (`GITHUB_TOKEN`, no extra secret); the Updater reads its latest release without a token (`BuildConfig.RELEASES_REPO`). Supersedes the earlier private-source / separate releases-repo split. |
+| Q17 | Work must be resumable on another PC: docs/work/HANDOFF.md is committed on the feature branch, and the branch is pushed after every ticket. Tickets, reviews and research (`.scratch/`) live in the separate private repo `LastNyx/hermes-mobile-scratch`, cloned into `.scratch/` (git-ignored here). |
 | Q18 | `scripts/setup-toolchain.sh` installs the same JDK 17 + Android SDK on Windows (git-bash, `C:/home/tools`) and Linux/Arch (`~/tools`). |
 
 ## Facts verified against WorkLab (2026-10-12)

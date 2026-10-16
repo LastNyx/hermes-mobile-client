@@ -15,9 +15,9 @@ scripts/setup-toolchain.sh        # JDK 17 + Android SDK into C:/home/tools or ~
 ./build.sh test                   # must pass before dispatching anything
 ```
 
-Also clone `LastNyx/hermes-mobile-client-releases` next to this repo (README + CHANGELOG live there).
-Tickets live in `.scratch/v1/issues/` and are committed (only `.scratch/runs*` is ignored), so ticket
-Status travels with the branch.
+Tickets, reviews and research live in the private repo `LastNyx/hermes-mobile-scratch`, cloned into `.scratch/`
+(git-ignored by this repo): `python3 <hermes-dev-team>/kit/scratch.py init --clone https://github.com/LastNyx/hermes-mobile-scratch.git`.
+Ticket Status travels with that repo, not with this branch.
 
 After `./build.sh test` passes:
 
@@ -127,18 +127,17 @@ notification hardening; notices banner; process output. Earlier (2026-10-14): sl
 
 ## Releases
 
-- Source repo `LastNyx/hermes-mobile-client` is **private**; releases go to the **public**
-  `LastNyx/hermes-mobile-client-releases` (only README, CHANGELOG and release assets; GitHub's auto "Source code"
-  zips contain just those two files).
+- Source repo `LastNyx/hermes-mobile-client` is **public** (made public 2026-10-16, `.scratch` purged from history,
+  MIT). Releases are GitHub Releases of this same repo; the old `hermes-mobile-client-releases` repo (v0.1.0 only) is retired.
 - Release = push a tag `v*`: `.github/workflows/release.yml` runs tests, builds a signed APK, publishes
   `HermesClient.apk` + `HermesClient.apk.sha256` with `gh release create`. v0.1.0 run took 6m39s.
 - Secrets in the source repo: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
-  `ANDROID_KEY_PASSWORD`, `RELEASES_TOKEN` (fine-grained, releases repo only, has an expiry).
+  `ANDROID_KEY_PASSWORD`. Publishing uses the workflow's `GITHUB_TOKEN` (`contents: write`); `RELEASES_TOKEN` is no longer used.
 - Keystore: `C:/home/keys/` (outside git, made by `scripts/make-release-key.sh`). Certificate SHA-256
   `63:36:9F:BF:...:1F:30:B4`. **The user must keep a backup outside both PCs**; losing it means every user reinstalls.
 - Phone installs of debug builds and release builds have different keys: switching needs one uninstall.
-- After each release update the releases repo's `CHANGELOG.md` (and README "Latest" line), commit and push there.
-- Updater only ever ran against fixtures; an end-to-end update needs a second release (v0.1.1).
+- After each release, flip `CHANGELOG.md` `Unreleased` to the version heading and commit.
+- Updater only ever ran against fixtures; an end-to-end update needs a release after v0.2.0 (v0.2.1). v0.1.0 installs read the old releases repo and never see v0.2.0.
 - Releases CI warns that `actions/checkout@v4` and `setup-java@v4` are on a deprecated Node version (harmless now).
 
 ## Known gaps and not device-tested

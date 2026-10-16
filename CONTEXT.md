@@ -18,5 +18,5 @@
 | **Approval** | Hermes asks permission for a tool call; the user answers on the phone. |
 | **Clarify** | Hermes asks the user a question (choices or free text) mid-turn. |
 | **Watch service** | Foreground service that keeps the live link only while a phone-started turn runs or waits on the user. |
-| **Updater** | Self-update from the public releases repo's latest GitHub Release: APK + SHA-256 check + PackageInstaller. |
+| **Updater** | Self-update from this repo's latest GitHub Release: APK + SHA-256 check + PackageInstaller. |
 | **Project** | A Hermes workspace of one or more folders; chats belong to one by their cwd. The Project grouping uses the gateway's projects, and falls back to the cwd folder name when the gateway can't list them. |

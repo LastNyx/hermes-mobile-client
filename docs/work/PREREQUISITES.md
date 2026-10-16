@@ -37,17 +37,15 @@ Dispatch: `python -u <hermes-dev-team>/kit/run-worker.py dev "ticket: .scratch/v
 ## To publish a release
 
 Releases are built by GitHub Actions (`.github/workflows/release.yml`) when a `v*` tag is pushed, and
-published to the public repo `LastNyx/hermes-mobile-client-releases`.
+published as a GitHub Release of this repo.
 
-- **Nothing to install on the new machine for CI.** The signing key and token are GitHub repo secrets in
+- **Nothing to install on the new machine for CI.** The signing key is held in GitHub repo secrets in
   `LastNyx/hermes-mobile-client`: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
-  `ANDROID_KEY_PASSWORD`, `RELEASES_TOKEN`.
+  `ANDROID_KEY_PASSWORD`. Publishing uses the workflow's own `GITHUB_TOKEN`.
 - Tag from anywhere with push access: `git tag v0.1.0 && git push origin v0.1.0`.
 - `gh` (GitHub CLI, `pacman -S github-cli`, then `gh auth login`) is useful for secrets and release checks.
-- `RELEASES_TOKEN` is a fine-grained token limited to the releases repo (Contents: read and write). It has
-  an expiry; when it lapses the publish step fails and the token must be replaced with
-  `gh secret set RELEASES_TOKEN --repo LastNyx/hermes-mobile-client`.
-- Keep a local clone of `hermes-mobile-client-releases` next to this repo for its README and CHANGELOG.
+- Tickets and worker notes are in the private repo `LastNyx/hermes-mobile-scratch`; on a new machine run
+  `python3 <hermes-dev-team>/kit/scratch.py init --clone https://github.com/LastNyx/hermes-mobile-scratch.git`.
 
 ## The release keystore (only for local signed builds)
 
