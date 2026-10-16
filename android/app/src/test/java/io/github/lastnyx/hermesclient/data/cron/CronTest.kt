@@ -173,4 +173,117 @@ class CronTest {
         assertEquals(8, gateway.requestCount)
         Unit
     }
+
+    @Test
+    fun createEditDelete() = runBlocking {
+        val job = CronJob("j1", "Daily", "every 1d", "scheduled", null, null, null, null, prompt = "old")
+        assertEquals("", parseJobs(JSONArray("""[{"id":"a","prompt":null},{"id":"b","prompt":"hi"}]""")).first().prompt)
+        assertEquals("hi", parseJobs(JSONArray("""[{"id":"a","prompt":null},{"id":"b","prompt":"hi"}]""")).last().prompt)
+
+        assertEquals("Add a prompt.", cronFormError(" ", " "))
+        assertEquals("Add a schedule, like every 30m.", cronFormError("x", " "))
+        assertNull(cronFormError("x", "every 1h"))
+        assertEquals(emptyMap<String, String>(), cronEditUpdates(job, " Daily ", "old", "every 1d"))
+        assertEquals(emptyMap<String, String>(), cronEditUpdates(job, " ", "old", "every 1d"))
+        assertEquals(
+            listOf("name" to "N", "prompt" to "P", "schedule" to "every 30m"),
+            cronEditUpdates(job, " N ", " P ", " every 30m ").toList(),
+        )
+
+        val gateway = MockWebServer()
+        gateway.start()
+        val repo = repo(gateway)
+
+        gateway.enqueue(MockResponse().setBody("{}"))
+        repo.create(" ", " say hi ", " every 2h ").getOrThrow()
+        val created = gateway.takeRequest()
+        assertEquals("POST", created.method)
+        assertEquals("/api/cron/jobs", created.path)
+        val body = JSONObject(created.body.readUtf8())
+        assertEquals(setOf("prompt", "schedule", "deliver"), body.keys().asSequence().toSet())
+        assertEquals("say hi", body.getString("prompt"))
+        assertEquals("every 2h", body.getString("schedule"))
+        assertEquals("local", body.getString("deliver"))
+
+        gateway.enqueue(MockResponse().setBody("{}"))
+        repo.create("N", "p", "every 2h").getOrThrow()
+        assertEquals("N", JSONObject(gateway.takeRequest().body.readUtf8()).getString("name"))
+
+        gateway.enqueue(MockResponse().setBody("{}"))
+        repo.update("j1", mapOf("schedule" to "every 30m")).getOrThrow()
+        val put = gateway.takeRequest()
+        assertEquals("PUT", put.method)
+        assertEquals("/api/cron/jobs/j1", put.path)
+        assertEquals("""{"updates":{"schedule":"every 30m"}}""", put.body.readUtf8())
+
+        repo.update("j1", emptyMap()).getOrThrow()
+        assertEquals(3, gateway.requestCount)
+
+        gateway.enqueue(MockResponse().setBody("""{"ok":true}"""))
+        repo.delete("j1").getOrThrow()
+        val del = gateway.takeRequest()
+        assertEquals("DELETE", del.method)
+        assertEquals("/api/cron/jobs/j1", del.path)
+
+        gateway.enqueue(MockResponse().setResponseCode(400).setBody("""{"detail":"Invalid schedule 'banana'"}"""))
+        assertEquals(400, (repo.create("", "p", "banana").exceptionOrNull() as CronHttpError).code)
+        gateway.takeRequest()
+        gateway.enqueue(MockResponse().setResponseCode(404).setBody("""{"detail":"Job not found"}"""))
+        assertEquals(404, (repo.delete("j1").exceptionOrNull() as CronHttpError).code)
+        gateway.takeRequest()
+
+        val model = CronListModel(repo, Dispatchers.Unconfined)
+        val before = gateway.requestCount
+        assertEquals(false, model.create("", " ", "every 1h"))
+        assertEquals("Add a prompt.", model.state.value.formError)
+        assertEquals(before, gateway.requestCount)
+
+        gateway.enqueue(MockResponse().setBody("{}"))
+        gateway.enqueue(MockResponse().setBody(jobsBody))
+        assertEquals(true, model.create("", "p", "every 1h"))
+        assertNull(model.state.value.formError)
+        assertEquals("POST", gateway.takeRequest().method)
+        assertEquals("GET", gateway.takeRequest().method)
+
+        gateway.enqueue(MockResponse().setResponseCode(400).setBody("""{"detail":"Invalid schedule 'banana' /etc/x"}"""))
+        assertEquals(false, model.create("", "p", "banana"))
+        assertEquals("The gateway didn't accept that schedule or prompt.", model.state.value.formError)
+        gateway.takeRequest()
+        gateway.enqueue(MockResponse().setResponseCode(405))
+        assertEquals(false, model.edit(job, "Daily", "new", "every 1d"))
+        assertEquals("Couldn't save the job.", model.state.value.formError)
+        assertEquals("PUT", gateway.takeRequest().method)
+
+        gateway.enqueue(MockResponse().setResponseCode(404).setBody("""{"detail":"Job not found"}"""))
+        gateway.enqueue(MockResponse().setBody("[]"))
+        assertEquals(false, model.edit(job, "Daily", "new", "every 1d"))
+        assertEquals("That job no longer exists.", model.state.value.formError)
+        gateway.takeRequest()
+        assertEquals("GET", gateway.takeRequest().method)
+
+        val count = gateway.requestCount
+        assertEquals(true, model.edit(job, "Daily", "old", "every 1d"))
+        assertEquals(count, gateway.requestCount)
+        model.clearFormError()
+
+        gateway.enqueue(MockResponse().setBody("""{"ok":true}"""))
+        gateway.enqueue(MockResponse().setBody(jobsBody))
+        model.delete("j1")
+        assertEquals("DELETE", gateway.takeRequest().method)
+        gateway.takeRequest()
+        gateway.enqueue(MockResponse().setResponseCode(404).setBody("{}"))
+        gateway.enqueue(MockResponse().setBody("[]"))
+        model.delete("j1")
+        assertEquals("Job not found", model.state.value.notice)
+        gateway.takeRequest(); gateway.takeRequest()
+        gateway.enqueue(MockResponse().setResponseCode(500))
+        model.delete("j1")
+        assertEquals("Couldn't delete the job.", model.state.value.notice)
+        gateway.takeRequest()
+
+        gateway.shutdown()
+        assertEquals(false, model.create("", "p", "every 1h"))
+        assertEquals(CANT_REACH_GATEWAY, model.state.value.formError)
+        Unit
+    }
 }

@@ -332,6 +332,8 @@ fun SessionsHost(
     var cronOpen by remember(gateway.id) { mutableStateOf(false) }
     val cronModel = remember(authed) { CronListModel(CronRepository(authed, gateway.url), Dispatchers.IO) }
     BackHandler(enabled = cronOpen) { cronOpen = false }
+    var cronEdit by remember(gateway.id) { mutableStateOf<CronEditTarget?>(null) }
+    BackHandler(enabled = cronEdit != null) { cronEdit = null }
     LaunchedEffect(openSessionId) { if (openSessionId != null) open(openSessionId) }
 
     val viewStore = remember { SessionViewStore(PrefsSessionViewStorage(context.applicationContext)) }
@@ -388,8 +390,11 @@ fun SessionsHost(
         }
         val dot: @Composable () -> Unit = { LiveLinkDot(link, auth, networkOnline) }
         Box(Modifier.weight(1f)) {
-            if (cronOpen) {
-                CronScreen(cronModel) { cronOpen = false }
+            val editing = cronEdit
+            if (cronOpen && editing != null) {
+                CronEditScreen(editing, cronModel) { cronEdit = null }
+            } else if (cronOpen) {
+                CronScreen(cronModel, onEdit = { cronEdit = it }) { cronOpen = false }
             } else {
                 SessionsBody(wide, chatOpen, auth, model, open, openNew, { cronOpen = true }, onGateways, offline, viewStore, dot, chat)
             }

@@ -17,7 +17,25 @@ data class CronJob(
     val lastRunAt: String?,
     val lastStatus: String?,
     val lastError: String?,
+    val prompt: String = "",
 )
+
+fun cronFormError(prompt: String, schedule: String): String? = when {
+    prompt.isBlank() -> "Add a prompt."
+    schedule.isBlank() -> "Add a schedule, like every 30m."
+    else -> null
+}
+
+fun cronEditUpdates(job: CronJob, name: String, prompt: String, schedule: String): Map<String, String> {
+    val n = name.trim()
+    val p = prompt.trim()
+    val s = schedule.trim()
+    return buildMap {
+        if (n.isNotEmpty() && n != job.name) put("name", n)
+        if (p != job.prompt) put("prompt", p)
+        if (s != job.schedule) put("schedule", s)
+    }
+}
 
 data class CronRun(val title: String, val preview: String, val startedAt: Double, val source: String)
 
@@ -39,6 +57,7 @@ fun parseJobs(rows: JSONArray?): List<CronJob> {
             lastRunAt = row.text("last_run_at"),
             lastStatus = row.text("last_status"),
             lastError = row.text("last_error"),
+            prompt = row.text("prompt") ?: "",
         )
     }
 }

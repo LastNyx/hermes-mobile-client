@@ -15,6 +15,7 @@ data class CronListState(
     val busy: Set<String> = emptySet(),
     val runs: Map<String, List<CronRun>> = emptyMap(),
     val openRuns: String? = null,
+    val formError: String? = null,
 )
 
 class CronListModel(private val repo: CronRepository, private val io: CoroutineDispatcher) {
@@ -57,6 +58,56 @@ class CronListModel(private val repo: CronRepository, private val io: CoroutineD
             }
             failure.message == CANT_REACH_GATEWAY -> _state.update { it.copy(notice = CANT_REACH_GATEWAY) }
             else -> _state.update { it.copy(notice = "Couldn't update the job.") }
+        }
+    }
+
+    fun clearFormError() = _state.update { it.copy(formError = null) }
+
+    suspend fun create(name: String, prompt: String, schedule: String): Boolean =
+        save(prompt, schedule) { repo.create(name, prompt, schedule) }
+
+    suspend fun edit(job: CronJob, name: String, prompt: String, schedule: String): Boolean {
+        clearFormError()
+        val updates = cronEditUpdates(job, name, prompt, schedule)
+        if (updates.isEmpty()) return true
+        return save(prompt, schedule) { repo.update(job.id, updates) }
+    }
+
+    private suspend fun save(prompt: String, schedule: String, call: () -> Result<Unit>): Boolean {
+        clearFormError()
+        cronFormError(prompt, schedule)?.let { text ->
+            _state.update { it.copy(formError = text) }
+            return false
+        }
+        val failure = withContext(io) { call() }.exceptionOrNull()
+        if (failure == null) {
+            _state.update { it.copy(notice = null) }
+            load()
+            return true
+        }
+        val http = failure as? CronHttpError
+        val text = when {
+            http?.code == 400 -> "The gateway didn't accept that schedule or prompt."
+            http?.code == 404 -> "That job no longer exists."
+            http != null -> "Couldn't save the job."
+            failure.message == CANT_REACH_GATEWAY -> CANT_REACH_GATEWAY
+            else -> "Couldn't save the job."
+        }
+        _state.update { it.copy(formError = text) }
+        if (http?.code == 404 || http?.code == 424) load()
+        return false
+    }
+
+    suspend fun delete(id: String) {
+        _state.update { it.copy(busy = it.busy + id) }
+        val failure = withContext(io) { repo.delete(id) }.exceptionOrNull()
+        _state.update { it.copy(busy = it.busy - id) }
+        val http = failure as? CronHttpError
+        when {
+            failure == null -> { _state.update { it.copy(notice = null) }; load() }
+            http?.code == 404 -> { _state.update { it.copy(notice = "Job not found") }; load() }
+            failure.message == CANT_REACH_GATEWAY -> _state.update { it.copy(notice = CANT_REACH_GATEWAY) }
+            else -> _state.update { it.copy(notice = "Couldn't delete the job.") }
         }
     }
 

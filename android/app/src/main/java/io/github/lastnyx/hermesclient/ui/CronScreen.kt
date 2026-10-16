@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -13,7 +14,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -26,15 +30,28 @@ import java.time.ZoneId
 import kotlinx.coroutines.launch
 
 @Composable
-fun CronScreen(model: CronListModel, onBack: () -> Unit) {
+fun CronScreen(model: CronListModel, onEdit: (CronEditTarget) -> Unit, onBack: () -> Unit) {
     val state by model.state.collectAsState()
     val scope = rememberCoroutineScope()
+    var deleting by remember { mutableStateOf<CronJob?>(null) }
+    deleting?.let { job ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("Delete this job?") },
+            text = { Text(job.name) },
+            confirmButton = {
+                TextButton(onClick = { deleting = null; scope.launch { model.delete(job.id) } }) { Text("Delete") }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancel") } },
+        )
+    }
     LaunchedEffect(Unit) { model.load() }
     Column(
         Modifier.verticalScroll(rememberScrollState()).padding(horizontal = SCREEN_EDGE.dp),
         verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp),
     ) {
         ScreenTopBar("Scheduled jobs", onBack)
+        TextButton(onClick = { onEdit(CronEditTarget.New) }) { Text("New job") }
         state.error?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.error) }
         state.notice?.let { Text(it, style = roles.secondary) }
         if (state.jobs.isEmpty() && !state.loading && state.error == null) Text("No scheduled jobs.", style = roles.body)
@@ -47,6 +64,8 @@ fun CronScreen(model: CronListModel, onBack: () -> Unit) {
                 onPause = { scope.launch { model.pause(job.id) } },
                 onResume = { scope.launch { model.resume(job.id) } },
                 onRuns = { scope.launch { model.toggleRuns(job.id) } },
+                onEdit = { onEdit(CronEditTarget.Existing(job)) },
+                onDelete = { deleting = job },
             )
         }
     }
@@ -61,6 +80,8 @@ private fun JobCard(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onRuns: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val zone = ZoneId.systemDefault()
     Section(job.name) {
@@ -78,6 +99,8 @@ private fun JobCard(
                 TextButton(enabled = !busy, onClick = onPause) { Text("Pause") }
             }
             TextButton(enabled = !busy, onClick = onRuns) { Text("Runs") }
+            TextButton(enabled = !busy, onClick = onEdit) { Text("Edit") }
+            TextButton(enabled = !busy, onClick = onDelete) { Text("Delete") }
         }
         if (runs != null) {
             if (runs.isEmpty()) Text("No runs yet.", style = roles.secondary)
