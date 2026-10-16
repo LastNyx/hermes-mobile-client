@@ -30,10 +30,6 @@ data class CheckpointsState(
     val message: String? = null,
 )
 
-// org.json turns JSON null into the text "null" with optString, so every optional is checked first.
-private fun JSONObject.text(key: String): String? =
-    if (has(key) && !isNull(key)) opt(key) as? String else null
-
 private fun JSONObject.strings(key: String): List<String> {
     val array = optJSONArray(key) ?: return emptyList()
     return (0 until array.length()).mapNotNull { array.opt(it) as? String }
@@ -44,8 +40,8 @@ fun parseCheckpoints(result: JSONObject?): CheckpointList {
     val array = result.optJSONArray("checkpoints")
     val rows = (0 until (array?.length() ?: 0)).mapNotNull { i ->
         val row = array!!.optJSONObject(i) ?: return@mapNotNull null
-        val hash = row.text("hash")?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
-        Checkpoint(hash, row.text("timestamp").orEmpty(), row.text("message").orEmpty())
+        val hash = row.stringOrNull("hash")?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        Checkpoint(hash, row.stringOrNull("timestamp").orEmpty(), row.stringOrNull("message").orEmpty())
     }
     return CheckpointList(result.optBoolean("enabled", false), rows)
 }
@@ -54,11 +50,11 @@ fun parseRestore(result: JSONObject?): RestoreResult {
     if (result == null) return RestoreResult(success = false)
     return RestoreResult(
         success = result.optBoolean("success", false),
-        restoredTo = result.text("restored_to"),
+        restoredTo = result.stringOrNull("restored_to"),
         restoredFiles = result.strings("restored_files"),
         skippedUserEdits = result.strings("skipped_user_edits"),
         historyRemoved = if (result.has("history_removed") && !result.isNull("history_removed")) result.optInt("history_removed") else null,
-        error = result.text("error"),
+        error = result.stringOrNull("error"),
     )
 }
 
@@ -92,7 +88,7 @@ class CheckpointsController(private val chat: ChatController) {
     private val _state = MutableStateFlow(CheckpointsState())
     val state: StateFlow<CheckpointsState> = _state
 
-    suspend fun load() {
+    suspend fun load(keepMessage: Boolean = false) {
         _state.update { it.copy(loading = true) }
         try {
             val list = parseCheckpoints(chat.sessionCall("rollback.list") { it })
@@ -100,14 +96,14 @@ class CheckpointsController(private val chat: ChatController) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            _state.update { it.copy(loading = false, message = "Couldn't load checkpoints.") }
+            _state.update { it.copy(loading = false, message = if (keepMessage) it.message else "Couldn't load checkpoints.") }
         }
     }
 
     suspend fun showDiff(hash: String) {
         try {
             val reply = chat.sessionCall("rollback.diff") { it.put("hash", hash) }
-            val text = capDiff(reply.text("stat").orEmpty(), reply.text("diff").orEmpty())
+            val text = capDiff(reply.stringOrNull("stat").orEmpty(), reply.stringOrNull("diff").orEmpty())
             _state.update { it.copy(diffFor = hash, diffText = text, message = null) }
         } catch (e: CancellationException) {
             throw e
@@ -143,6 +139,6 @@ class CheckpointsController(private val chat: ChatController) {
             // The summary stays; the transcript refreshes on the next open.
         }
         _state.update { it.copy(diffFor = null, diffText = null) }
-        load()
+        load(keepMessage = true)
     }
 }

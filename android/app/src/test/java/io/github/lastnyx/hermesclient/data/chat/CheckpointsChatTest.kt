@@ -174,6 +174,15 @@ class CheckpointsChatTest {
     }
 
     @Test
+    fun failedReloadAfterRestoreKeepsSummary() = runBlocking {
+        val rig = Rig()
+        rig.listReply = """"error":{"code":5000,"message":"boom"}"""
+        rig.checkpoints.restore("abc")
+        assertTrue(rig.checkpoints.state.value.message!!.startsWith(RESTORED))
+        assertFalse(rig.checkpoints.state.value.loading)
+    }
+
+    @Test
     fun restoreGuardsAndErrors() = runBlocking {
         val rig = Rig()
         rig.socket!!.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"message.delta","session_id":"rt1","payload":{"text":"x"}}}""")

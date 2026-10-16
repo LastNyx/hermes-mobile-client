@@ -32,9 +32,7 @@ private val TERMINAL = setOf(
     SubagentStatus.Timeout, SubagentStatus.Interrupted,
 )
 
-// org.json turns a JSON null into the text "null" and missing numbers into 0/NaN, so check first.
-private fun JSONObject.str(key: String): String? =
-    if (has(key) && !isNull(key)) optString(key).takeIf { it.isNotBlank() } else null
+private fun JSONObject.str(key: String): String? = stringOrNull(key)?.takeIf { it.isNotBlank() }
 
 private fun JSONObject.int(key: String): Int? =
     if (has(key) && !isNull(key)) (opt(key) as? Number)?.toInt() else null
