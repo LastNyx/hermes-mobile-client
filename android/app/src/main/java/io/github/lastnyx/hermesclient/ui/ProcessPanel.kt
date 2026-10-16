@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.chat.BackgroundProcess
+import io.github.lastnyx.hermesclient.data.chat.ANSI
 import io.github.lastnyx.hermesclient.data.chat.ProcessState
 import kotlinx.coroutines.launch
 
@@ -51,7 +52,22 @@ internal fun processSummary(processes: List<BackgroundProcess>): String {
 }
 
 internal fun outputTail(output: String?): String? =
-    output?.takeIf { it.isNotBlank() }?.trimEnd()?.lines()?.takeLast(COMMAND_OUTPUT_MAX_LINES)?.joinToString("\n")
+    output?.let { ANSI.replace(it, "").replace("\r\n", "\n") }
+        ?.takeIf { it.isNotBlank() }?.trimEnd()?.split('\n')
+        ?.map { it.substringAfterLast('\r') }
+        ?.takeLast(COMMAND_OUTPUT_MAX_LINES)?.joinToString("\n")
+
+internal fun processOutputText(p: BackgroundProcess): String {
+    val body = outputTail(p.output)
+    val exit = if (p.state == ProcessState.Failed) p.exitCode?.let { "Exit code $it" } else null
+    return when {
+        body != null && exit != null -> "$body\n$exit"
+        body != null -> body
+        exit != null -> exit
+        p.state == ProcessState.Running -> "No output yet"
+        else -> "No output"
+    }
+}
 
 @Composable
 private fun StatusDot(color: Color) {
@@ -125,7 +141,7 @@ fun ProcessPanel(
                         }
                         if (p.id in shownOutput) {
                             SelectionContainer {
-                                Text(outputTail(p.output) ?: "No output yet", Modifier.padding(bottom = LIST_GAP.dp), style = roles.code)
+                                Text(processOutputText(p),Modifier.padding(bottom = LIST_GAP.dp), style = roles.code)
                             }
                         }
                     }

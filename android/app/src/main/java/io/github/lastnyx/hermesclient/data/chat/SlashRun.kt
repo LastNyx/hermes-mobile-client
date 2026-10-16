@@ -24,7 +24,7 @@ sealed interface SlashResult {
     data class Prefill(val message: String, val notice: String?) : SlashResult
 }
 
-private val ANSI = Regex("\u001B\\[[0-9;?]*[ -/]*[@-~]")
+internal val ANSI = Regex("\u001B\\[[0-9;?]*[ -/]*[@-~]")
 
 private fun clean(text: String): String {
     val stripped = ANSI.replace(text, "").trim()
