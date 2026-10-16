@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Build
 import android.os.SystemClock
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -34,6 +35,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -90,6 +92,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import io.github.lastnyx.hermesclient.data.chat.AttachLimits
+import io.github.lastnyx.hermesclient.data.chat.AttachSendResult
+import io.github.lastnyx.hermesclient.data.chat.AttachmentReader
 import io.github.lastnyx.hermesclient.data.chat.ChatController
 import io.github.lastnyx.hermesclient.data.chat.ChatItem
 import io.github.lastnyx.hermesclient.data.chat.ModelsController
@@ -118,6 +123,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Builds the controller for one chat; opens it once the live link is connected. */
 @Composable
@@ -150,7 +156,7 @@ fun ChatHost(
         onDispose { controller.state.value.let { s -> (s.storedId ?: s.sessionId)?.let { WatchHub.chatClosed(context, it) } } }
     }
     val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val onSend: suspend (String) -> Boolean = { text ->
+    val beforeSend: suspend () -> Unit = {
         val current = controller.state.value
         if (!current.running) {
             // Denied permission only silences notifications; the service and chat still work.
@@ -167,10 +173,13 @@ fun ChatHost(
                 }
             }
         }
+    }
+    val onSend: suspend (String) -> Boolean = { text ->
+        beforeSend()
         controller.send(text)
     }
     val linkState by link.state.collectAsState()
-    ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack, promptActionsEnabled(linkState), seed, onBranched)
+    ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack, promptActionsEnabled(linkState), seed, onBranched, beforeSend)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -188,10 +197,29 @@ fun ChatScreen(
     promptsEnabled: Boolean = true,
     seed: String? = null,
     onBranched: (String) -> Unit = {},
+    beforeSend: suspend () -> Unit = {},
 ) {
     val state by controller.state.collectAsState()
-    val modelState by models.state.collectAsState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var tray by remember { mutableStateOf(AttachTrayState()) }
+    var attachError by remember { mutableStateOf<String?>(null) }
+    var sending by remember { mutableStateOf(false) }
+    var attachMenu by remember { mutableStateOf(false) }
+    fun addPicked(uris: List<android.net.Uri>) {
+        if (uris.isEmpty()) return
+        scope.launch {
+            val reader = AttachmentReader(context.contentResolver)
+            val read = withContext(Dispatchers.IO) { uris.map { reader.read(it) } }
+            val failure = read.firstNotNullOfOrNull { it.exceptionOrNull()?.message }
+            val (next, limit) = tray.add(read.mapNotNull { it.getOrNull() })
+            tray = next
+            attachError = failure ?: limit
+        }
+    }
+    val pickPhotos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(AttachLimits.MAX_COUNT)) { addPicked(it) }
+    val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { addPicked(it) }
+    val modelState by models.state.collectAsState()
     var field by remember(key) {
         val saved = seed ?: drafts.get(key)
         mutableStateOf(TextFieldValue(saved, TextRange(saved.length)))
@@ -337,6 +365,7 @@ fun ChatScreen(
             }
         }
         state.error?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.error) }
+        attachError?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.error) }
         if (suggestions.isNotEmpty() && asksForSuggestions(draft)) {
             SlashSuggestionList(suggestions, { setDraft(composerTextFor(it)) })
         }
@@ -360,14 +389,36 @@ fun ChatScreen(
                 TextButton(onClick = { controller.dismissNotice(notice.uid) }) { Text("Dismiss", style = roles.label) }
             }
         }
+        if (!tray.isEmpty) AttachTrayRow(tray, onRemove = { tray = tray.remove(it); attachError = null })
         Row(Modifier.fillMaxWidth().padding(vertical = COMPOSER_VERTICAL_PADDING.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                IconButton(onClick = { attachMenu = true }) { Icon(Icons.Filled.AttachFile, contentDescription = "Attach") }
+                DropdownMenu(expanded = attachMenu, onDismissRequest = { attachMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Photos") },
+                        onClick = {
+                            attachMenu = false
+                            attachError = null
+                            pickPhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Files") },
+                        onClick = {
+                            attachMenu = false
+                            attachError = null
+                            pickFiles.launch(arrayOf("*/*"))
+                        },
+                    )
+                }
+            }
             OutlinedTextField(
                 field, { field = it }, modifier = Modifier.weight(1f).heightIn(min = 44.dp),
                 shape = RoundedCornerShape(24.dp),
                 maxLines = 6,
                 placeholder = { Text(if (state.running) "Redirect the reply" else "Message") },
             )
-            val sendable = draft.isNotBlank()
+            val sendable = canSend(draft, tray, state.running)
             val icon = if (!sendable && state.running) Icons.Filled.Stop else Icons.AutoMirrored.Filled.Send
             val label = if (sendable) (if (state.running) "Redirect" else "Send") else if (state.running) "Stop" else "Send"
             var queueMenu by remember { mutableStateOf(false) }
@@ -381,8 +432,25 @@ fun ChatScreen(
                         role = Role.Button,
                         onLongClick = { if (sendable && state.running) queueMenu = true },
                         onClick = {
-                            if (sendable) {
-                                val text = draft
+                            val text = draft
+                            if (sendable && !tray.isEmpty && parseSlashLine(text) == null) {
+                                if (!sending) {
+                                    sending = true
+                                    attachError = null
+                                    following = true
+                                    scope.launch {
+                                        try {
+                                            beforeSend()
+                                            when (val r = controller.sendWithAttachments(text, tray.items)) {
+                                                AttachSendResult.Sent -> { tray = tray.clear(); setDraft("") }
+                                                is AttachSendResult.Failed -> { setDraft(r.text); attachError = r.message }
+                                            }
+                                        } finally {
+                                            sending = false
+                                        }
+                                    }
+                                }
+                            } else if (sendable) {
                                 setDraft("")
                                 following = true
                                 if (parseSlashLine(text) != null) {
