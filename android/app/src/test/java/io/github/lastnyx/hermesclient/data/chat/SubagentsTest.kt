@@ -21,6 +21,15 @@ class SubagentsTest {
     ) = Subagent(key, null, null, delegation, 0, "g", 0, 1, model, status, tool, null, emptyList(), null, dur)
 
     @Test
+    fun refreshKeepsDepthWhenListGivesNone() {
+        val current = listOf(Subagent("a", "a", null, null, 2, "g", 0, 1, null, SubagentStatus.Running, null, null, emptyList(), null, null))
+        fun merged(json: String) = mergeListed(current, parseSubagentList(JSONObject(json)))
+        assertEquals(2, merged("""{"subagents":[{"subagent_id":"a"}]}""")[0].depth)
+        assertEquals(3, merged("""{"subagents":[{"subagent_id":"a","depth":3}]}""")[0].depth)
+        assertEquals(0, merged("""{"subagents":[{"subagent_id":"n"}]}""")[1].depth)
+    }
+
+    @Test
     fun subagentLifecycle() {
         var l = reduceSubagents(emptyList(), ev("subagent.spawn_requested", """{"goal":"look","task_index":1,"task_count":2}"""))
         assertEquals(1, l.size)

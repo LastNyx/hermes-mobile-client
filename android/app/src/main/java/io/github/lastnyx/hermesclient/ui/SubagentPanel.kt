@@ -55,7 +55,7 @@ fun SubagentPanel(subagents: List<Subagent>, onStop: suspend (String) -> Unit, m
                     Column(
                         Modifier.fillMaxWidth()
                             .clickable { if (!open.remove(s.key)) open.add(s.key) }
-                            .padding(start = (minOf(s.depth, MAX_INDENT_STEPS) * INDENT_STEP).dp, top = ROW_PADDING.dp),
+                            .padding(start = (minOf(s.depth ?: 0,MAX_INDENT_STEPS) * INDENT_STEP).dp, top = ROW_PADDING.dp),
                     ) {
                         Text(s.goal, style = roles.body, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(

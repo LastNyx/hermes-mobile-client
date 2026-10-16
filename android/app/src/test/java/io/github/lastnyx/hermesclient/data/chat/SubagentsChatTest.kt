@@ -185,7 +185,7 @@ class SubagentsChatTest {
         assertEquals(listOf("p", 2, "G", "d", "m", SubagentStatus.Completed, 3, "t"), listOf(a.parentId, a.depth, a.goal, a.delegationId, a.model, a.status, a.toolCount, a.lastTool))
         assertEquals("a", a.key)
         assertEquals(SubagentStatus.Running, list[1].status)
-        assertEquals(0, list[1].depth)
+        assertNull(list[1].depth)
         assertEquals("", list[1].goal)
         assertNull(list[2].model)
         assertNull(list[2].lastTool)

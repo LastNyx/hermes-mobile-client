@@ -10,7 +10,7 @@ data class Subagent(
     val id: String?,
     val parentId: String?,
     val delegationId: String?,
-    val depth: Int,
+    val depth: Int?,
     val goal: String,
     val taskIndex: Int,
     val taskCount: Int,
@@ -114,7 +114,7 @@ fun parseSubagentList(reply: JSONObject?): List<Subagent> {
         val id = row.str("subagent_id") ?: return@mapNotNull null
         Subagent(
             key = id, id = id, parentId = row.str("parent_id"), delegationId = row.str("delegation_id"),
-            depth = row.int("depth") ?: 0, goal = row.str("goal").orEmpty(), taskIndex = 0, taskCount = 1,
+            depth = row.int("depth"), goal = row.str("goal").orEmpty(), taskIndex = 0, taskCount = 1,
             model = row.str("model"), status = statusOf(row.str("status")) ?: SubagentStatus.Running,
             lastTool = row.str("last_tool"), toolCount = row.int("tool_count"),
             activity = emptyList(), summary = null, durationSeconds = null,
@@ -134,11 +134,11 @@ fun mergeListed(current: List<Subagent>, listed: List<Subagent>): List<Subagent>
             lastTool = l.lastTool ?: old.lastTool,
             toolCount = l.toolCount ?: old.toolCount,
             parentId = l.parentId ?: old.parentId,
-            depth = l.depth,
+            depth = l.depth ?: old.depth,
             delegationId = l.delegationId ?: old.delegationId,
         )
     }
-    return updated + listed.filter { it.id !in known }
+    return updated + listed.filter { it.id !in known }.map { it.copy(depth = it.depth ?: 0) }
 }
 
 private fun dropOldFinished(list: List<Subagent>): List<Subagent> {
