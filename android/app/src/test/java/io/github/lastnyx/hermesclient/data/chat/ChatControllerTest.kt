@@ -143,7 +143,7 @@ class ChatControllerTest {
                 val id = frame.optString("id")
                 fun result(body: String) = webSocket.send("""{"jsonrpc":"2.0","id":"$id","result":$body}""")
                 when (frame.optString("method")) {
-                    "client.capabilities", "process.list" -> result("{}")
+                    "client.capabilities", "process.list", "subagent.list" -> result("{}")
                     "session.resume" -> {
                         resumeKeys += frame.getJSONObject("params").keys().asSequence().sorted().joinToString(",")
                         result("""{"session_id":"rt2","stored_session_id":"stored-1","running":false}""")
@@ -517,9 +517,9 @@ class ChatControllerTest {
                 val id = frame.optString("id")
                 val method = frame.optString("method")
                 fun result(body: String) = webSocket.send("""{"jsonrpc":"2.0","id":"$id","result":$body}""")
-                if (method != "process.list") calls += method
+                if (method != "process.list" && method != "subagent.list") calls += method
                 when (method) {
-                    "client.capabilities", "process.list" -> result("{}")
+                    "client.capabilities", "process.list", "subagent.list" -> result("{}")
                     "session.resume" -> result("""{"session_id":"rt1","stored_session_id":"stored-1","running":true}""")
                     "session.redirect" -> result("""{"status":"rejected","text":"nope"}""")
                 }

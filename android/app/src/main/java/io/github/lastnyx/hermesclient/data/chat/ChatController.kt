@@ -103,6 +103,7 @@ class ChatController(
                     if (!reattach()) catchUp()
                     // Process changes during the drop are otherwise missed; kept out of adopt() so catch-up stays untouched.
                     refreshProcesses()
+                    refreshSubagents()
                 }
             }
         }
@@ -145,6 +146,35 @@ class ChatController(
             return
         }
         refreshProcesses()
+    }
+
+    /** Re-reads the live subagent roster; any failure (including 4001) leaves the state alone. */
+    suspend fun refreshSubagents() {
+        try {
+            val reply = sessionCall("subagent.list") { it }
+            _state.update { it.copy(subagents = mergeListed(it.subagents, parseSubagentList(reply))) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Nothing to show: the panel simply stays as it was.
+        }
+    }
+
+    suspend fun interruptSubagent(id: String) {
+        if (_state.value.subagents.none { it.id == id }) return
+        val found = try {
+            sessionCall("subagent.interrupt") { it.put("subagent_id", id) }.optBoolean("found", true)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            addNote("Couldn't stop that subagent. Try again.")
+            return
+        }
+        if (found) {
+            refreshSubagents()
+        } else {
+            _state.update { s -> s.copy(subagents = s.subagents.map { if (it.id == id) it.copy(status = SubagentStatus.Interrupted) else it }) }
+        }
     }
 
     fun dismissProcess(id: String) {
@@ -516,6 +546,7 @@ class ChatController(
                 resume()
             }
             scope.launch { refreshProcesses() }
+            scope.launch { refreshSubagents() }
         } catch (e: Exception) {
             fail(e)
         }

@@ -65,9 +65,9 @@ class AttachmentsChatTest {
                     val id = frame.optString("id")
                     val method = frame.optString("method")
                     fun result(body: String) = webSocket.send("""{"jsonrpc":"2.0","id":"$id","result":$body}""")
-                    if (method != "client.capabilities" && method != "session.resume" && method != "process.list") calls += method to frame.getJSONObject("params")
+                    if (method != "client.capabilities" && method != "session.resume" && method != "process.list" && method != "subagent.list") calls += method to frame.getJSONObject("params")
                     when (method) {
-                        "client.capabilities", "process.list" -> result("{}")
+                        "client.capabilities", "process.list", "subagent.list" -> result("{}")
                         "session.resume" -> result("""{"session_id":"rt1","stored_session_id":"stored-1","running":false}""")
                         "image.attach_bytes" -> result("""{"attached":true,"path":"/img/1.jpg"}""")
                         "file.attach" -> result("""{"ref_text":"@file:notes.pdf"}""")

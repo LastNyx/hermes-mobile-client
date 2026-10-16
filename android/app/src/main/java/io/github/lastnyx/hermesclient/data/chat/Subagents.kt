@@ -107,6 +107,40 @@ fun reduceSubagents(current: List<Subagent>, event: LinkEvent): List<Subagent> {
     return dropOldFinished(list)
 }
 
+fun parseSubagentList(reply: JSONObject?): List<Subagent> {
+    val rows = reply?.optJSONArray("subagents") ?: return emptyList()
+    return (0 until rows.length()).mapNotNull { i ->
+        val row = rows.optJSONObject(i) ?: return@mapNotNull null
+        val id = row.str("subagent_id") ?: return@mapNotNull null
+        Subagent(
+            key = id, id = id, parentId = row.str("parent_id"), delegationId = row.str("delegation_id"),
+            depth = row.int("depth") ?: 0, goal = row.str("goal").orEmpty(), taskIndex = 0, taskCount = 1,
+            model = row.str("model"), status = statusOf(row.str("status")) ?: SubagentStatus.Running,
+            lastTool = row.str("last_tool"), toolCount = row.int("tool_count"),
+            activity = emptyList(), summary = null, durationSeconds = null,
+        )
+    }
+}
+
+/** The list is the live roster only: rows it does not mention are left for events to end. */
+fun mergeListed(current: List<Subagent>, listed: List<Subagent>): List<Subagent> {
+    val byId = listed.filter { it.id != null }.associateBy { it.id }
+    val known = current.mapNotNull { it.id }.toSet()
+    val updated = current.map { old ->
+        val l = byId[old.id] ?: return@map old
+        old.copy(
+            status = if (old.status in TERMINAL) old.status else l.status,
+            model = l.model ?: old.model,
+            lastTool = l.lastTool ?: old.lastTool,
+            toolCount = l.toolCount ?: old.toolCount,
+            parentId = l.parentId ?: old.parentId,
+            depth = l.depth,
+            delegationId = l.delegationId ?: old.delegationId,
+        )
+    }
+    return updated + listed.filter { it.id !in known }
+}
+
 private fun dropOldFinished(list: List<Subagent>): List<Subagent> {
     var excess = list.count { it.status in TERMINAL } - MAX_FINISHED
     if (excess <= 0) return list

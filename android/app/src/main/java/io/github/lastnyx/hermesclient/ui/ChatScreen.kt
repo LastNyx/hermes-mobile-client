@@ -376,7 +376,7 @@ fun ChatScreen(
             onEdit = { id -> controller.takeQueued(id)?.let { setDraft(it) } },
             onRemove = { controller.removeQueued(it) },
         )
-        SubagentPanel(state.subagents)
+        SubagentPanel(state.subagents, onStop = { controller.interruptSubagent(it) })
         ProcessPanel(state.processes,onStop = { controller.killProcess(it) }, onDismiss = { controller.dismissProcess(it) })
         state.notices.lastOrNull()?.let { notice ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

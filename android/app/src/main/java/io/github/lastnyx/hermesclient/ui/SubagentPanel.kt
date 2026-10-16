@@ -10,9 +10,11 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -20,6 +22,7 @@ import io.github.lastnyx.hermesclient.data.chat.Subagent
 import io.github.lastnyx.hermesclient.data.chat.SubagentStatus
 import io.github.lastnyx.hermesclient.data.chat.groupSubagents
 import io.github.lastnyx.hermesclient.data.chat.subagentMeta
+import kotlinx.coroutines.launch
 
 private const val SUBAGENT_MAX_HEIGHT = 200
 private const val MAX_INDENT_STEPS = 6
@@ -37,9 +40,11 @@ internal fun subagentSummary(all: List<Subagent>): String {
 
 /** Subagents (delegate_task children) of the session as plain rows. Shows nothing when there are none. */
 @Composable
-fun SubagentPanel(subagents: List<Subagent>, modifier: Modifier = Modifier) {
+fun SubagentPanel(subagents: List<Subagent>, onStop: suspend (String) -> Unit, modifier: Modifier = Modifier) {
     if (subagents.isEmpty()) return
+    val scope = rememberCoroutineScope()
     val open = remember { mutableStateListOf<String>() }
+    val stopping = remember { mutableStateListOf<String>() }
     val scheme = MaterialTheme.colorScheme
     Column(modifier.fillMaxWidth()) {
         Text(subagentSummary(subagents), style = roles.label)
@@ -58,6 +63,16 @@ fun SubagentPanel(subagents: List<Subagent>, modifier: Modifier = Modifier) {
                             style = roles.caption,
                             color = if (failed) scheme.error else scheme.onSurfaceVariant,
                         )
+                        val id = s.id
+                        if (id != null && s.status == SubagentStatus.Running) {
+                            TextButton(
+                                enabled = id !in stopping,
+                                onClick = {
+                                    stopping.add(id)
+                                    scope.launch { try { onStop(id) } finally { stopping.remove(id) } }
+                                },
+                            ) { Text("Stop", style = roles.label) }
+                        }
                         if (s.key in open) {
                             SelectionContainer {
                                 Text(s.activity.joinToString("\n").ifEmpty { "No activity yet" }, Modifier.padding(bottom = LIST_GAP.dp), style = roles.code)

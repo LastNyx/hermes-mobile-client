@@ -72,6 +72,7 @@ class BackgroundProcessesChatTest {
                         "client.capabilities" -> result("{}")
                         "session.resume" -> result("""{"session_id":"rt1","stored_session_id":"stored-1","running":false}""")
                         "session.activate" -> result("""{"session_id":"rt1","stored_session_id":"stored-1","running":false}""")
+                        "subagent.list" -> result("{}")
                         "process.list" -> { lists += frame.getJSONObject("params"); result(this@Rig.listBody) }
                         "process.kill" -> {
                             kills += frame.getJSONObject("params")
