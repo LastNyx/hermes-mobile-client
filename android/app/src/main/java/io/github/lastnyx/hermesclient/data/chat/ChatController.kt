@@ -30,6 +30,11 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
+sealed interface AttachSendResult {
+    data object Sent : AttachSendResult
+    data class Failed(val message: String, val text: String) : AttachSendResult
+}
+
 private const val ANSWER_NOT_SENT = "Couldn't send your answer. Check your connection and try again."
 
 /** One open chat: history, live events, submit / redirect / stop. [storedId] is null for a new chat. */
@@ -600,7 +605,7 @@ class ChatController(
      * Text that cannot go now (redirect rejected or failed, or a prompt is open) is queued.
      * Returns false only when a plain submit failed, so the caller can keep the text.
      */
-    private suspend fun deliver(message: String, display: String): Boolean {
+    private suspend fun deliver(message: String, display: String, dropBubbleOnFailure: Boolean = false): Boolean {
         if (message.isEmpty()) return true
         settle()
         val before = _state.value
@@ -623,6 +628,11 @@ class ChatController(
             }
         } catch (e: Exception) {
             if (!before.running) {
+                if (dropBubbleOnFailure) {
+                    dropBubble()
+                    _state.update { it.copy(running = false) }
+                    return false
+                }
                 fail(e)
                 return false
             }
@@ -664,15 +674,32 @@ class ChatController(
     }
 
     /** Session-scoped call; 4001 means the runtime id is stale, so resume by stored id and retry once. */
-    internal suspend fun sessionCall(method: String, build: (JSONObject) -> JSONObject): JSONObject {
+    internal suspend fun sessionCall(method: String, timeoutMs: Long = 120_000, build: (JSONObject) -> JSONObject): JSONObject {
         fun params() = build(JSONObject().put("session_id", _state.value.sessionId ?: throw IOException("Chat not ready")))
         return try {
-            link.call(method, params())
+            link.call(method, params(), timeoutMs)
         } catch (e: RpcError) {
             if (e.code != 4001) throw e
             resume()
-            link.call(method, params())
+            link.call(method, params(), timeoutMs)
         }
+    }
+
+    /** Uploads first, then submits one prompt; on any failure nothing stays half-sent and [AttachSendResult.Failed.text] goes back to the user. */
+    suspend fun sendWithAttachments(text: String, attachments: List<PreparedAttachment>): AttachSendResult {
+        if (_state.value.running) return AttachSendResult.Failed("Wait for the reply to finish before sending attachments.", text)
+        unblockDrain()
+        val sender = AttachmentSender { method, timeoutMs, build -> sessionCall(method, timeoutMs, build) }
+        val uploaded = when (val r = sender.upload(attachments)) {
+            is UploadResult.Failed -> return AttachSendResult.Failed(r.message, text)
+            is UploadResult.Ok -> r
+        }
+        val prompt = buildPrompt(text, uploaded.refTexts, attachments.count { it.kind == AttachmentKind.Image })
+        if (!deliver(prompt, bubbleText(text, attachments), dropBubbleOnFailure = true)) {
+            sender.detach(uploaded.imagePaths)
+            return AttachSendResult.Failed("Couldn't send your message. Try again.", text)
+        }
+        return AttachSendResult.Sent
     }
 
     private suspend fun resume() {
