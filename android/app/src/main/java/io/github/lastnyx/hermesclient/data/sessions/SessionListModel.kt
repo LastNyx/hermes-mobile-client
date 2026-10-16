@@ -2,10 +2,12 @@ package io.github.lastnyx.hermesclient.data.sessions
 
 import io.github.lastnyx.hermesclient.data.friendlyError
 import io.github.lastnyx.hermesclient.data.live.LinkState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 data class SessionListState(
     val sessions: List<Session> = emptyList(),
@@ -13,25 +15,52 @@ data class SessionListState(
     val error: String? = null,
     val query: String = "",
     val archivedPage: Boolean = false,
+    /** Null = the gateway's projects are unknown, so grouping falls back to the cwd folder name. */
+    val projects: List<Project>? = null,
 )
 
 /** Holds the visible session list for one gateway; every call runs the blocking repository on [io]. */
-class SessionListModel(private val repo: SessionsRepository, private val io: CoroutineDispatcher) {
+class SessionListModel(
+    private val repo: SessionsRepository,
+    private val io: CoroutineDispatcher,
+    private val rpc: (suspend (method: String, params: JSONObject) -> JSONObject)? = null,
+) {
     private val _state = MutableStateFlow(SessionListState())
     val state: StateFlow<SessionListState> = _state
 
     private fun listing(): Result<List<Session>> =
         repo.list(if (_state.value.archivedPage) "only" else "exclude")
 
-    suspend fun load() = fetch("") { listing() }
+    suspend fun load() {
+        fetch("") { listing() }
+        loadProjects()
+    }
 
-    suspend fun refresh() = fetch(_state.value.query) { current ->
-        if (current.isBlank() || _state.value.archivedPage) listing() else repo.search(current)
+    suspend fun refresh() {
+        val query = _state.value.query
+        fetch(query) { current ->
+            if (current.isBlank() || _state.value.archivedPage) listing() else repo.search(current)
+        }
+        if (query.isBlank() && !_state.value.archivedPage) loadProjects()
+    }
+
+    /** Any failure (old gateway, offline, timeout) just means no gateway projects; never an error line. */
+    suspend fun loadProjects() {
+        val call = rpc
+        val projects = if (call == null) null else try {
+            parseProjects(call("projects.tree", JSONObject().put("session_limit", 2000)))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+        _state.value = _state.value.copy(projects = projects)
     }
 
     /** A reconnect may have missed changes, so refresh; skip if a load is already running. */
     suspend fun onLinkState(link: LinkState) {
-        if (link == LinkState.Connected && !_state.value.loading) refresh()
+        if (link != LinkState.Connected) return
+        if (_state.value.loading) loadProjects() else refresh()
     }
 
     suspend fun search(query: String) = fetch(query) { if (it.isBlank()) repo.list() else repo.search(it.trim()) }

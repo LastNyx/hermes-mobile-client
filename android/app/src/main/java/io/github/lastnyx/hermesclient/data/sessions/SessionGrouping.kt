@@ -57,6 +57,7 @@ fun groupSessions(
     ordering: SessionOrdering,
     zone: ZoneId,
     statuses: Set<SessionStatus> = emptySet(),
+    projects: List<Project>? = null,
 ): List<SessionGroup> {
     fun stamp(s: Session) = if (ordering == SessionOrdering.Created) s.startedAt else s.lastActive
     val newestFirst = sessions.sortedByDescending(::stamp)
@@ -87,7 +88,17 @@ fun groupSessions(
                 }
             }
             SessionGrouping.Project -> {
-                val byProject = rest.groupBy { projectName(it.cwd) }
+                val owner = projects?.let { list ->
+                    buildMap { list.forEach { p -> p.sessionIds.forEach { putIfAbsent(it, p) } } }
+                }
+                val byProject = rest.groupBy { s ->
+                    val p = owner?.get(s.id)
+                    when {
+                        p == null -> projectName(s.cwd)
+                        p.isNoProject -> NO_PROJECT
+                        else -> p.label.ifBlank { NO_PROJECT }
+                    }
+                }
                 // Each list is already newest first, so the first element is the group's newest.
                 val named = byProject.filterKeys { it != NO_PROJECT }.entries
                     .sortedByDescending { stamp(it.value.first()) }

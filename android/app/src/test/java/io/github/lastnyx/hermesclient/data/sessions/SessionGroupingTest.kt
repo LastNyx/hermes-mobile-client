@@ -51,4 +51,29 @@ class SessionGroupingTest {
         assertEquals(SessionOrdering.Created, SessionViewStore(fake).ordering())
         assertEquals(SessionGrouping.Date, SessionViewStore(fake).grouping())
     }
+
+    @Test
+    fun gatewayProjectsDriveTheProjectGroups() {
+        fun p(id: String, label: String, ids: List<String>, home: Boolean = false) =
+            Project(id, label, ids.size, 0.0, false, home, ids, null)
+        val sessions = listOf(
+            s("a", 50.0).copy(cwd = "/x/one"),
+            s("b", 40.0).copy(cwd = "/y/two"),
+            s("h", 30.0).copy(cwd = "/home/me"),
+            s("loose", 20.0).copy(cwd = "/z/other"),
+            s("pin", 10.0, pinned = true).copy(cwd = "/x/one"),
+        )
+        val projects = listOf(p("p1", "Repo", listOf("a", "b", "pin")), p("home", "Home", listOf("h"), home = true))
+        val groups = groupSessions(
+            sessions, 100, SessionGrouping.Project, SessionOrdering.Updated, zone, projects = projects,
+        )
+        assertEquals(listOf("Pinned", "Repo", "other", "No project"), groups.map { it.title })
+        assertEquals(listOf("a", "b"), groups[1].sessions.map { it.id })
+        assertEquals(listOf("h"), groups[3].sessions.map { it.id })
+
+        val old = groupSessions(sessions, 100, SessionGrouping.Project, SessionOrdering.Updated, zone)
+        val explicitNull = groupSessions(sessions, 100, SessionGrouping.Project, SessionOrdering.Updated, zone, projects = null)
+        assertEquals(old, explicitNull)
+        assertEquals(listOf("Pinned", "one", "two", "me", "other"), old.map { it.title })
+    }
 }

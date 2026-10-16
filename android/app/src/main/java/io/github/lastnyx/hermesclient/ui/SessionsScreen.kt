@@ -186,6 +186,7 @@ fun SessionsScreen(
                     } else {
                         val groups = groupSessions(
                             state.sessions, System.currentTimeMillis() / 1000, grouping, ordering, ZoneId.systemDefault(), statuses,
+                            projects = state.projects,
                         )
                         groups.forEach { group ->
                             stickyHeader(key = "group-${group.title}") {
@@ -253,7 +254,15 @@ fun SessionsHost(
     share: ShareRequest? = null,
 ) {
     val authed = remember(gateway.id, gateway.url) { signIn.authed(gateway.id, gateway.url) }
-    val model = remember(authed) { SessionListModel(SessionsRepository(authed, gateway.url), Dispatchers.IO) }
+    val linkScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val network = remember { AndroidNetworkMonitor(context) }
+    val link = remember(authed) { LiveLink(http, authed, gateway.url, linkScope, network) }
+    val model = remember(authed, link) {
+        SessionListModel(SessionsRepository(authed, gateway.url), Dispatchers.IO) { method, params ->
+            link.call(method, params, 10_000)
+        }
+    }
     val auth by authed.state.collectAsState()
     var chatOpen by rememberSaveable(gateway.id) { mutableStateOf(false) }
     var chatId by rememberSaveable(gateway.id) { mutableStateOf<String?>(null) }
@@ -266,8 +275,6 @@ fun SessionsHost(
     BackHandler(enabled = chatOpen && !wide) { chatOpen = false }
     LaunchedEffect(openSessionId) { if (openSessionId != null) open(openSessionId) }
 
-    val linkScope = rememberCoroutineScope()
-    val context = LocalContext.current
     val viewStore = remember { SessionViewStore(PrefsSessionViewStorage(context.applicationContext)) }
     val drafts = remember { DraftStore(PrefsDraftStorage(context.applicationContext)) }
     LaunchedEffect(share) {
@@ -277,9 +284,7 @@ fun SessionsHost(
             sharedDraft = share.draft
         }
     }
-    val network = remember { AndroidNetworkMonitor(context) }
     DisposableEffect(network) { onDispose { network.close() } }
-    val link = remember(authed) { LiveLink(http, authed, gateway.url, linkScope, network) }
     LaunchedEffect(link, model) {
         link.state.collect { model.onLinkState(it) }
     }
