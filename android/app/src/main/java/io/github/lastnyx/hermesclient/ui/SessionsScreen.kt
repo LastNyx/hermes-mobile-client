@@ -290,13 +290,14 @@ fun SessionsHost(
     Column(Modifier.fillMaxSize()) {
         val linkState by link.state.collectAsState()
         val offline = showsOfflineLine(linkState)
+        val networkOnline by network.online.collectAsState()
         val repo = remember(authed) { SessionsRepository(authed, gateway.url) }
         val listState by model.state.collectAsState()
         val chat: @Composable (Modifier) -> Unit = { m ->
             key(chatId, chatKey) {
                 Column(m) {
                     // The list screen shows only the dot; the text line belongs to the chat.
-                    LiveLinkIndicator(link, Modifier.padding(horizontal = SCREEN_EDGE.dp))
+                    LiveLinkIndicator(link, auth, networkOnline, Modifier.padding(horizontal = SCREEN_EDGE.dp))
                     ChatHost(
                         chatId, link, repo, gateway.id, drafts, Modifier.weight(1f),
                         title = chatTitle(listState.sessions, chatId),
@@ -305,7 +306,7 @@ fun SessionsHost(
                 }
             }
         }
-        val dot: @Composable () -> Unit = { LiveLinkDot(link) }
+        val dot: @Composable () -> Unit = { LiveLinkDot(link, auth, networkOnline) }
         Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, auth, model, open, onGateways, offline, viewStore, dot, chat) }
     }
 }
