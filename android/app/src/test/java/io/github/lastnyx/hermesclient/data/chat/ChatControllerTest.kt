@@ -79,7 +79,7 @@ class ChatControllerTest {
                     }
                     "session.activate" -> result("""{"session_id":"rt2","stored_session_id":"stored-1","running":true}""")
                     "session.events.since" -> {
-                        sinceParams +=params.toString().let { p -> JSONObject(p).let { "${it.getString("session_id")} ${it.getInt("last_seen")} ${it.length()}" } }
+                        sinceParams += params.toString().let { p -> JSONObject(p).let { "${it.getString("session_id")} ${it.getInt("last_seen")} ${it.length()}" } }
                         result(
                             """{"events":[{"type":"message.delta","session_id":"rt2","payload":{"text":"lo"},"seq":2},""" +
                                 """{"type":"message.delta","session_id":"rt2","payload":{"text":"!"},"seq":3}],""" +
