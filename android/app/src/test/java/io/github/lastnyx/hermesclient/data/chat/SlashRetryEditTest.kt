@@ -32,7 +32,7 @@ import org.junit.Test
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 
-/** The Retry and Edit buttons in ChatScreen call exactly `runLine("/retry")` and `runLine("/undo")?.let(setDraft)`. */
+/** The Retry button in ChatScreen calls exactly `runLine("/retry")`; typed `/undo` still returns the removed prompt. */
 class SlashRetryEditTest {
     private class XorCipher : SecretCipher {
         override fun encrypt(plain: ByteArray) = plain.map { (it.toInt() xor 0x5a).toByte() }.toByteArray()

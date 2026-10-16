@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -266,7 +267,7 @@ fun ChatScreen(
             var showEarlier by rememberSaveable(turnKey(state.items)) { mutableStateOf(false) }
             val view = remember(state.items, state.running, showEarlier) { chatRows(state.items, state.running, showEarlier) }
             val rows = view.rows
-            val actions = remember(state.items, state.running) { lastActions(state.items, state.running) }
+            val actions = remember(state.items, state.running) { messageActions(state.items, state.running) }
             LazyColumn(Modifier.fillMaxSize().nestedScroll(userScrollWatcher), state = listState) {
                 itemsIndexed(rows, key = { _, it -> it.key }) { index, row ->
                     Column(Modifier.padding(top = itemGapBefore(rows.getOrNull(index - 1)?.last, row.first).dp)) {
@@ -287,7 +288,12 @@ fun ChatScreen(
                                     item,
                                     actions,
                                     onRetry = { scope.launch { slash.runLine("/retry") } },
-                                    onEdit = { scope.launch { slash.runLine("/undo")?.let { setDraft(it) } } },
+                                    onEdit = { rowId, text -> scope.launch { controller.rewind(rowId, text) } },
+                                    onRegenerate = {
+                                        val prompt = promptBefore(state.items, item.key)
+                                        val rowId = prompt?.rowId
+                                        if (prompt != null && rowId != null) scope.launch { controller.rewind(rowId, prompt.text) }
+                                    },
                                 )
                                 is ChatItem.Reasoning -> ReasoningRow(item)
                                 is ChatItem.Tool -> ToolRow(item)
@@ -565,16 +571,40 @@ internal fun itemGapBefore(previous: ChatItem?, item: ChatItem): Int = when {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MessageBubble(item: ChatItem.Message, actions: LastActions, onRetry: () -> Unit, onEdit: () -> Unit) {
+private fun MessageBubble(
+    item: ChatItem.Message,
+    actions: MessageActions,
+    onRetry: () -> Unit,
+    onEdit: (Long, String) -> Unit,
+    onRegenerate: () -> Unit,
+) {
     val mine = item.role == "user"
     if (mine) {
         val clipboard = LocalClipboardManager.current
         var menu by remember { mutableStateOf(false) }
-        val editable = actions.editKey == item.key
+        var editing by remember { mutableStateOf(false) }
+        val rowId = item.rowId
+        val editable = rowId != null && item.key in actions.edit
+        if (editing && rowId != null) {
+            var text by remember { mutableStateOf(item.text) }
+            AlertDialog(
+                onDismissRequest = { editing = false },
+                title = { Text("Edit message") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp)) {
+                        OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth())
+                        Text("Later messages are removed", style = roles.caption, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                },
+                confirmButton = {
+                    TextButton(enabled = text.isNotBlank(), onClick = { editing = false; onEdit(rowId, text) }) { Text("Resend") }
+                },
+                dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } },
+            )
+        }
         BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             Surface(
                 Modifier.widthIn(max = maxWidth * 0.85f).combinedClickable(
-                    enabled = editable,
                     onClick = {},
                     onLongClick = { menu = true },
                 ),
@@ -584,8 +614,8 @@ private fun MessageBubble(item: ChatItem.Message, actions: LastActions, onRetry:
             ) {
                 Text(item.text, Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp), style = roles.body)
             }
-            DropdownMenu(expanded = menu && editable, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text("Edit and resend") }, onClick = { menu = false; onEdit() })
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                if (editable) DropdownMenuItem(text = { Text("Edit") }, onClick = { menu = false; editing = true })
                 DropdownMenuItem(
                     text = { Text("Copy") },
                     onClick = {
@@ -608,7 +638,8 @@ private fun MessageBubble(item: ChatItem.Message, actions: LastActions, onRetry:
             if (!item.streaming) {
                 CopyReplyButton(replyForCopy(item.text)) {
                     item.usage?.let { Text(it, style = roles.caption, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    if (actions.retryKey == item.key) TextButton(onClick = onRetry) { Text("Retry", style = roles.label) }
+                    if (actions.retry == item.key) TextButton(onClick = onRetry) { Text("Retry", style = roles.label) }
+                    if (actions.regenerate == item.key) TextButton(onClick = onRegenerate) { Text("Regenerate", style = roles.label) }
                 }
             }
         }
