@@ -306,6 +306,12 @@ fun ChatScreen(
             val view = remember(state.items, state.running, showEarlier) { chatRows(state.items, state.running, showEarlier) }
             val rows = view.rows
             val actions = remember(state.items, state.running) { messageActions(state.items, state.running) }
+            val placeholder = chatPlaceholder(state)
+            when (placeholder) {
+                ChatPlaceholder.Opening -> OpeningSpinner()
+                ChatPlaceholder.Empty -> EmptyStateText("Say something to start.")
+                ChatPlaceholder.None -> Unit
+            }
             LazyColumn(Modifier.fillMaxSize().nestedScroll(userScrollWatcher), state = listState) {
                 itemsIndexed(rows, key = { _, it -> it.key }) { index, row ->
                     Column(Modifier.padding(top = itemGapBefore(rows.getOrNull(index - 1)?.last, row.first).dp)) {

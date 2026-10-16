@@ -199,16 +199,21 @@ fun SessionsScreen(
                 onRefresh = { scope.launch { model.refresh() } },
                 modifier = Modifier.fillMaxSize(),
             ) {
+                val flat = state.query.isNotEmpty() || state.archivedPage
+                val groups = if (flat) emptyList() else groupSessions(
+                    state.sessions, System.currentTimeMillis() / 1000, grouping, ordering, ZoneId.systemDefault(), statuses,
+                    projects = state.projects,
+                )
+                val emptyText = listEmptyText(state, filtered = !flat && state.sessions.isNotEmpty() && groups.isEmpty())
                 LazyColumn(Modifier.fillMaxSize()) {
-                    if (state.query.isNotEmpty() || state.archivedPage) {
+                    if (emptyText != null) {
+                        item(key = "empty") { EmptyStateText(emptyText, Modifier.fillParentMaxSize()) }
+                    }
+                    if (flat) {
                         itemsIndexed(state.sessions, key = { _, it -> it.id }) { i, session ->
                             SessionRow(session, onOpen, { menuFor = session }, divider = i < state.sessions.lastIndex)
                         }
                     } else {
-                        val groups = groupSessions(
-                            state.sessions, System.currentTimeMillis() / 1000, grouping, ordering, ZoneId.systemDefault(), statuses,
-                            projects = state.projects,
-                        )
                         groups.forEach { group ->
                             stickyHeader(key = "group-${group.title}") {
                                 Text(
