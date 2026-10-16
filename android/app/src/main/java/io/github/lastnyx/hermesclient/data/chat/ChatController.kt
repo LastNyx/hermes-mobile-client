@@ -37,8 +37,6 @@ class ChatController(
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val processPollMs: Long = 5000,
 ) {
-    private val dismissedProcesses = ConcurrentHashMap.newKeySet<String>()
-
     private val queueLock = Any()
     private val queue = MessageQueue()
     private var drainPending = false
@@ -108,7 +106,12 @@ class ChatController(
         try {
             val reply = sessionCall("process.list") { it }
             val incoming = parseProcesses(reply)
-            _state.update { it.copy(processes = mergeProcesses(incoming, dismissedProcesses)) }
+            val key = processKey()
+            if (key != null && reply.optJSONArray("processes") != null) {
+                DismissedProcesses.prune(key, incoming.map { it.id }.toSet())
+            }
+            val dismissed = key?.let { DismissedProcesses.ids(it) }.orEmpty()
+            _state.update { it.copy(processes = mergeProcesses(incoming, dismissed)) }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -131,9 +134,13 @@ class ChatController(
     fun dismissProcess(id: String) {
         val row = _state.value.processes.firstOrNull { it.id == id } ?: return
         if (row.state == ProcessState.Running) return
-        dismissedProcesses.add(id)
+        val key = processKey() ?: return
+        DismissedProcesses.dismiss(key, id)
         _state.update { s -> s.copy(processes = s.processes.filterNot { it.id == id }) }
     }
+
+    // The stored id survives resume; the runtime id does not.
+    private fun processKey(): String? = _state.value.let { it.storedId ?: it.sessionId }
 
     private fun processEvent(event: LinkEvent) {
         val kind = event.payload?.optString("kind")

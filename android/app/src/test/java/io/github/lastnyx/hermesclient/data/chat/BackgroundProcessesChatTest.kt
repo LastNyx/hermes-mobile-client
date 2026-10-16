@@ -54,6 +54,8 @@ class BackgroundProcessesChatTest {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val chat: ChatController
         val link: LiveLink
+        val authed: AuthedHttp
+        val base: String
 
         init {
             val listener = object : WebSocketListener() {
@@ -88,11 +90,11 @@ class BackgroundProcessesChatTest {
                 }
             }
             gateway.start()
-            val base = gateway.url("/").toString().trimEnd('/')
+            base = gateway.url("/").toString().trimEnd('/')
             val tokens = TokenStore(MemoryStorage(), XorCipher())
             tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
             val http = OkHttpClient()
-            val authed = AuthedHttp(http, tokens, "gw-1", base, now = { 1000 })
+            authed = AuthedHttp(http, tokens, "gw-1", base, now = { 1000 })
             link = LiveLink(http, authed, base, scope, FakeNetwork(), random = { 0.0 })
             link.start()
             runBlocking { awaitTrue { link.state.value == LinkState.Connected } }
@@ -154,6 +156,32 @@ class BackgroundProcessesChatTest {
         val settled = rig.lists.size
         delay(500)
         assertEquals(settled, rig.lists.size)
+    }
+
+    @Test
+    fun dismissedRowStaysGoneInNewControllerAndIsPruned() = runBlocking {
+        DismissedProcesses.reset()
+        val exited = """{"processes":[{"session_id":"p1","command":"ls","status":"exited","exit_code":0}]}"""
+        val rig = Rig(exited, "{}")
+        rig.chat.open()
+        awaitTrue { rig.chat.state.value.processes.size == 1 }
+        rig.chat.dismissProcess("nope")
+        assertEquals(1, rig.chat.state.value.processes.size)
+        rig.chat.dismissProcess("p1")
+        assertTrue(rig.chat.state.value.processes.isEmpty())
+
+        val second = ChatController(rig.link, SessionsRepository(rig.authed, rig.base), "stored-1", rig.scope, processPollMs = 100)
+        second.open()
+        awaitTrue { rig.lists.size >= 2 }
+        second.refreshProcesses()
+        assertTrue(second.state.value.processes.isEmpty())
+
+        rig.listBody = "{}"
+        second.refreshProcesses()
+        assertEquals(setOf("p1"), DismissedProcesses.ids("stored-1"))
+        rig.listBody = NONE
+        second.refreshProcesses()
+        assertEquals(emptySet<String>(), DismissedProcesses.ids("stored-1"))
     }
 
     @Test
