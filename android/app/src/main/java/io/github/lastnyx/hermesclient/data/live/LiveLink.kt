@@ -122,9 +122,9 @@ class LiveLink(
         }
     }
 
-    fun respond(id: String, result: JSONObject) {
+    fun respond(id: String, result: JSONObject): Boolean {
         val frame = JSONObject().put("jsonrpc", "2.0").put("id", id).put("result", result)
-        socket?.send(frame.toString())
+        return socket?.send(frame.toString()) ?: false
     }
 
     private suspend fun run() {

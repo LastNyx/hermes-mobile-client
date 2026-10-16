@@ -25,6 +25,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -143,7 +144,7 @@ class LiveLinkTest {
         val srq = withTimeout(5000) { request.await() }
         assertEquals("srq-abc", srq.id)
         assertEquals("approval", srq.method)
-        link.respond(srq.id, JSONObject().put("choice", "once"))
+        assertTrue(link.respond(srq.id, JSONObject().put("choice", "once")))
 
         awaitTrue("4401 reconnect") { connections.get() == 2 }
         awaitTrue("second upgrade path") { upgradePaths.size >= 2 }
@@ -156,6 +157,7 @@ class LiveLinkTest {
         link.start()
         awaitTrue("silence reconnect") { connections.get() >= 4 }
         link.stop()
+        assertFalse(link.respond("srq-abc", JSONObject().put("choice", "once")))
         scope.coroutineContext[kotlinx.coroutines.Job]!!.cancel()
         gateway.shutdown()
     }

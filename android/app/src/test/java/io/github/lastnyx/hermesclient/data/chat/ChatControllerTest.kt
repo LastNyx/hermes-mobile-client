@@ -27,6 +27,7 @@ import okhttp3.mockwebserver.MockWebServer
 import okhttp3.mockwebserver.RecordedRequest
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
@@ -286,6 +287,68 @@ class ChatControllerTest {
         )
 
         link.stop()
+        scope.coroutineContext[Job]!!.cancel()
+        gateway.shutdown()
+    }
+
+    @Test
+    fun aLostAnswerKeepsTheCardAndShowsAnError() = runBlocking {
+        val listener = object : WebSocketListener() {
+            override fun onOpen(webSocket: WebSocket, response: Response) {
+                webSocket.send("""{"jsonrpc":"2.0","method":"event","params":{"type":"gateway.ready","payload":{"heartbeat":true,"replay_epoch":"ep1"}}}""")
+            }
+
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                val frame = JSONObject(text)
+                val id = frame.optString("id")
+                if (id.startsWith("srq-")) return
+                fun result(body: String) = webSocket.send("""{"jsonrpc":"2.0","id":"$id","result":$body}""")
+                when (frame.optString("method")) {
+                    "client.capabilities" -> result("{}")
+                    "session.resume" -> {
+                        result("""{"session_id":"rt1","stored_session_id":"stored-1","running":false,"open_requests":[]}""")
+                        webSocket.send("""{"jsonrpc":"2.0","id":"srq-a","method":"approval","params":{"session_id":"rt1","request_id":"ap_1","command":"rm -rf build"}}""")
+                        webSocket.send("""{"jsonrpc":"2.0","id":"srq-c","method":"clarify","params":{"session_id":"rt1","questions":[{"qid":"q1","question":"Which?","choices":["red","blue"],"multi_select":false}]}}""")
+                    }
+                }
+            }
+        }
+        val gateway = MockWebServer()
+        gateway.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse = when {
+                request.path == "/api/auth/ws-ticket" -> MockResponse().setBody("""{"ticket":"t","ttl_seconds":30}""")
+                request.path!!.startsWith("/api/ws") -> MockResponse().withWebSocketUpgrade(listener)
+                request.path!!.startsWith("/api/sessions/stored-1/messages") -> MockResponse().setBody("""{"session_id":"stored-1","messages":[]}""")
+                else -> MockResponse().setResponseCode(404)
+            }
+        }
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val http = OkHttpClient()
+        val authed = AuthedHttp(http, tokens, "gw-1", base, now = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val link = LiveLink(http, authed, base, scope, FakeNetwork(), random = { 0.0 })
+        link.start()
+        awaitTrue { link.state.value == LinkState.Connected }
+
+        val chat = ChatController(link, SessionsRepository(authed, base), "stored-1", scope)
+        chat.open()
+        awaitTrue { chat.state.value.prompts.map { it.id } == listOf("srq-a", "srq-c") }
+        link.stop()
+
+        val sentence = "Couldn't send your answer. Check your connection and try again."
+        chat.answerApproval("srq-a", "once")
+        assertEquals(listOf("srq-a", "srq-c"), chat.state.value.prompts.map { it.id })
+        assertEquals(sentence, chat.state.value.error)
+        assertTrue(chat.state.value.items.none { it is ChatItem.Note && it.text.contains("You allowed") })
+
+        chat.answerClarify("srq-c", mapOf("q1" to "blue"))
+        assertEquals(listOf("srq-a", "srq-c"), chat.state.value.prompts.map { it.id })
+        assertEquals(sentence, chat.state.value.error)
+        assertTrue(chat.state.value.items.none { it is ChatItem.Note && it.text.contains("You answered") })
+
         scope.coroutineContext[Job]!!.cancel()
         gateway.shutdown()
     }

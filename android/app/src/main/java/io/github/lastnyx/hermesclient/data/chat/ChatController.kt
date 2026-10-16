@@ -28,6 +28,8 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
+private const val ANSWER_NOT_SENT = "Couldn't send your answer. Check your connection and try again."
+
 /** One open chat: history, live events, submit / redirect / stop. [storedId] is null for a new chat. */
 class ChatController(
     private val link: LiveLink,
@@ -361,7 +363,10 @@ class ChatController(
 
     private fun resolve(id: String, result: JSONObject, note: String) {
         if (_state.value.openRequests.none { it.id == id }) return
-        link.respond(id, result)
+        if (!link.respond(id, result)) {
+            _state.update { it.copy(error = ANSWER_NOT_SENT) }
+            return
+        }
         _state.update { s ->
             s.copy(
                 openRequests = s.openRequests.filterNot { it.id == id },
