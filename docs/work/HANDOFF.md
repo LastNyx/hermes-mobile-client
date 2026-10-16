@@ -19,6 +19,24 @@ Also clone `LastNyx/hermes-mobile-client-releases` next to this repo (README + C
 Tickets live in `.scratch/v1/issues/` and are committed (only `.scratch/runs*` is ignored), so ticket
 Status travels with the branch.
 
+After `./build.sh test` passes:
+
+```bash
+python3 <hermes-dev-team>/kit/scratch.py resume v1     # orchestrate step 0: checks the ticket board before any dispatch
+```
+
+Put the phone on USB with debugging on and authorise the new PC when the phone asks (`adb devices` must show `device`).
+Install flow used so far (the APK is never committed):
+
+```bash
+./build.sh assemble
+python3 -I tools/linkcheck.py android/app/build/outputs/apk/debug/app-debug.apk
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+adb shell dumpsys package io.github.lastnyx.hermesclient | grep lastUpdateTime   # must be newer than the APK's mtime
+```
+
+`.scratch/runs*` (worker logs and costs), the APK and `~/tools` stay on the old machine; nothing needs copying.
+
 ## Where we are
 
 - Branch `feature/v1`, pushed to origin (batch 27 build is `dcbda1f`; docs commits come after it). Nothing merged to main, nothing tagged since
