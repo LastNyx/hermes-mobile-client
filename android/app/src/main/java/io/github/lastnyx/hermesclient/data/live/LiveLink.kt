@@ -62,7 +62,7 @@ class LiveLink(
     private val wsClient = http.newBuilder().readTimeout(0, java.util.concurrent.TimeUnit.MILLISECONDS).build()
     private val _state = MutableStateFlow<LinkState>(LinkState.Offline)
     val state: StateFlow<LinkState> = _state
-    private val _events = MutableSharedFlow<LinkEvent>(extraBufferCapacity = 512)
+    private val _events = MutableSharedFlow<LinkEvent>(extraBufferCapacity = 4096)
     val events: SharedFlow<LinkEvent> = _events
     private val _requests = MutableSharedFlow<ServerRequest>(extraBufferCapacity = 64)
     val serverRequests: SharedFlow<ServerRequest> = _requests

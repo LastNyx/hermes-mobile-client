@@ -152,16 +152,23 @@ class ChatController(
     }
 
     /** Applies one event unless its seq was already seen. Callers hold [lock]. */
-    private fun apply(event: LinkEvent) {
+    private fun apply(event: LinkEvent, detectGap: Boolean = true): Boolean {
         val seq = event.seq
         val seen = lastSeen
         if (seq != null) {
-            if (seen != null && seq <= seen) return
+            if (seen != null && seq <= seen) return true
+            if (detectGap && seqGap(seen, seq)) {
+                // The since-reply returns the missing events and this one, so it is dropped here.
+                replaying = true
+                scope.launch { catchUp() }
+                return false
+            }
             lastSeen = seq
         }
         _state.update { reduceChat(it, event) }
         processEvent(event)
         if (event.type == "message.complete") turnEnded(event.payload?.optString("status").orEmpty())
+        return true
     }
 
     /** Only a clean ending drains; after an error or an interrupt the user decides. */
@@ -266,7 +273,7 @@ class ChatController(
             synchronized(lock) {
                 for (i in 0 until events.length()) {
                     val e = events.getJSONObject(i)
-                    apply(LinkEvent(e.optString("type"), e.optString("session_id").ifEmpty { null }, e.optJSONObject("payload"), if (e.has("seq")) e.optLong("seq") else null))
+                    apply(LinkEvent(e.optString("type"), e.optString("session_id").ifEmpty { null }, e.optJSONObject("payload"), if (e.has("seq")) e.optLong("seq") else null), detectGap = false)
                 }
             }
         } catch (e: Exception) {
@@ -274,7 +281,7 @@ class ChatController(
         } finally {
             synchronized(lock) {
                 replaying = false
-                held.forEach { apply(it) }
+                for (e in held) { if (!apply(e)) break }
                 held.clear()
             }
         }
