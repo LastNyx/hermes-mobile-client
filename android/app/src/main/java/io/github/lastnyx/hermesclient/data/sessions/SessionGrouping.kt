@@ -44,7 +44,7 @@ enum class SessionOrdering(val key: String, val label: String) {
 
 data class SessionGroup(val title: String, val sessions: List<Session>)
 
-private const val NO_PROJECT = "No project"
+const val NO_PROJECT = "No project"
 
 /**
  * [now] is epoch seconds; day boundaries are local midnight in [zone].

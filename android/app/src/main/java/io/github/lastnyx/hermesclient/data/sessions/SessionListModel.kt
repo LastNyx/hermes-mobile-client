@@ -60,7 +60,7 @@ class SessionListModel(
 
     /** Null on success, else the sentence to show; never touches `state.error`. */
     suspend fun createProject(name: String, folder: String?): String? {
-        val call = rpc ?: return "Could not create the project."
+        val call = rpc ?: return PROJECT_CREATE_FAILED
         val title = name.trim()
         if (title.isEmpty()) return "Give the project a name."
         val params = JSONObject().put("name", title)
