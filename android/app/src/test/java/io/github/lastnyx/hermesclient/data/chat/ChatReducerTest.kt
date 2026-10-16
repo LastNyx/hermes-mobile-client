@@ -26,6 +26,24 @@ class ChatReducerTest {
         }
     }
 
+    private fun detailOf(json: String, start: Boolean = true): String {
+        val events = listOfNotNull(
+            if (start) LinkEvent("tool.start", "s1", JSONObject("""{"tool_id":"c1","name":"ls"}"""), null) else null,
+            LinkEvent("tool.complete", "s1", JSONObject(json), null),
+        )
+        return (run(*events.toTypedArray()).items.single() as ChatItem.Tool).detail
+    }
+
+    @Test
+    fun toolCompleteCapsAndFallsBack() {
+        val big = detailOf("""{"tool_id":"c1","result_text":"${"x".repeat(10000)}"}""")
+        assertEquals(true, big.length <= 4000 && big.endsWith("more characters"))
+        assertEquals("exit 0", detailOf("""{"tool_id":"c1","result_text":null,"summary":"exit 0"}"""))
+        assertEquals("exit 0", detailOf("""{"tool_id":"c1","summary":"exit 0"}"""))
+        val unknown = detailOf("""{"tool_id":"zz","result_text":"${"x".repeat(10000)}"}""", start = false)
+        assertEquals(true, unknown.length <= 4000 && unknown.endsWith("more characters"))
+    }
+
     @Test
     fun reasoningBlocks() {
         assertEquals(

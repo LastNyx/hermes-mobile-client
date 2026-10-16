@@ -23,8 +23,28 @@ internal fun durationText(seconds: Double): String {
 }
 
 internal fun reasoningPreview(text: String, streaming: Boolean): String {
-    val lines = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
-    return (if (streaming) lines.lastOrNull() else lines.firstOrNull()).orEmpty()
+    // A "\r\n" pair reads as one empty line between two separators, which is skipped like any blank line.
+    fun isBreak(c: Char) = c == '\n' || c == '\r'
+    if (streaming) {
+        var end = text.length
+        while (true) {
+            var start = end
+            while (start > 0 && !isBreak(text[start - 1])) start--
+            val line = text.substring(start, end).trim()
+            if (line.isNotEmpty()) return line
+            if (start == 0) return ""
+            end = start - 1
+        }
+    }
+    var start = 0
+    while (true) {
+        var end = start
+        while (end < text.length && !isBreak(text[end])) end++
+        val line = text.substring(start, end).trim()
+        if (line.isNotEmpty()) return line
+        if (end >= text.length) return ""
+        start = end + 1
+    }
 }
 
 internal const val TOOL_STILL_RUNNING = "Still running…"

@@ -134,7 +134,9 @@ fun reduceChat(state: ChatState, event: LinkEvent): ChatState {
         }
         "tool.complete" -> {
             val id = payload?.optString("tool_id").orEmpty()
-            val detail = payload?.optString("result_text").orEmpty().ifEmpty { payload?.optString("summary").orEmpty() }
+            // optString returns the text "null" for a JSON null, so check isNull first.
+            fun text(key: String) = if (payload == null || payload.isNull(key)) "" else payload.optString(key)
+            val detail = capToolDetail(text("result_text").ifEmpty { text("summary") })
             val name = payload?.optString("name").orEmpty()
             val duration = if (payload?.has("duration_s") == true && !payload.isNull("duration_s")) payload.optDouble("duration_s") else null
             val done = state.items.map {

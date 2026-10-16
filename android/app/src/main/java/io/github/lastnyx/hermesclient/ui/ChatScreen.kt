@@ -96,6 +96,7 @@ import io.github.lastnyx.hermesclient.data.chat.Prompt
 import io.github.lastnyx.hermesclient.data.chat.REASONING_LEVELS
 import io.github.lastnyx.hermesclient.data.chat.SlashCommands
 import io.github.lastnyx.hermesclient.data.chat.SlashSuggestion
+import io.github.lastnyx.hermesclient.data.chat.TOOL_DETAIL_LIMIT
 import io.github.lastnyx.hermesclient.data.chat.ToolStatus
 import io.github.lastnyx.hermesclient.data.chat.parseSlashLine
 import io.github.lastnyx.hermesclient.data.live.LinkState
@@ -622,7 +623,7 @@ private fun ReasoningRow(item: ChatItem.Reasoning) {
                     Modifier.padding(start = if (item.streaming) ROW_PADDING.dp else 0.dp),
                     style = roles.label,
                 )
-                val preview = if (open) "" else reasoningPreview(item.text, item.streaming)
+                val preview = remember(item.text, item.streaming, open) { if (open) "" else reasoningPreview(item.text, item.streaming) }
                 Text(
                     preview,
                     Modifier.weight(1f).padding(start = ROW_PADDING.dp),
@@ -678,13 +679,14 @@ private fun ToolRow(item: ChatItem.Tool) {
                 )
             }
             if (open && body != null) {
+                val shown = remember(body) { toolDetailPreview(body, TOOL_DETAIL_LIMIT) }
                 Text(
-                    toolDetailPreview(body, 4000),
+                    shown,
                     Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())
                         .padding(horizontal = CARD_PADDING_H.dp, vertical = TOOL_DETAIL_VERTICAL_PADDING.dp),
                     style = roles.code,
                 )
-                if (item.detail.isNotBlank()) CopyButton(toolDetailPreview(item.detail, 4000))
+                if (item.detail.isNotBlank()) CopyButton(shown)
             }
         }
     }

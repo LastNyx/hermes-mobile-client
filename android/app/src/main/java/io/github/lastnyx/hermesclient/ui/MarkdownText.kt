@@ -29,19 +29,21 @@ fun MarkdownText(text: String, modifier: Modifier = Modifier) {
             }
         }
     }
-    val components = markdownComponents(
-        codeFence = { m ->
-            MarkdownCodeFence(m.content, m.node, m.typography.code) { code, language, style -> CodeCard(code, language, style) }
-        },
-        codeBlock = { m ->
-            MarkdownCodeBlock(m.content, m.node, m.typography.code) { code, _, style -> CodeCard(code, null, style) }
-        },
-        table = { m ->
-            Box(Modifier.horizontalScroll(rememberScrollState())) {
-                MarkdownTable(m.content, m.node, m.typography.table)
-            }
-        },
-    )
+    val components = remember {
+        markdownComponents(
+            codeFence = { m ->
+                MarkdownCodeFence(m.content, m.node, m.typography.code) { code, language, style -> CodeCard(code, language, style) }
+            },
+            codeBlock = { m ->
+                MarkdownCodeBlock(m.content, m.node, m.typography.code) { code, _, style -> CodeCard(code, null, style) }
+            },
+            table = { m ->
+                Box(Modifier.horizontalScroll(rememberScrollState())) {
+                    MarkdownTable(m.content, m.node, m.typography.table)
+                }
+            },
+        )
+    }
     val typography = markdownTypography(
         text = roles.body,
         code = roles.code,

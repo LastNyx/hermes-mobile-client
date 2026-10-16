@@ -40,6 +40,13 @@ class ToolRowsTest {
 
         assertEquals("first", reasoningPreview("first\nsecond", false))
         assertEquals("second", reasoningPreview("first\nsecond", true))
+        for (t in listOf("", " \n\t\n", "\n\n a \n b \n\n", "a\r\nb\r\n", "x\ry\rz", "   indented\n  more  ", "one", "\r\n\r\n", "a\n\r\nb")) {
+            for (streaming in listOf(false, true)) {
+                val lines = t.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                val old = (if (streaming) lines.lastOrNull() else lines.firstOrNull()).orEmpty()
+                assertEquals("'$t' $streaming", old, reasoningPreview(t, streaming))
+            }
+        }
 
         val msg = ChatItem.Message("m", "assistant", "x")
         val four = groupTools(listOf(tool(1), tool(2), tool(3), tool(4)))
