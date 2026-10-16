@@ -74,6 +74,50 @@ internal sealed interface ChatRow {
     }
 }
 
+internal const val LIVE_STEPS_SHOWN = 4
+
+internal data class ChatRows(val rows: List<ChatRow>, val earlierSteps: Int, val earlierBeforeKey: String?)
+
+private fun isUser(item: ChatItem) = item is ChatItem.Message && item.role == "user"
+
+private fun isFinishedStep(item: ChatItem) = when (item) {
+    is ChatItem.Tool -> item.status == ToolStatus.Done
+    is ChatItem.Reasoning -> !item.streaming
+    else -> false
+}
+
+internal fun turnKey(items: List<ChatItem>): String? = items.lastOrNull(::isUser)?.key
+
+internal fun earlierStepsText(count: Int): String = if (count == 1) "1 earlier step" else "$count earlier steps"
+
+internal fun chatRows(
+    items: List<ChatItem>,
+    running: Boolean,
+    showEarlier: Boolean,
+    shown: Int = LIVE_STEPS_SHOWN,
+): ChatRows {
+    if (!running) return ChatRows(groupTools(items), 0, null)
+    val turnStart = items.indexOfLast(::isUser) + 1
+    val before = groupTools(items.subList(0, turnStart))
+    val turn = items.subList(turnStart, items.size)
+    val dropCount = if (showEarlier) 0 else (turn.count(::isFinishedStep) - shown).coerceAtLeast(0)
+    if (dropCount == 0) return ChatRows(before + turn.map { ChatRow.Single(it) }, 0, null)
+    var dropped = 0
+    var firstDropped = -1
+    val kept = mutableListOf<ChatItem>()
+    var beforeKey: String? = null
+    turn.forEachIndexed { i, item ->
+        if (dropped < dropCount && isFinishedStep(item)) {
+            if (firstDropped < 0) firstDropped = i
+            dropped++
+        } else {
+            if (beforeKey == null && firstDropped >= 0) beforeKey = item.key
+            kept += item
+        }
+    }
+    return ChatRows(before + kept.map { ChatRow.Single(it) }, dropCount, beforeKey)
+}
+
 internal const val MIN_GROUPED_TOOLS = 3
 
 internal fun groupTools(items: List<ChatItem>): List<ChatRow> {

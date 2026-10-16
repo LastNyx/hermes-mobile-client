@@ -257,11 +257,22 @@ fun ChatScreen(
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            val rows = remember(state.items) { groupTools(state.items) }
+            var showEarlier by rememberSaveable(turnKey(state.items)) { mutableStateOf(false) }
+            val view = remember(state.items, state.running, showEarlier) { chatRows(state.items, state.running, showEarlier) }
+            val rows = view.rows
             val actions = remember(state.items, state.running) { lastActions(state.items, state.running) }
             LazyColumn(Modifier.fillMaxSize().nestedScroll(userScrollWatcher), state = listState) {
                 itemsIndexed(rows, key = { _, it -> it.key }) { index, row ->
-                    Box(Modifier.padding(top = itemGapBefore(rows.getOrNull(index - 1)?.last, row.first).dp)) {
+                    Column(Modifier.padding(top = itemGapBefore(rows.getOrNull(index - 1)?.last, row.first).dp)) {
+                        if (row.first.key == view.earlierBeforeKey) {
+                            Text(
+                                earlierStepsText(view.earlierSteps),
+                                Modifier.fillMaxWidth().clickable { showEarlier = true },
+                                style = roles.caption,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
                         if (row is ChatRow.ToolGroup) {
                             ToolGroupRow(row)
                         } else {

@@ -66,4 +66,62 @@ class ToolRowsTest {
         assertEquals("out", toolExpandedText(live, "out"))
         assertEquals("Still running…", TOOL_STILL_RUNNING)
     }
+
+    private fun user(n: Int) = ChatItem.Message("u$n", "user", "q")
+    private fun live(n: Int) = ChatItem.Tool("t$n", "$n", "x", io.github.lastnyx.hermesclient.data.chat.ToolStatus.Running)
+    private fun think(n: Int, streaming: Boolean = false) = ChatItem.Reasoning("r$n", "x", streaming)
+    private fun keys(r: ChatRows) = r.rows.map { it.key }
+
+    @Test
+    fun runningReplyShowsOnlyLastFinishedSteps() {
+        val mixed = listOf(user(1), think(1), tool(1), tool(2), tool(3), tool(4), ChatItem.Message("a", "assistant", "hi"))
+        assertEquals(ChatRows(groupTools(mixed), 0, null), chatRows(mixed, running = false, showEarlier = false))
+        assertEquals(ChatRows(emptyList(), 0, null), chatRows(emptyList(), running = false, showEarlier = false))
+
+        val six = listOf(user(1)) + (1..6).map { tool(it) }
+        val r = chatRows(six, running = true, showEarlier = false)
+        assertEquals(listOf("u1", "t3", "t4", "t5", "t6"), keys(r))
+        assertTrue(r.rows.all { it is ChatRow.Single })
+        assertEquals(2, r.earlierSteps)
+        assertEquals("t3", r.earlierBeforeKey)
+
+        val four = chatRows(six.take(5), running = true, showEarlier = false)
+        assertEquals(5, four.rows.size)
+        assertEquals(ChatRows(four.rows, 0, null), four)
+        assertTrue(four.rows.all { it is ChatRow.Single })
+        val all = chatRows(six, running = true, showEarlier = true)
+        assertEquals(7, all.rows.size)
+        assertEquals(0, all.earlierSteps)
+        assertNull(all.earlierBeforeKey)
+
+        val liveMix = listOf(user(1)) + (1..5).map { tool(it) } + listOf(live(9), think(2, true))
+        val l = chatRows(liveMix, running = true, showEarlier = false)
+        assertEquals(listOf("u1", "t2", "t3", "t4", "t5", "t9", "r2"), keys(l))
+        assertEquals(1, l.earlierSteps)
+        val thinkSteps = chatRows(listOf(user(1), think(1), think(2), tool(1), tool(2), tool(3)), running = true, showEarlier = false)
+        assertEquals(listOf("u1", "r2", "t1", "t2", "t3"), keys(thinkSteps))
+
+        val a = ChatItem.Message("a1", "assistant", "mid")
+        val n = ChatItem.Note("n1", "note")
+        val c = ChatItem.CommandOutput("c1", "/x", "out")
+        val withMsgs = chatRows(listOf(user(1), tool(1), a, tool(2), n, tool(3), c, tool(4), tool(5), tool(6)), running = true, showEarlier = false)
+        assertEquals(listOf("u1", "a1", "n1", "t3", "c1", "t4", "t5", "t6"), keys(withMsgs))
+        assertEquals(2, withMsgs.earlierSteps)
+        assertEquals("a1", withMsgs.earlierBeforeKey)
+
+        val twoTurns = listOf(user(1), tool(1), tool(2), tool(3), user(2), tool(4), tool(5), tool(6))
+        val t = chatRows(twoTurns, running = true, showEarlier = false)
+        assertTrue(t.rows[1] is ChatRow.ToolGroup)
+        assertEquals(6, t.rows.size)
+        assertTrue(t.rows.drop(3).all { it is ChatRow.Single })
+        val noUser = chatRows((1..6).map { tool(it) }, running = true, showEarlier = false)
+        assertEquals(4, noUser.rows.size)
+        assertEquals(2, noUser.earlierSteps)
+
+        assertEquals("u2", turnKey(twoTurns))
+        assertNull(turnKey(emptyList()))
+        assertNull(turnKey(listOf(tool(1))))
+        assertEquals("1 earlier step", earlierStepsText(1))
+        assertEquals("3 earlier steps", earlierStepsText(3))
+    }
 }
