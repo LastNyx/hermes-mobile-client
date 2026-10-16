@@ -8,7 +8,7 @@ enum class ToolStatus { Running, Done }
 sealed interface ChatItem {
     val key: String
 
-    data class Message(override val key: String, val role: String, val text: String, val streaming: Boolean = false, val usage: String? = null) : ChatItem
+    data class Message(override val key: String, val role: String, val text: String, val streaming: Boolean = false, val usage: String? = null, val rowId: Long? = null) : ChatItem
 
     data class Tool(
         override val key: String,
@@ -158,9 +158,15 @@ fun reduceChat(state: ChatState, event: LinkEvent): ChatState {
             val line = usageLine(payload?.optJSONObject("usage"))
             val replyAt = withReply.indexOfLast { it is ChatItem.Message && it.role == "assistant" }
             val lastUser = withReply.indexOfLast { it is ChatItem.Message && it.role == "user" }
-            val finished = if (line != null && replyAt > lastUser) {
+            val withUsage = if (line != null && replyAt > lastUser) {
                 withReply.mapIndexed { i, it -> if (i == replyAt) (it as ChatItem.Message).copy(usage = line) else it }
             } else withReply
+            // optLong would turn a missing or null id into 0.
+            val turn = payload?.optJSONObject("persisted_turn")
+            val userRow = if (turn != null && turn.has("user_row_id") && !turn.isNull("user_row_id")) (turn.opt("user_row_id") as? Number)?.toLong()?.takeIf { it > 0 } else null
+            val finished = if (userRow != null && lastUser >= 0 && (withUsage[lastUser] as ChatItem.Message).rowId == null) {
+                withUsage.mapIndexed { i, it -> if (i == lastUser) (it as ChatItem.Message).copy(rowId = userRow) else it }
+            } else withUsage
             val failure = if (payload?.optString("status") == "error") {
                 payload.optString("error").ifEmpty { "The turn failed" }
             } else null

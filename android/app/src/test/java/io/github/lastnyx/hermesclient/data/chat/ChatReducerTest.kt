@@ -48,6 +48,22 @@ class ChatReducerTest {
     private fun complete(json: String) = LinkEvent("message.complete", "s1", JSONObject(json), null)
 
     @Test
+    fun completeSetsTheUserRowIdOnlyWhenGiven() {
+        fun rowIdAfter(json: String, user: ChatItem.Message = ChatItem.Message("m0", "user", "hi")): Long? {
+            val s = reduceChat(ChatState(items = listOf(user)), complete(json))
+            return (s.items.first() as ChatItem.Message).rowId
+        }
+        assertEquals(101L, rowIdAfter("""{"status":"complete","persisted_turn":{"user_row_id":101}}"""))
+        assertEquals(null, rowIdAfter("""{"status":"complete"}"""))
+        assertEquals(null, rowIdAfter("""{"status":"complete","persisted_turn":null}"""))
+        assertEquals(null, rowIdAfter("""{"status":"complete","persisted_turn":{"user_row_id":null}}"""))
+        assertEquals(null, rowIdAfter("""{"status":"complete","persisted_turn":{"user_row_id":0}}"""))
+        assertEquals(7L, rowIdAfter("""{"status":"complete","persisted_turn":{"user_row_id":101}}""", ChatItem.Message("h7", "user", "hi", rowId = 7)))
+        val once = reduceChat(ChatState(items = listOf(ChatItem.Message("m0", "user", "hi"))), complete("""{"status":"complete","persisted_turn":{"user_row_id":101}}"""))
+        assertEquals(once, reduceChat(once, complete("""{"status":"complete","persisted_turn":{"user_row_id":101}}""")))
+    }
+
+    @Test
     fun completeClearsOpenRequestsButOtherEventsKeepThem() {
         val open = ChatState(
             openRequests = listOf(

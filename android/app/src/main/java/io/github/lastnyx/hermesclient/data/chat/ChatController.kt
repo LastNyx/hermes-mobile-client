@@ -368,7 +368,7 @@ class ChatController(
 
     /** [fromEnd] counts back from the newest history row: prepending older rows never shifts it, so id-less keys stay unique. */
     private fun historyItem(m: HistoryMessage, fromEnd: Int) =
-        ChatItem.Message(m.rowId?.let { "h$it" } ?: "h-$fromEnd", m.role, m.text)
+        ChatItem.Message(m.rowId?.let { "h$it" } ?: "h-$fromEnd", m.role, m.text, rowId = m.rowId)
 
     private suspend fun loadHistory(stored: String) {
         val page = withContext(io) { repo.messages(stored) }.getOrThrow()
@@ -514,6 +514,46 @@ class ChatController(
     internal suspend fun reloadHistory() {
         settle()
         loadHistory(_state.value.storedId ?: throw IOException("Chat not ready"))
+    }
+
+    /** Cuts the chat back to before the user message [rowId] and sends [newText] in its place. */
+    suspend fun rewind(rowId: Long, newText: String): RewindResult {
+        val text = newText.trim()
+        if (text.isEmpty()) return RewindResult.Empty
+        settle()
+        val before = _state.value
+        if (before.running) return RewindResult.Busy
+        val at = before.items.indexOfFirst { it is ChatItem.Message && it.role == "user" && it.rowId == rowId }
+        if (at < 0) return RewindResult.Stale
+        val first = !before.hasOlder && before.items.take(at).none { it is ChatItem.Message && it.role == "user" }
+        val result = try {
+            sessionCall("prompt.submit") { p -> rewindParams(rowId, text, first).let { extra -> extra.keys().forEach { k -> p.put(k, extra.get(k)) } }; p }
+            RewindResult.Sent
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: RpcError) {
+            rewindResultFor(e)
+        } catch (e: IOException) {
+            RewindResult.Unreachable
+        } catch (e: Exception) {
+            RewindResult.Failed
+        }
+        if (result == RewindResult.Sent) {
+            settle()
+            _state.update { s ->
+                val kept = s.items.take(at)
+                s.copy(items = kept + ChatItem.Message("m${kept.size}", "user", text), running = true, error = null)
+            }
+        } else if (result == RewindResult.Stale) {
+            try {
+                reloadHistory()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // The chat stays as it was; the next open reads the history again.
+            }
+        }
+        return result
     }
 
     /**
