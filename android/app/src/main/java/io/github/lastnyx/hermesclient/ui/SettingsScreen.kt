@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import io.github.lastnyx.hermesclient.data.profiles.ProfilesModel
 import io.github.lastnyx.hermesclient.data.update.UpdateController
 import kotlinx.coroutines.launch
 
@@ -36,6 +37,7 @@ fun SettingsScreen(
     onTextScale: (TextScale) -> Unit,
     onBack: () -> Unit,
     onOpenCapabilities: (() -> Unit)? = null,
+    profiles: ProfilesModel? = null,
 ) {
     val ui by updates.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -70,6 +72,7 @@ fun SettingsScreen(
                 Button(onClick = onOpenCapabilities) { Text("Capabilities") }
             }
         }
+        if (profiles != null) ProfileSection(profiles)
         Section("About") {
             Text("Version $versionName", style = roles.body)
             Button(enabled = !ui.busy, onClick = { scope.launch { updates.check(silent = false) } }) {

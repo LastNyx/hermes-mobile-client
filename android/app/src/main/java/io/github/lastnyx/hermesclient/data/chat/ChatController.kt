@@ -6,6 +6,7 @@ import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
 import io.github.lastnyx.hermesclient.data.live.ServerRequest
 import io.github.lastnyx.hermesclient.data.live.RpcError
+import io.github.lastnyx.hermesclient.data.profiles.profileParam
 import io.github.lastnyx.hermesclient.data.sessions.HISTORY_PAGE
 import io.github.lastnyx.hermesclient.data.sessions.HistoryMessage
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
@@ -48,7 +49,9 @@ class ChatController(
     deltaBatchMs: Long = DELTA_BATCH_MS,
     private val clock: () -> Long = System::currentTimeMillis,
     private val newChatCwd: String? = null,
+    profile: String? = null,
 ) {
+    private val profileName = profileParam(profile)
     private var noticeStore = NoticeStore()
     private val batcher = DeltaBatcher(deltaBatchMs) { System.nanoTime() / 1_000_000 }
     private var timer: Job? = null
@@ -539,7 +542,10 @@ class ChatController(
         try {
             val stored = _state.value.storedId
             if (stored == null) {
-                val result = link.call("session.create", JSONObject().apply { if (!newChatCwd.isNullOrBlank()) put("cwd", newChatCwd) })
+                val result = link.call("session.create", JSONObject().apply {
+                    if (!newChatCwd.isNullOrBlank()) put("cwd", newChatCwd)
+                    profileName?.let { put("profile", it) }
+                })
                 adopt(result)
             } else {
                 loadHistory(stored)
@@ -736,7 +742,7 @@ class ChatController(
 
     private suspend fun resume() {
         val stored = _state.value.storedId ?: throw IOException("Chat not ready")
-        adopt(link.call("session.resume", JSONObject().put("session_id", stored)))
+        adopt(link.call("session.resume", JSONObject().put("session_id", stored).apply { profileName?.let { put("profile", it) } }))
     }
 
     private fun adopt(result: JSONObject) {

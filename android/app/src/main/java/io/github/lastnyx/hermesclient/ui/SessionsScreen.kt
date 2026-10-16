@@ -310,14 +310,15 @@ fun SessionsHost(
     onGateways: () -> Unit,
     openSessionId: String? = null,
     share: ShareRequest? = null,
+    profile: String? = null,
 ) {
     val authed = remember(gateway.id, gateway.url) { signIn.authed(gateway.id, gateway.url) }
     val linkScope = rememberCoroutineScope()
     val context = LocalContext.current
     val network = remember { AndroidNetworkMonitor(context) }
     val link = remember(authed) { LiveLink(http, authed, gateway.url, linkScope, network) }
-    val model = remember(authed, link) {
-        SessionListModel(SessionsRepository(authed, gateway.url), Dispatchers.IO) { method, params ->
+    val model = remember(authed, link, profile) {
+        SessionListModel(SessionsRepository(authed, gateway.url, profile), Dispatchers.IO) { method, params ->
             link.call(method, params, 10_000)
         }
     }
@@ -377,7 +378,7 @@ fun SessionsHost(
         val linkState by link.state.collectAsState()
         val offline = showsOfflineLine(linkState)
         val networkOnline by network.online.collectAsState()
-        val repo = remember(authed) { SessionsRepository(authed, gateway.url) }
+        val repo = remember(authed, profile) { SessionsRepository(authed, gateway.url, profile) }
         val listState by model.state.collectAsState()
         val chat: @Composable (Modifier) -> Unit = { m ->
             key(chatId, chatKey) {
@@ -390,6 +391,7 @@ fun SessionsHost(
                         onBack = if (wide) null else ({ chatOpen = false }),
                         seed = sharedDraft,
                         newChatCwd = chatCwd,
+                        profile = profile,
                         onBranched = { id -> open(id); linkScope.launch { model.refresh() } },
                     )
                 }

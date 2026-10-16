@@ -117,11 +117,12 @@ fun ChatHost(
     seed: String? = null,
     onBranched: (String) -> Unit = {},
     newChatCwd: String? = null,
+    profile: String? = null,
 ) {
     val key = draftKey(gatewayId, storedId)
     val scope = remember(storedId) { CoroutineScope(SupervisorJob() + Dispatchers.Main) }
     DisposableEffect(scope) { onDispose { scope.cancel() } }
-    val controller = remember(scope) { ChatController(link, repo, storedId, scope, newChatCwd = newChatCwd) }
+    val controller = remember(scope) { ChatController(link, repo, storedId, scope, newChatCwd = newChatCwd, profile = profile) }
     val models = remember(controller) { ModelsController(controller) }
     val slash = remember(controller) { SlashCommands(controller) }
     LaunchedEffect(controller) {

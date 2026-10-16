@@ -77,4 +77,21 @@ class SessionListModelTest {
         assertEquals("DELETE", gateway.takeRequest().method)
         gateway.shutdown()
     }
+
+    @Test
+    fun loadOverAProfileRepositoryAsksForThatProfile() = runBlocking {
+        val gateway = MockWebServer()
+        gateway.start()
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val base = gateway.url("/").toString().trimEnd('/')
+        val model = SessionListModel(
+            SessionsRepository(AuthedHttp(OkHttpClient(), tokens, "gw-1", base, now = { 1000 }), base, "work"),
+            Dispatchers.IO,
+        )
+        gateway.enqueue(MockResponse().setBody("""{"sessions":[]}"""))
+        model.load()
+        assertEquals("work", gateway.takeRequest().requestUrl!!.queryParameter("profile"))
+        gateway.shutdown()
+    }
 }

@@ -11,6 +11,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -83,6 +84,47 @@ class SessionsRepositoryTest {
         gateway.enqueue(MockResponse().setResponseCode(409).setBody("""{"detail":"Session is active"}"""))
         assertEquals("That can't be done right now. Try again in a moment.", friendlyError(repo.delete("s2").exceptionOrNull()!!))
         gateway.shutdown()
+    }
+
+    private fun profileRequests(profile: String?): List<okhttp3.mockwebserver.RecordedRequest> {
+        val gateway = MockWebServer()
+        gateway.start()
+        val tokens = TokenStore(MemoryStorage(), XorCipher())
+        tokens.save("gw-1", TokenPair("at-1", "rt-1", 1760000000, "basic", "u1"))
+        val base = gateway.url("/").toString().trimEnd('/')
+        val repo = SessionsRepository(AuthedHttp(OkHttpClient(), tokens, "gw-1", base, now = { 1000 }), base, profile)
+        val bodies = listOf(
+            """{"sessions":[]}""", """{"results":[]}""", """{"messages":[]}""", """{"ok":true}""",
+            """{"ok":true}""", """{"ok":true}""", """{"ok":true}""",
+        )
+        bodies.forEach { gateway.enqueue(MockResponse().setBody(it)) }
+        repo.list(); repo.search("q"); repo.messages("s1"); repo.delete("s1")
+        repo.rename("s1", "T"); repo.setPinned("s1", true); repo.setArchived("s1", true)
+        val taken = bodies.map { gateway.takeRequest() }
+        gateway.shutdown()
+        return taken
+    }
+
+    @Test
+    fun noProfileOrDefaultSendsNoProfileAnywhere() {
+        listOf(null, "default").forEach { p ->
+            val taken = profileRequests(p)
+            taken.forEach { assertEquals(null, it.requestUrl!!.queryParameter("profile")) }
+            taken.drop(4).forEach { assertFalse(JSONObject(it.body.readUtf8()).has("profile")) }
+        }
+    }
+
+    @Test
+    fun aProfileGoesInTheQueryOrThePatchBody() {
+        val taken = profileRequests("work")
+        taken.take(4).forEach { assertEquals("work", it.requestUrl!!.queryParameter("profile")) }
+        val keys = listOf("title", "pinned", "archived")
+        taken.drop(4).forEachIndexed { i, req ->
+            assertEquals(null, req.requestUrl!!.queryParameter("profile"))
+            val body = JSONObject(req.body.readUtf8())
+            assertEquals("work", body.getString("profile"))
+            assertTrue(body.has(keys[i]))
+        }
     }
 
     @Test

@@ -2,6 +2,8 @@ package io.github.lastnyx.hermesclient.data.sessions
 
 import io.github.lastnyx.hermesclient.data.HttpFailure
 import io.github.lastnyx.hermesclient.data.auth.AuthedHttp
+import io.github.lastnyx.hermesclient.data.profiles.profileParam
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -38,8 +40,13 @@ data class HistoryMessage(val role: String, val text: String, val rowId: Long? =
 data class HistoryPage(val messages: List<HistoryMessage>, val returned: Int)
 
 /** Sessions of one gateway over REST. Blocking; call off the main thread. */
-class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
+class SessionsRepository(private val http: AuthedHttp, baseUrl: String, profile: String? = null) {
     private val base = baseUrl.trimEnd('/')
+    private val profileName = profileParam(profile)
+
+    private fun String.withProfile(): HttpUrl = toHttpUrl().newBuilder().apply {
+        profileName?.let { addQueryParameter("profile", it) }
+    }.build()
 
     /** [archived] is the gateway's filter: `exclude` (default), `only` or `include`. */
     fun list(archived: String = "exclude"): Result<List<Session>> = call(
@@ -49,6 +56,7 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
                 .addQueryParameter("archived", archived)
                 // Human chats only: Desktop hides scheduled/automated sources from recents.
                 .addQueryParameter("exclude_sources", "cron")
+                .apply { profileName?.let { addQueryParameter("profile", it) } }
                 .build(),
         ).build(),
     ) { parse(it.getJSONArray("sessions"), "id") }.map { it.pinnedFirst() }
@@ -58,28 +66,26 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
             "$base/api/sessions/search".toHttpUrl().newBuilder()
                 .addQueryParameter("q", query)
                 .addQueryParameter("limit", "20")
+                .apply { profileName?.let { addQueryParameter("profile", it) } }
                 .build(),
         ).build(),
     ) { parse(it.getJSONArray("results"), "session_id") }
 
-    fun rename(id: String, title: String): Result<Unit> = call(
-        Request.Builder().url("$base/api/sessions/$id")
-            .patch(JSONObject().put("title", title).toString().toRequestBody("application/json".toMediaType()))
-            .build(),
-    ) { }
+    fun rename(id: String, title: String): Result<Unit> = patch(id, JSONObject().put("title", title))
 
     fun setPinned(id: String, pinned: Boolean): Result<Unit> = patch(id, JSONObject().put("pinned", pinned))
 
     fun setArchived(id: String, archived: Boolean): Result<Unit> = patch(id, JSONObject().put("archived", archived))
 
+    // PATCH has no query parameter for the profile: it is a body key.
     private fun patch(id: String, body: JSONObject): Result<Unit> = call(
         Request.Builder().url("$base/api/sessions/$id")
-            .patch(body.toString().toRequestBody("application/json".toMediaType()))
+            .patch(body.apply { profileName?.let { put("profile", it) } }.toString().toRequestBody("application/json".toMediaType()))
             .build(),
     ) { }
 
     fun delete(id: String): Result<Unit> = call(
-        Request.Builder().url("$base/api/sessions/$id").delete().build(),
+        Request.Builder().url("$base/api/sessions/$id".withProfile()).delete().build(),
     ) { }
 
     /**
@@ -93,6 +99,7 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String) {
                 .addQueryParameter("limit", limit.toString())
                 .addQueryParameter("offset", offset.toString())
                 .addQueryParameter("inline_images", "false")
+                .apply { profileName?.let { addQueryParameter("profile", it) } }
                 .build(),
         ).build(),
     ) { body ->

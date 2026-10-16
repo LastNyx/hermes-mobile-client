@@ -32,6 +32,10 @@ import io.github.lastnyx.hermesclient.data.gateway.GatewayClient
 import io.github.lastnyx.hermesclient.data.gateway.GatewayRegistry
 import io.github.lastnyx.hermesclient.data.gateway.PrefsGatewayStorage
 import io.github.lastnyx.hermesclient.data.gateway.restClient
+import io.github.lastnyx.hermesclient.data.profiles.PrefsProfileStorage
+import io.github.lastnyx.hermesclient.data.profiles.ProfileStore
+import io.github.lastnyx.hermesclient.data.profiles.ProfilesModel
+import io.github.lastnyx.hermesclient.data.profiles.ProfilesRepository
 import io.github.lastnyx.hermesclient.data.settings.PrefsTextScaleStorage
 import io.github.lastnyx.hermesclient.data.share.ShareRequest
 import io.github.lastnyx.hermesclient.data.share.draftFromShare
@@ -100,6 +104,7 @@ class MainActivity : ComponentActivity() {
             install = { ApkInstaller.install(applicationContext, it) },
         )
         val textScaleStore = TextScaleStore(PrefsTextScaleStorage(applicationContext))
+        val profileStore = ProfileStore(PrefsProfileStorage(applicationContext))
         setContent {
             var textScale by remember { mutableStateOf(textScaleStore.current()) }
             MaterialTheme(
@@ -121,6 +126,11 @@ class MainActivity : ComponentActivity() {
                     val capabilities = remember(active?.id, active?.url) {
                         active?.let { CapabilitiesModel(CapabilitiesRepository(signIn.authed(it.id, it.url), it.url), Dispatchers.IO) }
                     }
+                    val profilesModel = remember(active?.id, active?.url) {
+                        active?.let {
+                            ProfilesModel(ProfilesRepository(signIn.authed(it.id, it.url), it.url), Dispatchers.IO, profileStore, it.id)
+                        }
+                    }
                     if (showSettings && showCapabilities && capabilities != null) {
                         BackHandler { showCapabilities = false }
                         CapabilitiesScreen(capabilities, onBack = { showCapabilities = false })
@@ -131,6 +141,7 @@ class MainActivity : ComponentActivity() {
                             onTextScale = { textScale = it; textScaleStore.set(it) },
                             onBack = { showSettings = false },
                             onOpenCapabilities = capabilities?.let { { showCapabilities = true } },
+                            profiles = profilesModel,
                         )
                     } else if (showGateways || active == null) {
                         GatewaysScreen(
@@ -140,7 +151,7 @@ class MainActivity : ComponentActivity() {
                             updateStatus = updateUi.status,
                         )
                     } else {
-                        SessionsHost(active, http, signIn, onGateways = { showGateways = true }, openSessionId = requestedSession, share = shareRequest)
+                        SessionsHost(active, http, signIn, onGateways = { showGateways = true }, openSessionId = requestedSession, share = shareRequest, profile = profileStore.selected(active.id))
                     }
                 }
             }
