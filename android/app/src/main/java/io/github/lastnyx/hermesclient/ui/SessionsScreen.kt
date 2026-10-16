@@ -70,6 +70,8 @@ import io.github.lastnyx.hermesclient.data.sessions.Session
 import io.github.lastnyx.hermesclient.data.sessions.SessionListModel
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
 import io.github.lastnyx.hermesclient.data.sessions.groupSessions
+import io.github.lastnyx.hermesclient.data.settings.DraftStore
+import io.github.lastnyx.hermesclient.data.settings.PrefsDraftStorage
 import io.github.lastnyx.hermesclient.data.settings.PrefsSessionViewStorage
 import io.github.lastnyx.hermesclient.data.settings.SessionViewStore
 import io.github.lastnyx.hermesclient.data.watch.WatchHub
@@ -260,6 +262,7 @@ fun SessionsHost(
     val linkScope = rememberCoroutineScope()
     val context = LocalContext.current
     val viewStore = remember { SessionViewStore(PrefsSessionViewStorage(context.applicationContext)) }
+    val drafts = remember { DraftStore(PrefsDraftStorage(context.applicationContext)) }
     val network = remember { AndroidNetworkMonitor(context) }
     DisposableEffect(network) { onDispose { network.close() } }
     val link = remember(authed) { LiveLink(http, authed, gateway.url, linkScope, network) }
@@ -294,7 +297,7 @@ fun SessionsHost(
                     // The list screen shows only the dot; the text line belongs to the chat.
                     LiveLinkIndicator(link, Modifier.padding(horizontal = SCREEN_EDGE.dp))
                     ChatHost(
-                        chatId, link, repo, Modifier.weight(1f),
+                        chatId, link, repo, gateway.id, drafts, Modifier.weight(1f),
                         title = chatTitle(listState.sessions, chatId),
                         onBack = if (wide) null else ({ chatOpen = false }),
                     )

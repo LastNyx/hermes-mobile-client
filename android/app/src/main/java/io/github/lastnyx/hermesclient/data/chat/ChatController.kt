@@ -423,10 +423,11 @@ class ChatController(
     }
 
     /** Text that could not be sent is queued. */
-    suspend fun send(text: String) {
+    /** False only when a plain submit failed, so the caller can hand the text back to the user. */
+    suspend fun send(text: String): Boolean {
         val trimmed = text.trim()
         unblockDrain()
-        deliver(trimmed, trimmed)
+        return deliver(trimmed, trimmed)
     }
 
     private fun unblockDrain() = synchronized(queueLock) { drainBlocked = false }

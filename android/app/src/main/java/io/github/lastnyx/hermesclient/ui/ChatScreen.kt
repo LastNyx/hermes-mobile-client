@@ -65,6 +65,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import io.github.lastnyx.hermesclient.data.settings.DraftStore
+import io.github.lastnyx.hermesclient.data.settings.draftKey
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -116,10 +119,13 @@ fun ChatHost(
     storedId: String?,
     link: LiveLink,
     repo: SessionsRepository,
+    gatewayId: String,
+    drafts: DraftStore,
     modifier: Modifier = Modifier,
     title: String,
     onBack: (() -> Unit)? = null,
 ) {
+    val key = draftKey(gatewayId, storedId)
     val scope = remember(storedId) { CoroutineScope(SupervisorJob() + Dispatchers.Main) }
     DisposableEffect(scope) { onDispose { scope.cancel() } }
     val controller = remember(scope) { ChatController(link, repo, storedId, scope) }
@@ -136,7 +142,7 @@ fun ChatHost(
         onDispose { controller.state.value.let { s -> (s.storedId ?: s.sessionId)?.let { WatchHub.chatClosed(context, it) } } }
     }
     val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val onSend: suspend (String) -> Unit = { text ->
+    val onSend: suspend (String) -> Boolean = { text ->
         val current = controller.state.value
         if (!current.running) {
             // Denied permission only silences notifications; the service and chat still work.
@@ -155,7 +161,7 @@ fun ChatHost(
         }
         controller.send(text)
     }
-    ChatScreen(controller, models, slash, modifier, onSend, title, onBack)
+    ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -164,16 +170,28 @@ fun ChatScreen(
     controller: ChatController,
     models: ModelsController,
     slash: SlashCommands,
+    key: String,
+    drafts: DraftStore,
     modifier: Modifier = Modifier,
-    onSend: suspend (String) -> Unit = { controller.send(it) },
+    onSend: suspend (String) -> Boolean = { controller.send(it) },
     title: String,
     onBack: (() -> Unit)? = null,
 ) {
     val state by controller.state.collectAsState()
     val modelState by models.state.collectAsState()
     val scope = rememberCoroutineScope()
-    var field by remember { mutableStateOf(TextFieldValue("")) }
+    var field by remember(key) {
+        val saved = drafts.get(key)
+        mutableStateOf(TextFieldValue(saved, TextRange(saved.length)))
+    }
     val draft = field.text
+    val latestDraft by rememberUpdatedState(draft)
+    LaunchedEffect(key, draft) {
+        delay(300)
+        drafts.set(key, draft)
+    }
+    // A quick Back must not lose the last keystrokes the debounce has not saved yet.
+    DisposableEffect(key) { onDispose { drafts.set(key, latestDraft) } }
     fun setDraft(text: String) { field = TextFieldValue(text, TextRange(text.length)) }
     var suggestions by remember { mutableStateOf(emptyList<SlashSuggestion>()) }
     LaunchedEffect(draft) {
@@ -323,7 +341,7 @@ fun ChatScreen(
                                 if (parseSlashLine(text) != null) {
                                     scope.launch { slash.runLine(text)?.let { setDraft(it) } }
                                 } else {
-                                    scope.launch { onSend(text) }
+                                    scope.launch { if (!onSend(text) && field.text.isEmpty()) setDraft(text) }
                                 }
                             } else if (state.running) scope.launch { controller.stop() }
                         },
