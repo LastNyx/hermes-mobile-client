@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -39,7 +40,10 @@ class ChatController(
     private val scope: CoroutineScope,
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val processPollMs: Long = 5000,
+    deltaBatchMs: Long = DELTA_BATCH_MS,
 ) {
+    private val batcher = DeltaBatcher(deltaBatchMs) { System.nanoTime() / 1_000_000 }
+    private var timer: Job? = null
     private val queueLock = Any()
     private val queue = MessageQueue()
     private var drainPending = false
@@ -166,10 +170,32 @@ class ChatController(
             }
             lastSeen = seq
         }
+        val ready = batcher.offer(event)
+        ready.forEach { applyNow(it) }
+        if (ready.isEmpty()) batcher.msUntilDue()?.let { armTimer(it) }
+        return true
+    }
+
+    private fun applyNow(event: LinkEvent) {
         _state.update { reduceChat(it, event) }
         processEvent(event)
         if (event.type == "message.complete") turnEnded(event.payload?.optString("status").orEmpty())
-        return true
+    }
+
+    /** Callers hold [lock]. */
+    private fun flushPending() = batcher.flush().forEach { applyNow(it) }
+
+    private fun settle() = synchronized(lock) { flushPending() }
+
+    private fun armTimer(ms: Long) {
+        if (timer?.isActive == true) return
+        timer = scope.launch {
+            delay(ms)
+            synchronized(lock) {
+                timer = null
+                flushPending()
+            }
+        }
     }
 
     /** Only a clean ending drains; after an error or an interrupt the user decides. */
@@ -251,7 +277,10 @@ class ChatController(
     }
 
     private suspend fun catchUp() {
-        synchronized(lock) { replaying = true }
+        synchronized(lock) {
+            flushPending()
+            replaying = true
+        }
         try {
             val seen = lastSeen
             if (link.replayEpoch != heldEpoch || seen == null) {
@@ -307,6 +336,7 @@ class ChatController(
     private suspend fun loadHistory(stored: String) {
         val page = withContext(io) { repo.messages(stored) }.getOrThrow()
         synchronized(lock) {
+            flushPending()
             historyGeneration++
             history = page.messages
             historyOffset = page.returned
@@ -356,6 +386,7 @@ class ChatController(
             if (request.id in withdrawn) continue
             if (request.method == "sudo" || request.method == "secret") {
                 if (declined.add(request.id)) {
+                    settle()
                     link.respond(request.id, JSONObject().put("value", ""))
                     _state.update { it.copy(items = it.items + ChatItem.Note("n${it.items.size}", "Answer this on the PC")) }
                 }
@@ -378,6 +409,7 @@ class ChatController(
             _state.update { it.copy(error = ANSWER_NOT_SENT) }
             return
         }
+        settle()
         _state.update { s ->
             s.copy(
                 openRequests = s.openRequests.filterNot { it.id == id },
@@ -443,6 +475,7 @@ class ChatController(
 
     /** Reloads the stored transcript, e.g. after /undo removed turns on the gateway. */
     internal suspend fun reloadHistory() {
+        settle()
         loadHistory(_state.value.storedId ?: throw IOException("Chat not ready"))
     }
 
@@ -452,6 +485,7 @@ class ChatController(
      */
     private suspend fun deliver(message: String, display: String): Boolean {
         if (message.isEmpty()) return true
+        settle()
         val before = _state.value
         if (before.running && before.prompts.isNotEmpty()) {
             queue(message)
@@ -485,10 +519,12 @@ class ChatController(
 
     /** Puts local text (e.g. slash command output) into the chat without sending it. */
     fun addNote(text: String) {
+        settle()
         _state.update { it.copy(items = it.items + ChatItem.Note("n${it.items.size}", text)) }
     }
 
     fun addCommandOutput(command: String, text: String, failed: Boolean) {
+        settle()
         _state.update { it.copy(items = it.items + ChatItem.CommandOutput("n${it.items.size}", command, text, failed)) }
     }
 

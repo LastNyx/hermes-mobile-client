@@ -256,9 +256,9 @@ fun ChatScreen(
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
+            val rows = remember(state.items) { groupTools(state.items) }
+            val actions = remember(state.items, state.running) { lastActions(state.items, state.running) }
             LazyColumn(Modifier.fillMaxSize().nestedScroll(userScrollWatcher), state = listState) {
-                val rows = groupTools(state.items)
-                val actions = lastActions(state.items, state.running)
                 itemsIndexed(rows, key = { _, it -> it.key }) { index, row ->
                     Box(Modifier.padding(top = itemGapBefore(rows.getOrNull(index - 1)?.last, row.first).dp)) {
                         if (row is ChatRow.ToolGroup) {
