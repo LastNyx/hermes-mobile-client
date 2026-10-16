@@ -25,6 +25,12 @@ fun actionNeedsUnlock(sdkInt: Int): Boolean = sdkInt >= 31
 
 fun offersReply(action: WatchAction.NeedsAnswer): Boolean = action.qid != null
 
+enum class ServiceStop { StopNow, LeaveToService }
+
+/** Stopping a service before its `startForeground` call kills the app, so an early stop is left to the service itself. */
+fun serviceStopRequest(serviceForeground: Boolean): ServiceStop =
+    if (serviceForeground) ServiceStop.StopNow else ServiceStop.LeaveToService
+
 /**
  * Decides, from chat state, when the Watch service must run and which notifications to post.
  * Only turns started on the phone are watched; Desktop turns never start it.

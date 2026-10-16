@@ -22,6 +22,10 @@ object WatchHub {
     @Volatile var active = false
         private set
 
+    /** Set by [WatchService] once `startForeground` ran; until then only the service may end itself. */
+    @Volatile var serviceForeground = false
+        internal set
+
     /** Set by the screen: true between ON_START and ON_STOP. */
     @Volatile var foreground = false
 
@@ -70,7 +74,7 @@ object WatchHub {
     private fun stopIfIdle(app: Context) {
         if (policy.shouldRun || !active) return
         active = false
-        app.stopService(Intent(app, WatchService::class.java))
+        if (serviceStopRequest(serviceForeground) == ServiceStop.StopNow) app.stopService(Intent(app, WatchService::class.java))
         // Back to the foreground-only rule for the live link, and do not pin it in the process-wide hub.
         if (!foreground) link?.stop()
         link = null

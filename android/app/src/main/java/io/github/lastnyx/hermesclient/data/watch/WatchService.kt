@@ -11,8 +11,15 @@ class WatchService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(WORKING_NOTIFICATION_ID, WatchNotifier(this).working(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        // Process was restarted by the system with nothing to watch.
+        // Flag first: either we see active == false here and stop, or stopIfIdle sees the flag and stops us.
+        WatchHub.serviceForeground = true
+        // Process was restarted by the system, or the watch ended before we started.
         if (!WatchHub.active) stopSelf()
         return START_NOT_STICKY
+    }
+
+    override fun onDestroy() {
+        WatchHub.serviceForeground = false
+        super.onDestroy()
     }
 }

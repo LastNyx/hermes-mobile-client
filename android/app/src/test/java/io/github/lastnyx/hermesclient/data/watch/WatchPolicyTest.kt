@@ -95,6 +95,12 @@ class WatchPolicyTest {
     }
 
     @Test
+    fun theServiceIsOnlyStoppedFromOutsideOnceItIsInTheForeground() {
+        assertEquals(ServiceStop.StopNow, serviceStopRequest(true))
+        assertEquals(ServiceStop.LeaveToService, serviceStopRequest(false))
+    }
+
+    @Test
     fun turnsNotStartedOnThePhoneAreIgnored() {
         val policy = WatchPolicy()
         assertEquals(emptyList<WatchAction>(), policy.onState("s9", ChatState(storedId = "s9", running = false, error = "x")))
