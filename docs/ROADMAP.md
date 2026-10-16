@@ -51,7 +51,7 @@ Built (tickets 23-26) and phone-checked by the user on 2026-10-14.
 - [x] Docs worker, drift report (2026-10-14).
 - [x] Release decision (2026-10-14): no release. The user runs the debug build for himself; v0.1.0 stays the only tag.
 
-## Phase 5: research tickets 57-105 (2026-10-15 to 2026-10-16)
+## Phase 5: research tickets 57-109 (2026-10-15 to 2026-10-16)
 Tickets came from the research rounds (`.scratch/research-*.md`). Batches are in `.scratch/v1/batches.md`; every one below passed the reviewer. Phone checks are by the user on a Realme RMX1921 (Android 11).
 - [x] Batch 17 (57-60, 98): history latest page, tool row, dismissed processes, answer result, id-less keys. Review rounds: 2.
 - [x] Batch 18 (61-63, 65, 99, 100): failed Stop, updater install status, event-gap catch-up, drafts. Rounds: 3. Phone-checked 2026-10-16.
@@ -64,7 +64,9 @@ Tickets came from the research rounds (`.scratch/research-*.md`). Batches are in
 - [x] Batch 25 (84, 85): gateway projects, new chat in a project. Rounds: 2. Not tried on a phone yet.
 - [x] Batch 28 (101-103): Watch service crash on a failed offline send, stale Stop error, rotation between layouts. Rounds: 1. Phone-checked.
 - [x] Batch 29 (104, 105): re-attach to the running session after a reconnect. Rounds: 2. Phone-checked.
-- [ ] Batches 26-27 (86-93): cron list and edit, insights, capabilities, profiles, subagent cards, checkpoints. Tickets written, rows in PROTOCOL.md 4.6 and section 7, not started.
+- [x] Batch 26 (91-93 and two fixes): subagent cards, subagent list and Stop, checkpoints sheet. Rounds: 2. Checkpoints sheet seen on the phone ("off on this gateway" message); the Subagents panel and checkpoint list not seen (no delegating chat, checkpoints off).
+- [x] Batch 30 (106-109): chat title above the model chip on the phone layout, empty and opening states, `ChatScreen.kt` spacing constants and file split (891 to 568 lines). Rounds: 2. Header and the unchanged look checked on the phone; empty states not seen.
+- [x] Batch 27 (86-90 and two fixes): Scheduled jobs (list, Run now, Pause, Resume, create, edit, delete), Insights, Capabilities switches, profile picker, one shared REST helper. Rounds: 2. Insights and the empty Scheduled jobs page seen on the phone; job rows, Capabilities and the profile picker not opened.
 - [ ] 82 and 83 (media and file viewers): blocked until WorkLab is checked for `GET /api/media` and `GET /api/fs/read-text`; the user skipped it.
 - [ ] 68 (session takeover): blocked until the user's phone test (Desktop and phone open on the same chat).
 
@@ -82,4 +84,4 @@ Goal: usable almost like Hermes Desktop, essential usage only. Herald is a featu
 3. (built, tickets 49-50; buttons did not show on the Realme, see HANDOFF) Notification actions: approve or answer from the notification. Needs the watch service to answer server requests over the live link.
 4. (built, tickets 53-56, user request 2026-10-14) Background processes panel: list, output, Stop, Dismiss.
 5. (built, tickets 79-81, not yet tried on a phone) Attachments: paperclip, thumbnails, upload, history shows `[image]` and a paperclip line.
-Not built: cron and capabilities (tickets 86-89 are written, rows are in PROTOCOL.md), offline cache, voice.
+Not built: offline cache, voice, app lock, dictation.

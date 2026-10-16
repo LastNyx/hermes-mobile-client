@@ -21,14 +21,14 @@ Status travels with the branch.
 
 ## Where we are
 
-- Branch `feature/v1`, pushed to origin at `8d239c4` (plus the docs commits made after it). Nothing merged to main, nothing tagged since
+- Branch `feature/v1`, pushed to origin (batch 27 build is `dcbda1f`; docs commits come after it). Nothing merged to main, nothing tagged since
   v0.1.0. User decision: no release; the user runs the debug build.
-- Tickets 01-81, 84-85, 94-105 and all their fix tickets are `Status: done`. `./build.sh test`: 255 tests, 0 failures. Every batch up to 25, plus
-  28 and 29, passed the reviewer (`.scratch/v1/review-*.md`, batches in `.scratch/v1/batches.md`).
+- Tickets 01-81, 84-109 and all their fix tickets are `Status: done`. `./build.sh test`: 294 tests, 0 failures. Every batch up to 30 passed the reviewer
+  (`.scratch/v1/review-*.md`, batches in `.scratch/v1/batches.md`). Left: 82, 83 and 68 (blocked), 31 (wontfix).
 - Roadmap: `docs/ROADMAP.md` lists every phase and batch. Dev lessons: `docs/dev-notes.md` (34 lines, approved by the user 2026-10-16).
 - Markdown library is `com.mikepenz:multiplatform-markdown-renderer-m3` **0.33.0** (`docs/work/MARKDOWN-LIB.md`); raising it needs a Compose BOM bump first.
-- Test device: Realme RMX1921, Android 11, USB debugging on, `adb` in `~/tools/android-sdk/platform-tools`. The debug build of 12:00 on 2026-10-16
-  (batches up to 25) is installed. Toolchain in `~/tools`; dev-team kit at `~/Dokumen/projects/hermes-dev-team/kit` (run with `python3 -u`).
+- Test device: Realme RMX1921, Android 11, USB debugging on, `adb` in `~/tools/android-sdk/platform-tools`. The debug build of 13:14 on 2026-10-16
+  (batch 27, all batches) is installed. Toolchain in `~/tools`; dev-team kit at `~/Dokumen/projects/hermes-dev-team/kit` (run with `python3 -u`).
 - Reference app for behaviour: `Giton22/herald` (read-only reference, no code copied). Desktop source on this PC: `/opt/hermes-agent/apps/desktop/src`.
 
 ### Built and phone-checked by the user (2026-10-16 unless noted)
@@ -37,10 +37,16 @@ connection wording; long-chat smoothness, clipped long text and the "N earlier s
 notification hardening; notices banner; process output. Earlier (2026-10-14): slash commands, session list, send-while-running, notification actions
 (buttons did not show on the Realme, accepted), background processes.
 
-### Built, NOT tried on a phone
-- Attachments (tickets 79-81): the user rarely uses them and skipped the check. Limits: 6 per message, photos 25 MB, files 10 MB; PDFs need `pdftoppm` on the gateway host.
-- Projects (tickets 84-85): Group by Project, new chat in a project, New project. Needs a gateway with `projects.tree`; older ones fall back to folder names.
-- Unchecked: the updater's install confirmation (needs a newer release); the wide layout draft switch (99); the airplane-mode Stop path on WorkLab beyond the cases tried.
+### Built, NOT tried on a phone (or only partly)
+- Attachments (79-81): the user rarely uses them. Limits: 6 per message, photos 25 MB, files 10 MB; PDFs need `pdftoppm` on the gateway host.
+- Projects (84-85): Group by Project, new chat in a project, New project. Needs a gateway with `projects.tree`; older ones fall back to folder names.
+- Subagents (91-92): panel above the composer, list on open, Stop per child. Not seen: needs a chat where the agent delegates.
+- Checkpoints (93): list, diff, Restore. WorkLab has checkpoints off, so only the "off" message was seen. Restore rewrites a working tree: do not tap it on real data.
+- Scheduled jobs (86-87): the page opened and showed "No scheduled jobs." Not seen: rows, Run now, Pause, Resume, create, edit, delete. The edit call is a PUT; the worker flagged a possible 405 on WorkLab.
+- Capabilities (89) and the profile picker (90): not opened. Switches change which tools the agent has; the profile is sent as a `profile` query or body key.
+- Empty and opening states (107): not seen (needs an empty list or a slow open).
+- Insights (88): seen on the phone, loads real data. Plain layout.
+- Unchecked: the updater's install confirmation (needs a newer release); the wide layout draft switch (99).
 
 ### Non-blocking reviewer smells (no ticket)
 - A successful send clears the whole attachment tray, so files picked while it was in flight are lost.
@@ -50,14 +56,14 @@ notification hardening; notices banner; process output. Earlier (2026-10-14): sl
 - Raw `e.message` is shown by `SlashRun` for RPC code 4004 only (deliberate).
 
 ### Next steps
-1. Batches 26-27 (tickets 86-93, `todo`): cron list and actions (86), cron create/edit/delete (87), insights page (88), capabilities switches (89), profiles (90),
-   subagent cards (91), subagent list and stop (92), checkpoints (93). PROTOCOL.md 4.6 and section 7 already carry their rows. Order by value: ask the user.
-2. 82 (agent media viewer) and 83 (gateway file viewer): blocked until WorkLab is checked (read-only) for `GET /api/media` and `GET /api/fs/read-text`. The user skipped it.
-3. 68 (session takeover): needs the user's phone test (Desktop and phone on the same chat); the table is in the ticket.
-4. Not scheduled: offline cache, app lock (needs `androidx.biometric`, a build-file change), dictation, notification toggles, voice, follow-all-sessions notifications.
-5. No release. Do not tag, merge or push to main.
+1. 82 (agent media viewer) and 83 (gateway file viewer): blocked until WorkLab is checked (read-only) for `GET /api/media` and `GET /api/fs/read-text`. The user skipped it.
+2. 68 (session takeover): needs the user's phone test (Desktop and phone on the same chat); the table is in the ticket.
+3. Phone-check the "NOT tried" list above, ideally against a gateway with checkpoints on and a scheduled job to look at (read-only).
+4. Possible UI work from the audit: Insights as cards, the "Connected" status line sits left of the title, the empty Scheduled jobs text sits top left. Animation was skipped on purpose.
+5. Not scheduled: offline cache, app lock (needs `androidx.biometric`, a build-file change), dictation, notification toggles, voice.
+6. No release. Do not tag, merge or push to main.
 
-## Session 2026-10-16: batches 18 to 29
+## Session 2026-10-16: batches 18 to 30
 
 - One ticket at a time, then reviewer rounds per batch (usually 1 to 3). Batch bases are in `.scratch/v1/batches.md`. A worker FAIL never happened this session.
 - Planner task P1 is done: `docs/PROTOCOL.md` section 4.6 (edit, branch, attach, projects, subagents, checkpoints) and a REST block in section 7 were written from
@@ -67,6 +73,8 @@ notification hardening; notices banner; process output. Earlier (2026-10-14): sl
   rotating between the narrow and wide layouts (103), and a chat that never re-attached to its running session after a reconnect (104).
 - Dev workers may not edit `CONTEXT.md` (glossary): the planner adds glossary rows (Project was added by hand).
 - Cost at list price: about $54.7 for 171 worker runs (a subscription seat bills differently).
+- Batches 26, 27 and 30 were driven while the planner looked at the phone over adb (screenshots, read-only taps only). A screenshot found the title squeezed to "Chec..." by the model chip (106).
+- Insights note: the total cost uses `total_actual_cost` when it is above 0, but the gateway's `by_model` rows only carry `estimated_cost`, so the model rows can add up to more than the total. That is the gateway, not an app bug.
 - The docs worker ran: 16 CHANGELOG entries, drift list in `.scratch/v1/drift.md` (12 new-doc terms not in the glossary, 3 renamed-term candidates).
 - Install steps used: `./build.sh assemble`, `python3 -I tools/linkcheck.py <apk>`, `adb install -r`, then compare `lastUpdateTime` with the APK mtime.
 
