@@ -39,8 +39,8 @@ adb shell dumpsys package io.github.lastnyx.hermesclient | grep lastUpdateTime  
 
 ## Where we are
 
-- Branch `feature/v1`, pushed to origin (batch 27 build is `dcbda1f`; docs commits come after it). Nothing merged to main, nothing tagged since
-  v0.1.0. User decision: no release; the user runs the debug build.
+- `feature/v1` was merged to `main` (PR #1, `cc64aab`) and tagged **v0.2.0** on 2026-10-16. The repo is public. Keep working on `feature/v1`
+  (or a new branch); merging and tagging stay the user's call.
 - Every ticket is `Status: done` except 31 (wontfix). `./build.sh test`: 321 tests, 0 failures. Every batch up to 33 passed the reviewer
   (`.scratch/v1/review-*.md`, batches in `.scratch/v1/batches.md`). Nothing is blocked.
 - Roadmap: `docs/ROADMAP.md` lists every phase and batch. Dev lessons: `docs/dev-notes.md` (34 lines, approved by the user 2026-10-16).
@@ -79,7 +79,7 @@ notification hardening; notices banner; process output. Earlier (2026-10-14): sl
 2. Session sharing (68, closed): a message from Desktop does not show live on the phone and vice versa; it appears after a delay. Gateway behaviour, cause not proven (`docs/PROTOCOL.md` 3.7). A possible later ticket: refresh history on the open chat when another client's reply completes.
 3. UI polish done (batch 33). The "Connected" line above the chat header lines up with the list's left edge; left as is. Animation was skipped on purpose.
 4. Not scheduled: offline cache, app lock (needs `androidx.biometric`, a build-file change), dictation, notification toggles, voice.
-5. Merging `feature/v1` to main and any release are the user's call. Do not tag, merge or push to main.
+5. Merging to main and any release are the user's call. Do not tag, merge or push to main.
 
 ## Session 2026-10-16: batches 18 to 33
 
@@ -137,6 +137,11 @@ notification hardening; notices banner; process output. Earlier (2026-10-14): sl
   `63:36:9F:BF:...:1F:30:B4`. **The user must keep a backup outside both PCs**; losing it means every user reinstalls.
 - Phone installs of debug builds and release builds have different keys: switching needs one uninstall.
 - After each release, flip `CHANGELOG.md` `Unreleased` to the version heading and commit.
+- **v0.2.0 release record (2026-10-16):** CI run 38891206709 passed first time. `HermesClient.apk` 1,691,749 bytes, SHA-256
+  `acf20eb3b48770753be3160a36db71739c5ca7de805e997557de8652c6c8327b`; apksigner v2 verifies; certificate SHA-256 matches the keystore;
+  `linkcheck` 0 unresolved. **The release build (R8-shrunk) has not been run on a device**: check sign-in, a chat with a reply, the model
+  picker and a notification. The phone's debug build must be uninstalled first (different key).
+- The old `hermes-mobile-client-releases` repo is archived (v0.1.0 only).
 - Updater only ever ran against fixtures; an end-to-end update needs a release after v0.2.0 (v0.2.1). v0.1.0 installs read the old releases repo and never see v0.2.0.
 - Releases CI warns that `actions/checkout@v4` and `setup-java@v4` are on a deprecated Node version (harmless now).
 
