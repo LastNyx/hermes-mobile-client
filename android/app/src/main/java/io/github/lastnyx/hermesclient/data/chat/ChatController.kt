@@ -41,7 +41,9 @@ class ChatController(
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val processPollMs: Long = 5000,
     deltaBatchMs: Long = DELTA_BATCH_MS,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
+    private var noticeStore = NoticeStore()
     private val batcher = DeltaBatcher(deltaBatchMs) { System.nanoTime() / 1_000_000 }
     private var timer: Job? = null
     private val queueLock = Any()
@@ -156,6 +158,40 @@ class ChatController(
         }
     }
 
+    /** Callers hold [lock]. */
+    private fun noticeEvent(event: LinkEvent) {
+        when (event.type) {
+            "notification.show" -> {
+                val before = noticeStore.next
+                noticeStore = noticeStore.add(event, clock())
+                if (noticeStore.next == before) return
+                publishNotices()
+                val due = noticeStore.notices.lastOrNull { it.uid == before }?.expiresAt ?: return
+                scope.launch {
+                    delay((due - clock()).coerceAtLeast(0))
+                    synchronized(lock) {
+                        noticeStore = noticeStore.expire(clock())
+                        publishNotices()
+                    }
+                }
+            }
+            "notification.clear" -> {
+                val key = event.payload?.stringOrNull("key") ?: return
+                noticeStore = noticeStore.clear(key)
+                publishNotices()
+            }
+        }
+    }
+
+    private fun publishNotices() = _state.update { it.copy(notices = noticeStore.notices) }
+
+    fun dismissNotice(uid: Long) {
+        synchronized(lock) {
+            noticeStore = noticeStore.dismiss(uid)
+            publishNotices()
+        }
+    }
+
     /** Applies one event unless its seq was already seen. Callers hold [lock]. */
     private fun apply(event: LinkEvent, detectGap: Boolean = true): Boolean {
         val seq = event.seq
@@ -179,6 +215,7 @@ class ChatController(
     private fun applyNow(event: LinkEvent) {
         _state.update { reduceChat(it, event) }
         processEvent(event)
+        noticeEvent(event)
         if (event.type == "message.complete") turnEnded(event.payload?.optString("status").orEmpty())
     }
 

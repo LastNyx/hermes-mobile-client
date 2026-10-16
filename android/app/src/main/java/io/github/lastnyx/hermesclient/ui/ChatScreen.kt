@@ -91,6 +91,7 @@ import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.chat.ChatController
 import io.github.lastnyx.hermesclient.data.chat.ChatItem
 import io.github.lastnyx.hermesclient.data.chat.ModelsController
+import io.github.lastnyx.hermesclient.data.chat.NoticeLevel
 import io.github.lastnyx.hermesclient.data.chat.ModelsState
 import io.github.lastnyx.hermesclient.data.chat.Prompt
 import io.github.lastnyx.hermesclient.data.chat.REASONING_LEVELS
@@ -330,6 +331,19 @@ fun ChatScreen(
             onRemove = { controller.removeQueued(it) },
         )
         ProcessPanel(state.processes, onStop = { controller.killProcess(it) }, onDismiss = { controller.dismissProcess(it) })
+        state.notices.lastOrNull()?.let { notice ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    notice.text,
+                    Modifier.weight(1f),
+                    style = roles.caption,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = noticeColor(notice.level),
+                )
+                TextButton(onClick = { controller.dismissNotice(notice.uid) }) { Text("Dismiss", style = roles.label) }
+            }
+        }
         Row(Modifier.fillMaxWidth().padding(vertical = COMPOSER_VERTICAL_PADDING.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 field, { field = it }, modifier = Modifier.weight(1f).heightIn(min = 44.dp),
@@ -525,6 +539,13 @@ private fun ClarifyCard(prompt: Prompt.Clarify, onAnswer: (Map<String, String>) 
 
 // A turn is a prompt plus the reply's parts: air after the prompt and before the next
 // prompt, tight between the reply's own parts.
+@Composable
+private fun noticeColor(level: NoticeLevel): Color = when (level) {
+    NoticeLevel.Error -> MaterialTheme.colorScheme.error
+    NoticeLevel.Warn -> MaterialTheme.colorScheme.tertiary
+    NoticeLevel.Info, NoticeLevel.Success -> MaterialTheme.colorScheme.onSurfaceVariant
+}
+
 internal fun itemGapBefore(previous: ChatItem?, item: ChatItem): Int = when {
     previous == null -> 0
     item is ChatItem.Message && item.role == "user" -> PROMPT_TO_REPLY_GAP

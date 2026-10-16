@@ -84,6 +84,7 @@ data class ChatState(
     val queue: List<QueueEntry> = emptyList(),
     val processes: List<BackgroundProcess> = emptyList(),
     val hasOlder: Boolean = false,
+    val notices: List<Notice> = emptyList(),
 ) {
     val prompts: List<Prompt> get() = openRequests.mapNotNull { it.toPrompt() }
 }
