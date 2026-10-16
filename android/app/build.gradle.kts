@@ -35,8 +35,8 @@ android {
         targetSdk = 35
         versionCode = appVersionCode
         versionName = appVersionName
-        // Public repo that holds only release APKs (the source repo is private).
-        buildConfigField("String", "RELEASES_REPO", "\"LastNyx/hermes-mobile-client-releases\"")
+        // The Updater reads the latest GitHub Release of this (public) repo.
+        buildConfigField("String", "RELEASES_REPO", "\"LastNyx/hermes-mobile-client\"")
     }
 
     signingConfigs {
@@ -63,7 +63,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -93,10 +92,15 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.markdown.renderer.m3)
     implementation(libs.okhttp)
 
     testImplementation(libs.junit)
     testImplementation(libs.json)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
+}
+
+kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
 }

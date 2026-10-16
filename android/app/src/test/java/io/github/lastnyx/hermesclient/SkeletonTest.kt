@@ -5,7 +5,7 @@ import org.junit.Test
 
 /** Proves the JVM unit-test pipeline runs; real tests arrive with the tickets. */
 class SkeletonTest {
-    @Test fun releasesRepoIsTheOpenOne() {
-        assertEquals("LastNyx/hermes-mobile-client-releases", BuildConfig.RELEASES_REPO)
+    @Test fun releasesRepoIsThisRepo() {
+        assertEquals("LastNyx/hermes-mobile-client", BuildConfig.RELEASES_REPO)
     }
 }

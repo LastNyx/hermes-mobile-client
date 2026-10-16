@@ -311,6 +311,69 @@ The reason string for 4401 is `auth: <reason>` on the `/api/console`/`/api/pty` 
   - `open_requests` (also on `session.resume`/`session.activate`): `[{"id":"srq-…","method":"approval","params":{…}}]` —
     re-show these prompts exactly as if just received (`server_requests.py:15-18,86-92`).
 
+### 3.7 Shared sessions: two clients on one chat (investigation)
+Question: does the Desktop app take over the phone's chat stream when both open the same chat? Talaria's notes say
+"a `session.resume` from another client takes over the event stream" and "detached sessions lose events and orphans
+may be reaped after 20 s". This section records what the source says and what the phone test showed.
+
+**What the app sends.** New chat: `session.create` with no params (`close_on_disconnect` takes the server default,
+false). Existing chat: `loadHistory`, then `session.resume {session_id: <stored id>}` with no extras. On a 4001 it
+resumes the stored id again. After a reconnect it calls `session.events.since`. The app never calls `session.close`
+and does not handle `session.reclaimed`.
+
+**Source reading (not live-verified).** Read from the Hermes checkout `tui_gateway` on 2026-10-15 and from
+`/opt/hermes-agent/tui_gateway` on 2026-10-16:
+- `session_lifecycle.py:830-852 _rebind_live_transport`: attaches a live peer "without displacing existing
+  subscribers" and cancels a pending orphan reap.
+- `session_transports.py:71-103 _attach_session_transport`: a second live peer turns the session transport into a
+  `FanoutTransport(existing, transport)`; a third just attaches. `transport.py:143-175 FanoutTransport`: ordered,
+  bounded per-peer mailboxes (256 frames / 4 MiB); RPC replies stay request-local. A peer that cannot keep up is
+  detached and its socket closed, so the client must reconnect and replay.
+- `methods_session.py:877-899 _resume_reuse_live_locked`: `session.resume` of a live session reattaches, cancels the
+  reap timer and returns the snapshot. `methods_prompt.py:738-748`: `prompt.submit` also rebinds the caller's transport.
+- `session_transports.py:106-120 _detach_session_transport`: a disconnect parks the session (starting the 20 s reap)
+  only when no other live client is attached.
+- `_reattach_refusal` (`session_lifecycle.py:818-827`) can refuse with 4009 "session disconnect interrupt settling"
+  or 4007 "session no longer live; retry resume".
+- `methods_prompt.py` has no event that announces a prompt submitted by one client to the session's other
+  subscribers: the other client receives the reply stream (`message.delta`, `message.complete`) but not the user message.
+- The source reading predicts that Desktop's resume adds a subscriber instead of replacing the phone's. The phone
+  test decides; the source alone does not.
+
+**The phone test (verbatim).**
+1. Gateway running, phone signed in. On the phone open Hermes and start a NEW chat; send "say hello". Wait for the reply. Note the chat title (the chat now exists on the gateway).
+2. On Desktop (the Hermes desktop app on the same gateway/profile) open the same chat from the sidebar. Do not send anything yet.
+3. On the phone, send "count from 1 to 20 slowly, one number per line, using a terminal sleep between numbers". While it streams, watch the PHONE: do the numbers keep appearing until the end? Also watch the Desktop: do the numbers appear there too? Write down: phone keeps streaming (yes/no), Desktop shows the stream (yes/no).
+4. When that turn finishes, on Desktop send "say desktop here". Watch the PHONE for 30 s without touching it: does "say desktop here" and its reply appear on the phone (yes/no)? Does the live-link indicator stay Connected (yes/no)?
+5. Send a second message from the phone ("say phone again"). Does the phone get its own reply (yes/no)? Does Desktop show it (yes/no)?
+6. Close the chat on Desktop (leave it, or quit the Desktop app) and wait 40 s with the phone chat still open and idle. Send "still there?" from the phone. Does it work (yes/no)? If the phone shows an error or an empty reply, write the exact words.
+7. Reverse: on the phone, leave the chat (back to the list) and wait 40 s. Reopen it from the list. Is the whole history there and does sending work (yes/no)? (This checks the 20 s orphan reap on the phone's own detach.)
+
+**Outcomes.** "Code change" is a follow-up ticket, not part of this investigation. Combined outcomes apply each row.
+
+| Letter | Observed | Meaning | Code change (later ticket) |
+|---|---|---|---|
+| A | Step 3 and 4 both yes, step 5 yes, step 6 yes | Resume adds a subscriber (as the source reads); no takeover | None. Keep `session.resume` as is. Record in PROTOCOL.md that two clients can share a chat. |
+| B | Step 3 yes but step 4 no (phone stops receiving after Desktop's message or the Desktop open) | Desktop's resume/submit takes the stream from the phone | On the phone: when events stop while the chat is open and the link is Connected, call `session.resume {session_id: <stored id>}` again when the app returns to the foreground and on a tap-to-refresh; show a plain note "This chat is open on another device" if `session.events.since` shows no new seq for a running turn. No change to `session.create`. |
+| C | Step 6 fails (4001 or empty after Desktop leaves) | Detach by the Desktop reaped or parked the session for the phone too | `sessionCall` already retries 4001 with `session.resume`; make `ChatController` also handle `session.reclaimed` for the open chat by resuming the stored id once, and say so in the chat as a note; add a test for it. |
+| D | Step 7 fails (history missing or send fails after 40 s away) | The 20 s orphan reap ended the live session; reopen must resume | Confirm `open()` for an existing chat always does `loadHistory` + `session.resume`; if a reply is missing, fix the order of those two calls; add a test with a mock gateway answering 4001 on the first `prompt.submit`. Consider `close_on_disconnect` unchanged (default false). |
+| E | Something else | Unknown | Report the exact observation; the planner decides. |
+
+**Observed on WorkLab, 2026-10-16 (user).** Outcome E (rows B, C and D did not occur; row A does not fit because step 4 showed nothing live):
+- Steps 1 to 7 worked. The phone streamed its own turn to the end (step 3), stayed Connected, got its own reply
+  (step 5), still sent after Desktop left (step 6), and reopened with full history (step 7). So the test showed no
+  takeover (B), no reaping for the phone (C) and no orphan problem on reopen (D).
+- Deviation: a message written from Desktop does not appear on the phone live, and the phone's message does not
+  appear on Desktop live, in both directions. The user's words: "the chat won't appear. i know it's problem from
+  hermes, it's kinda delay". It shows after a delay (not recorded whether reopening the chat is needed).
+- Recorded as gateway behaviour. The cause is not proven. The source reading above (no event announcing another
+  client's prompt; bounded fanout mailboxes that reset a slow peer and replay history) could explain it but was
+  not live-verified.
+- Decision (user, 2026-10-16): no app code change. A possible later ticket, not part of this one: refresh history
+  on the open chat when a reply from another client completes.
+
+Status: phone test done 2026-10-16 (outcome E, see above); no app code change.
+
 ---
 
 ## 4. JSON-RPC methods (client → server)
@@ -333,14 +396,31 @@ Common rules (`tui_gateway/contracts/base.py:11-20`, `rpc_dispatch.py`):
 | 4000 | params failed contract validation (unknown/mistyped key) | `rpc_dispatch.py:28-31` |
 | 4001 | session not found (stale runtime id → `session.resume` the stored id); also other "not found/no session" | `server.py:1245` |
 | 4002 | bad value (`text is required`, `unknown reasoning value: …`, `model value required`, `unknown config key: …`) | `methods_config_set.py`, `methods_session_interrupt.py:106` |
+| 4004 | `empty command`, `usage: /queue <prompt>`, `undo: invalid count …` (slash commands, §4.5) | `methods_tools.py` |
 | 4006 | `request_id required` | `methods_prompt.py:1197` |
 | 4009 | `session busy` (truncating submit while running) | `methods_prompt.py:765` |
 | 4010 | agent does not support steer/redirect | `methods_session_interrupt.py:127` |
+| 4008 | `session.branch`: `nothing to branch — send a message first` / `send a message first` | `methods_session.py:107` |
+| 4012 | `process.kill`: `process_id required` | `methods_tools.py:290` |
+| 4014 | `rollback.diff` / `rollback.restore`: `hash required` | `methods_tools.py` |
+| 4015 | attach: `path required`, `content_base64 required`, `path or content_base64 required`, `path or data_url required` | `methods_prompt.py` |
+| 4016 | `image.attach*`: `image not found: …`, `unsupported image: …`, `unsupported image extension: …` | `methods_prompt.py` |
+| 4017 | PDF attach: `payload is not a PDF (missing %PDF- magic bytes)` | `methods_prompt.py:1293` |
+| 4018 | `prompt.submit` truncation: `target user message is no longer in session history` (+ `data`, §4.6); attach: `PDF too large; cap is N MB`, payload too large; slash commands (§4.5): `not a quick/plugin/bundle/skill command: <name>`, `skill command: use command.dispatch for /<name>`, `bundle dispatch failed: …`, or a quick `exec` command's own failure text | `methods_tools.py` |
+| 4028 | `prompt.submit`: a truncation would erase the whole transcript; resend with `confirm_empty_truncate: true` | `methods_prompt.py:499` |
+| 4029 | `prompt.submit`: truncation target sent without `confirm_truncate: true` | `methods_prompt.py:333-337` |
+| 4044 | `process.kill`: `no such process` (it belongs to another session) | `methods_tools.py:294` |
 | 4064 | profile unavailable | `rpc_dispatch.py:35-36` |
 | 4090 | active-session limit reached (`data.reason`) | `methods_prompt.py:719-723` |
 | 4404 | (client→server answer) "no window shows this session" decline | `server_requests.py:110-114` |
 | 5000 | steer/redirect failed: … | `methods_session_interrupt.py:88` |
 | 5019 | compute-host interrupt failed | `methods_session_interrupt.py:63` |
+| 5008 | `session.branch`: `branch failed: …`, or the state DB is unavailable | `methods_session.py:121` |
+| 5020 / 5021 / 5022 | `rollback.list` / `.restore` / `.diff` failed (message is the reason) | `methods_tools.py:1208-1262` |
+| 5027 | `image.attach*`: clipboard or write failed | `methods_prompt.py:897,938,966` |
+| 5028 | file/PDF attach: `pdftoppm` missing, timed out, failed or produced no pages | `methods_prompt.py:983-1013` |
+| 5061 / 5062 / 5063 | `projects.*`: store failure / project id not found / bad argument (missing `project_id`, duplicate path) | `methods_projects.py:13`, `methods_config.py:69-75,158` |
+| 5030 | `slash.exec`: slash worker failed to start or crashed (message is the worker's error text) | `methods_tools.py` |
 | 5032 | agent still starting / agent init failed / build timed out | `server.py:921-925,962-967` |
 | 5035 | `backend is retiring; reconnect to continue` | `rpc_dispatch.py:13,68` |
 
@@ -374,6 +454,8 @@ Contracts: `tui_gateway/contracts/{sessions,prompt_voice,liveness,tools_commands
 | `session.compress` | `session_id, focus_topic?` | see contract | Manual compaction. |
 | `approval.respond` | `session_id, choice?: "once"\|"session"\|"always"\|"deny" (default "deny"), all?: bool, request_id?: str` | `{resolved: int}` | Answer an approval by RPC (alternative to answering the server request). Idempotent; Desktop timeout 300 s and re-sends once on timeout (`apps/desktop/src/store/prompts.ts:377-405`). |
 | `approval.pending` | `session_id` | `{approvals: PendingApproval[]}` | Replay pending approvals. |
+| `process.list` | `session_id, profile?` | `{processes: ProcessEntry[]}` | Background processes (terminal `background=true`) owned by the session; Desktop's status stack polls it every 5 s while one runs. `ProcessEntry`: `session_id` (the process id, not a chat id), `command`, `cwd?`, `pid?`, `started_at?`, `uptime_seconds?`, `status` (`running`\|`exited`), `output_preview`, `output_tail?` (last 4000 chars), `exit_code?`, `exited_at?`, `completion_reason?`, `detached?`. Finished processes stay listed until the registry drops them. `tui_gateway/contracts/tools_commands.py:84-119`, `methods_tools.py:265`, `server.py:3219`. |
+| `process.kill` | `session_id, process_id` | `{status: "killed"\|"already_exited"\|"not_found"\|"error", exit_code?, output?, error?}` | Kill ONE background process of that session. Errors: 4012 (`process_id` missing), 4044 (no such process for this session). `contracts/tools_commands.py:122-146`, `methods_tools.py:269`. |
 | `approval.received` | `session_id, request_id: str` | `{acknowledged: bool}` | Tell server the card is visible (starts its timeout clock). |
 | `clarify.lock` | `request_id, question_id, answer: any, profile?` | `{status: "ok"\|"expired", remaining?: string[]}` | Lock one answer of a multi-question clarify; last lock resolves it. |
 | `request.answer` | `id: str, result: object, profile?` | `{status: "ok"\|"expired"}` | Answer an open server request by RPC (e.g. from `approval.pending`/`open_requests` without the original frame). |
@@ -383,7 +465,7 @@ Contracts: `tui_gateway/contracts/{sessions,prompt_voice,liveness,tools_commands
 | `commands.catalog` | `session_id?, profile?` | `{pairs: [name, desc][], sub: {cmd: string[]}, canon: {alias: canonical}, commands: {name: {argument_mode?: "options"\|"text"\|"mixed", desktop?, desktop_subcommands?}}, categories: [{name, pairs}], skills: {name: {usage, origin}}, skill_count, warning}` | List slash commands + skills. |
 | `complete.slash` | `text?, session_id?, profile?` | `{items: [{text, display, meta, kind?}], replace_from?: int}` | Autocomplete for a `/…` token. |
 | `slash.exec` | `session_id, command: str` (without leading `/`, e.g. `"status"`, `"goal pause"`) | `{output?, warning?, type?, target?, message?, notice?, display?, name?, status?}` | Execute a slash command. If `type` present, treat like `command.dispatch` result. |
-| `command.dispatch` | `name: str, arg?: str, session_id?, profile?` | `{type: "exec"\|"alias"\|"plugin"\|"send"\|"skill"\|"prefill", output?, target?, message?, notice?, display?, name?, status?}` | Fallback when `slash.exec` errors (Desktop order, `use-prompt-actions/slash.ts:420-470`). `exec`/`plugin`: show `output`; `alias`: re-run `target`; `send`/`skill`: submit `message` via `prompt.submit` (render `display`, never `message`); `prefill`: put `message` in the composer **(inferred from contract doc + Desktop)**. |
+| `command.dispatch` | `name: str, arg?: str, session_id?, profile?` | `{type: "exec"\|"alias"\|"plugin"\|"send"\|"skill"\|"prefill", output?, target?, message?, notice?, display?, name?, status?}` | Fallback when `slash.exec` errors (Desktop order, `use-prompt-actions/slash.ts:420-470`). `exec`/`plugin`: show `output`; `alias`: re-run `target`; `send`/`skill`: submit `message` via `prompt.submit` (render `display`, never `message`); `prefill`: put `message` in the composer (verified, §4.5). |
 | `image.attach_bytes` | `session_id, content_base64?\|data?, filename?, ext?` | `{attached, path?, count?, name?, width?, height?, token_estimate?, …}` | Upload an image for the next turn (remote clients). |
 | `file.attach` | `session_id, path?, data_url?, name?` | `{attached, name, path, ref_path, ref_text, uploaded}` | Non-image file; insert `ref_text` into prompt **(inferred)**. |
 
@@ -422,6 +504,124 @@ Use `inflight` to rebuild a turn that was streaming when you reconnected.
 `PendingApproval`: `{request_id?, command?, description?, pattern_key?, pattern_keys?, allow_permanent?, allow_session?, smart_denied?, choices?: string[], tool_name?}`.
 
 `ModelOptionProvider` (selected): `{slug, name, models: string[], total_models?, is_current?, authenticated?, auth_type?, featured_models?, capabilities?: {model: {...}}, pricing?, warning?, unavailable_models?}` (`config_free_tier_control.py:536-568`).
+
+### 4.5 Slash commands (read from the Hermes checkout on 2026-10-13, `tui_gateway/methods_tools.py`, `methods_complete.py`)
+Read from a checkout dated 2026-10-10, not from the v0.21.5 tag WorkLab runs; field names below are what the source returns, so
+treat any difference on the phone as WorkLab drifting from this doc (see HANDOFF pitfalls on optional params).
+
+**`commands.catalog`** (`methods_tools.py:503`). Params `session_id?`, `profile?`; an unknown profile is 4064. Result keys:
+`pairs` (flat `[name, description][]`: built-ins, quick commands, plugin commands and skills, names usually with the slash),
+`categories: [{name, pairs}]` (built-ins by category, no skills), `skills: {name: {usage, origin}}`, `skill_count`,
+`canon` (alias to canonical), `commands: {name: {argument_mode?, desktop?, desktop_subcommands?}}`, `sub` (subcommand names per command),
+`warning` (string, empty when discovery worked; show it, do not fail). Skills only appear in `pairs`, not in `categories`.
+`commands[/name].desktop` (`hermes_cli/commands.py:67,368`) is `null` when a graphical client should offer the command, else one of
+`"terminal"` (CLI-only), `"messaging"` (messaging platforms only), `"advanced"`, `"settings"`, `"hidden"`, `"composer-voice"`; the key is
+`/name` for the command and for each of its aliases. `canon` maps `/alias` to `/canonical`.
+
+**`complete.slash`** (`methods_complete.py:278`). Params `text` (the whole composer text), `session_id?`, `profile?`. Text not starting
+with `/` returns `{items: []}`. Result `{items: [{text, display, meta, kind: "command"|"skill"}], replace_from}`.
+`replace_from` is 1 while the user is typing the command name (each `text` is a command, usually with the slash), and the index just after the
+last space once an argument is being typed (each `text` is only the argument; the new composer text is `text[0:replace_from] + item.text`).
+The argument stage is capped at 30 items; the name stage is ranked (usage first) and fuzzy-matches names and descriptions.
+
+**`slash.exec`** (`methods_tools.py:1113`). Params `session_id` (live runtime id; a stale one is 4001), `command` (no leading slash; empty is 4004).
+Result is one of:
+- `{output, warning?}`: text for the user. `output` is `"(no output)"` when the worker printed nothing. The worker prints for a terminal,
+  so strip ANSI escape codes.
+- a `command.dispatch` result (has `type`): returned when the command is a skill, a skill bundle, a pending-input built-in (`queue`, ...) or a
+  prompt-composing command (`type: "send"`, `message`). Treat it exactly like a `command.dispatch` result.
+- error 4018 `skill command: use command.dispatch for /<name>` (the gateway could not hand the dispatch over itself): call `command.dispatch`.
+- error 5030: the slash worker failed to start or crashed; the message is its text. The first call in a session starts the worker and can be slow.
+
+**`command.dispatch`** (`methods_tools.py:1093`). Params `name` (a leading `/` is stripped), `arg?` (string), `session_id?`, `profile?`. The gateway tries
+stages in this order and uses the first that answers: quick command, plugin command, skill bundle, skill, then the built-ins it handles itself
+(`queue`/`q`, `learn`, `plan`, `init`, `moa`, `focus`, `retry`, `steer`, `goal`, `loop`, `undo`, `snapshot`/`snap`, `compress`/`compact`,
+`initiate-setup`, `memory`, `skills`). Nothing matched is 4018 `not a quick/plugin/bundle/skill command: <name>`. Result `type`:
+
+| `type` | Other keys | Client does |
+|---|---|---|
+| `exec` | `output` | show `output` (a quick command's captured stdout, redacted, at most 4000 chars) |
+| `plugin` | `output` | show `output` |
+| `alias` | `target` | run `target` (slash optional) with the same `arg` |
+| `send` | `message`, `notice?`, `display?` | `prompt.submit` with `message`; show `notice` first if present; the chat shows `display`, never `message`. Built-ins `queue` and `retry` answer `{type: "send", message}` without `display` |
+| `skill` | `message`, `name`, `notice?`, `display` | same as `send` |
+| `prefill` | `message`, `notice` | put `message` in the composer for editing; `/undo [N]` answers this (`methods_tools.py:969`), after removing the last N user turns from the stored transcript, so reload the history |
+
+Two rules from the source: `display` is the projection of the skill or bundle scaffold and the only text a UI may show for a `send` or
+`skill` result; and a `command.dispatch` 4018 after a failed `slash.exec` only means "no stage had it", so the worker's own error is the
+one to show.
+
+Not checked and not to be assumed: which built-ins return `send` or `prefill` besides the ones named above, and the `goal`/`loop`
+result shapes (they also push `session.control` snapshots).
+
+---
+
+### 4.6 Edit, branch, attach, projects, subagents, checkpoints (read for tickets 75-77, 79, 84-85, 91-93)
+
+Source: the Hermes install on this PC, `/opt/hermes-agent/tui_gateway/` (read on 2026-10-16). It has no git history, so it is
+NOT matched to the checkout the earlier research read (`dce1e9b375`), and it is NOT WorkLab. Params models reject unknown keys
+(4000), and WorkLab has rejected a param the source accepts, so **send only the params listed under "send"** and test on the phone.
+
+**`prompt.submit` truncation (edit, regenerate)** (`contracts/prompt_voice.py:26-78`, `methods_prompt.py:326-365,455-500,712`)
+- Send: `{session_id, text, confirm_truncate: true, truncate_before_row_id: <int>}`. Add `confirm_empty_truncate: true` ONLY when the
+  target is the first user message of the transcript (otherwise a cut that would erase everything is refused, 4028).
+- `truncate_before_row_id` is the durable row id of the USER message to replace; that row and everything after it are dropped, then
+  `text` is submitted as the new turn. Other targets (`truncate_before_message_id`, `truncate_before_user_ordinal`) exist; do not use them.
+- Refusals: 4029 (target without `confirm_truncate`), 4004 (`confirm_truncate` without a target; non-integer target),
+  4018 with `data {user_turn_count, ordinal, segment_ordinal, prefix_user_count}` and message `target user message is no longer in
+  session history` (stale or unresolvable target: reload history and retry once), 4028 (above), 4009 `session busy` (a turn is running).
+- Result: `{status, user_row_id?, survivor_user_row_ids?, survivor_row_id_map?}`. `user_row_id` is absent when persistence is not yet
+  proven; never treat a missing id as failure.
+- Row ids: REST `GET /api/sessions/{id}/messages` rows carry `id`; `session.resume` rows carry `row_id` (`TranscriptMessage.row_id`,
+  `contracts/common.py:160-169`); `message.complete.persisted_turn` = `{row_ids: int[], complete: bool, user_row_id?, final_assistant_row_id?}`
+  (`contracts/events.py:195-229`). Ids are scoped to the owning profile's store. `persisted_turn` fields that are missing are unproven.
+  NOT checked: that the REST `id` and the resume `row_id` are the same number for the same message (the REST code was only read as far as
+  `_project_for_display`); verify on the phone before relying on a REST id as a truncate target.
+
+**`session.branch`, `session.branch_whole`** (`contracts/sessions.py:402-436`, `methods_session.py:2209-2214`)
+- Send: `{session_id}` plus `count?: int` (keep only the first N rows of the source history; `session.branch` only). Do not send `name` or
+  `idempotency_key` unless the ticket says so. `session_id` is the RUNTIME id.
+- `session.branch` result: `{session_id, stored_session_id, title, parent, message_count, messages: TranscriptMessage[], info}`.
+  `session.branch_whole` result: the same with `messages_omitted: bool` instead of `messages`.
+- Errors: 4008 (nothing to branch yet), 5008, 5000 (agent init failed on branch), 4001 (stale runtime id). The `4002` in the earlier
+  research notes is raised only for a bad model override on session creation, not for branch params.
+
+**`image.detach`, attach** (`contracts/prompt_voice.py:188-198`, `methods_prompt.py:887-1091`)
+- `image.detach {session_id, path}` -> `{detached: bool, count: int}`: drops a queued image before the turn is sent. 4015 `path required`.
+- Attach error codes are in section 4.1 (4015-4018, 5027, 5028). 4018 is also used for `PDF too large; cap is N MB`. The byte cap of
+  `image.attach_bytes` was not located.
+
+**Projects** (`contracts/projects_pets.py:73-88,264-308`, `methods_projects.py`, `methods_config.py:138-158`)
+- `projects.tree {session_limit?: int, preview_limit?: int, profile?}` -> `{projects: ProjectTreeNode[], active_id?: str, scoped_session_ids: str[]}`.
+  `ProjectTreeNode`: `id, label, path?, color?, icon?, isAuto, isNoProject, sessionCount, lastActive (epoch seconds, float), totalTokens,
+  totalCostUsd, repos[], previewSessions[], sessionIds[]` (stored session ids, newest `session_limit` rows only).
+- `projects.project_sessions {project_id, session_limit?, profile?}` -> `{project: ProjectTreeNode | null}`; 5063 if `project_id` is missing.
+- `projects.create {name, folders?: str[], primary_path?, slug?, description?, icon?, color?, board_slug?, use?: bool, profile?}` ->
+  `{project: Project | null}`; a duplicate primary path is refused with 5063. `use: true` also activates the new project.
+- A `session.create` `cwd` (section 4.2) is how a new chat is started inside a project folder.
+
+**Subagents** (`contracts/profiles_vault_complete_foreign_subagents.py:635-700`, `contracts/events.py:483-540`, `contracts/common.py:179-190`, `methods_subagents.py`)
+- `subagent.list {session_id}` -> `{subagents: SubagentSnapshot[], delegations: FailedDelegation[]}`. `SubagentSnapshot`: `subagent_id, parent_id?,
+  depth?, goal?, delegation_id?, model?, started_at? (epoch seconds), status?, tool_count?, last_tool?, accepting_steer?`. 4001 when the session
+  is not owned by this connection.
+- `subagent.interrupt {session_id, subagent_id}` -> `{found: bool, subagent_id}`; `found:false` = it already finished. 4000 if `subagent_id` is empty.
+- `subagent.tail {session_id, subagent_id}` -> `{subagent_id, available, text, truncated}` (last 16 KB of a live child transcript). Not used by a ticket yet.
+- Events `subagent.spawn_requested | start | progress | thinking | tool | complete` share one payload: `goal, task_count, task_index` (required);
+  optional `subagent_id, parent_id, child_session_id, delegation_id, depth, model, tool_count, toolsets, input_tokens, output_tokens,
+  reasoning_tokens, api_calls, files_read, files_written, output_tail[{tool, preview, is_error}], tool_name, text, status, summary,
+  duration_seconds, tool_preview`. Older emitters omit the identity fields.
+- `SubagentStatus`: `queued | running | completed | failed | error | timeout | interrupted`; the last five are terminal.
+
+**Checkpoints** (`contracts/tools_commands.py:345-410`, `methods_tools.py:1208-1262`)
+- `rollback.list {session_id}` -> `{enabled: bool, checkpoints: [{hash, timestamp, message}]}`; `enabled:false` when checkpointing is off.
+- `rollback.diff {session_id, hash}` -> `{stat, diff, rendered?}` (ignore `rendered`, it is ANSI sized for the TUI). 4014 `hash required`, 5022.
+- `rollback.restore {session_id, hash}` (never send `file_path`: it is the single-file variant) -> open object: `success, restored_to?, reason?,
+  directory?, file?, restored_files?, skipped_user_edits?, skipped_oversize?, failed_deletes?, history_removed?, error?`. `history_removed` is
+  set for a full restore that also rewound the live transcript. 4014, 4009 `session busy` while a turn runs (full restore), 5021.
+- Generic failure codes (`methods_tools.py:1208-1262`, the `fail_code` of each handler): `rollback.list` 5020, `rollback.restore` 5021, `rollback.diff` 5022.
+
+Not checked in 4.6: handler bodies past the lines cited, `session.branch` result `info` shape, `ProjectTreeRepo` and `ProjectTreeSession` fields,
+any per-method gate on remote clients (none found in the earlier research), and behaviour on WorkLab.
 
 ---
 
@@ -620,6 +820,64 @@ Body `ModelAssignment` (`hermes_cli/web_models.py:105-123`): `{"scope": "main"|"
 "model": str, "task": str = "", "reasoning_effort"?: str|null (auxiliary only), "base_url": str = "",
 "api_key": str = "", "confirm_expensive_model": bool = false, "profile"?: str}`. 400 `scope must be 'main' or 'auxiliary'`.
 May return `{"ok":false,"confirm_required":true,"confirm_message":"…",…}`.
+
+---
+
+### REST endpoints for tickets 82-83, 86-90 (read on 2026-10-16 from `/opt/hermes-agent/hermes_cli/web_routers/`)
+
+Same source caveat as 4.6: not matched to `dce1e9b375`, not WorkLab. In gated mode a normal bearer token reaches all of these (the OAuth gate has
+no per-route scope check; `/api/config/schema` is public). A route that does not exist on the gateway answers 404; one that exists but needs
+a token answers 401 without one. Where a query says `profile`, send it only when the user picked a non-default profile (ticket 90).
+
+**Media and files** (`files.py`)
+- `GET /api/media?path=` -> `{data_url}` (base64 `data:` URL). Images only (png, jpg, jpeg, gif, webp, svg, bmp, ico; else 415); the path must
+  resolve under the gateway's media roots (else 403); 404 if missing; 413 over 25 MiB.
+- `GET /api/files/download?path=` -> the file as an attachment. Absolute paths only; a sensitive-file denylist answers 403 (`.env*`, `auth.json`,
+  `config.yaml`, credentials, MCP token and pairing directories); 409 for a live SQLite DB; capped at 100 MiB. Authenticate with the
+  `Authorization: Bearer` header (the `?token=` form works only with the dashboard's own session token).
+- `GET /api/fs/read-text?path=&profile=` -> `{binary, byteSize, language, mimeType, path, text, truncated}`; the preview is capped at 512 KiB
+  (`truncated: true` beyond it), the source at 64 MiB (413).
+- `GET /api/fs/download?path=&profile=&session_id=` -> attachment; `session_id` resolves a RELATIVE path against that session's cwd; same denylist.
+- `GET /api/fs/read-data-url?path=&profile=&session_id=` -> `{dataUrl}`.
+- The gateway has no parser for `MEDIA:` lines: the client takes the path from the message text and calls the route above.
+
+**Cron** (`cron.py`)
+- `GET /api/cron/jobs?profile=all` -> bare JSON ARRAY of job objects (not `{jobs: []}`), de-duplicated by id. `GET /api/cron/jobs/{id}` -> one job.
+- Job object keys (`cron/jobs.py:1895-1935`): `id, name, prompt, skills, skill, model, provider, base_url, script, no_agent, schedule (object),
+  schedule_display (string), repeat {times, completed}, enabled, state ("scheduled" | "paused" | "completed" | …), paused_at, paused_reason, created_at,
+  next_run_at, last_run_at, last_status, last_error, last_delivery_error, failure_streak, deliver, origin, enabled_toolsets, workdir`. Times are ISO
+  strings or epoch numbers depending on the field: read defensively, never `optString` a JSON null.
+- `GET /api/cron/jobs/{id}/runs?limit=20&profile=` -> `{runs: [...], limit}` newest first (limit 1-100); run rows are session rows plus
+  `is_active, scheduler_owned, archived`, or script-only output docs (`started_at` epoch seconds). Row keys beyond those were not read.
+- `POST /api/cron/jobs/{id}/pause`, `/resume` -> the updated job; `POST /api/cron/jobs/{id}/trigger` -> the job; 409 `Job is already running or was
+  claimed by another scheduler`; 404 `Job not found`.
+- `POST /api/cron/jobs` body: `schedule` (required), `prompt`, `name`, `deliver`, `paused`, `repeat`, and more; -> the stored job; 400 for a bad schedule.
+- `PUT /api/cron/jobs/{id}` body `{updates: {...}}` (the method is PUT, not PATCH) -> the job; 400 ValueError text, 404. `DELETE /api/cron/jobs/{id}` -> `{ok: true}`; 404; 400.
+
+**Insights** (`analytics.py:60-155`)
+- `GET /api/analytics/usage?days=30&profile=` (`days` 1-365) -> `{daily: [{day, input_tokens, output_tokens, cache_read_tokens, reasoning_tokens,
+  estimated_cost, actual_cost, sessions, api_calls}], by_model: [{model, input_tokens, output_tokens, estimated_cost, sessions, api_calls, ...}],
+  by_task, totals: {total_input, total_output, total_cache_read, total_reasoning, total_estimated_cost, total_actual_cost, total_sessions,
+  total_api_calls}, period_days, skills, tools}`. `totals` values come from SQL `SUM`, so they are JSON null when there are no sessions.
+
+**Capabilities** (`skills.py`, `tools.py`, `mcp.py`)
+- `GET /api/skills?profile=` -> JSON array of skill objects with `name`, `enabled`, `usage`, `provenance` ("hub" | "bundled" | "external" | "agent")
+  plus the skill's own fields (description, category). `PUT /api/skills/toggle` body `{name, enabled, profile?}` -> `{ok, name, enabled}`.
+- `GET /api/tools/toolsets?profile=` -> JSON array of `{name, label, description, platform, platform_label, enabled, available, configured, tools[]}`.
+  `PUT /api/tools/toolsets/{name}` body `{enabled, profile?}` -> `{ok, name, platform, enabled, post_setup_started}`.
+- `GET /api/mcp/servers?profile=` -> `{servers: [...]}` (row keys from `_mcp_server_summary`, not read; plugin-provided servers are marked there).
+  `PUT /api/mcp/servers/{name}/enabled` body `{enabled, profile?}` -> `{ok, name, enabled}`; 409 for a plugin-provided server; 404 unknown.
+  `POST /api/mcp/servers/{name}/test` -> `{ok, tools: [{name, description}], prompts, ...}`; a failed probe is HTTP 200 with `{ok: false, error}`.
+
+**Profiles** (`profiles.py`)
+- `GET /api/profiles` -> `{profiles: [{name, path, is_default, model, provider, has_env, skill_count, gateway_running, description, description_auto,
+  display_name, bot_title, distribution_name, distribution_version, distribution_source, has_alias}]}`.
+- `GET /api/profiles/active` -> `{active, current}` (both default to the text `"default"`). `POST /api/profiles/active` `{name}` -> `{ok, active}`
+  rewrites the host's sticky CLI profile for everyone and does not retarget the running gateway: **the app must never call it**.
+- Selecting a profile in the app is local: send `profile: <name>` on REST queries and RPC params that accept it (4064 when the profile is unavailable).
+
+Not checked in these REST sections: `cron.jobs` internals (run-row keys), `_mcp_server_summary` keys, loopback-mode behaviour with native tokens,
+plugin-registered routes, and every route on WorkLab.
 
 ---
 

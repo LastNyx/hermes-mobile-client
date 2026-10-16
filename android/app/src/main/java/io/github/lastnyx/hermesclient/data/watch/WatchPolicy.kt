@@ -1,0 +1,84 @@
+package io.github.lastnyx.hermesclient.data.watch
+
+import io.github.lastnyx.hermesclient.data.chat.ChatState
+import io.github.lastnyx.hermesclient.data.chat.Prompt
+
+/** What to show for a watched chat. Carries only the session id and a tool name, never command text or answers. */
+sealed interface WatchAction {
+    val sessionId: String
+
+    data class Done(override val sessionId: String) : WatchAction
+    data class Failed(override val sessionId: String) : WatchAction
+    data class NeedsApproval(override val sessionId: String, val toolName: String, val promptId: String) : WatchAction
+    /** [qid] is set only for a single-question clarify, the only kind that can be answered in place. */
+    data class NeedsAnswer(override val sessionId: String, val promptId: String, val qid: String?, val hasChoices: Boolean) : WatchAction
+    data class Clear(override val sessionId: String) : WatchAction
+}
+
+data class ApprovalButton(val label: String, val choice: String)
+
+/** Only one-shot answers go on a notification; "always" and "for session" stay in the chat. */
+fun approvalButtons(): List<ApprovalButton> = listOf(ApprovalButton("Allow once", "once"), ApprovalButton("Deny", "deny"))
+
+/** Android 12 (API 31) added the flag that makes a notification action wait for an unlocked phone. */
+fun actionNeedsUnlock(sdkInt: Int): Boolean = sdkInt >= 31
+
+fun offersReply(action: WatchAction.NeedsAnswer): Boolean = action.qid != null
+
+enum class ServiceStop { StopNow, LeaveToService }
+
+/** Stopping a service before its `startForeground` call kills the app, so an early stop is left to the service itself. */
+fun serviceStopRequest(serviceForeground: Boolean): ServiceStop =
+    if (serviceForeground) ServiceStop.StopNow else ServiceStop.LeaveToService
+
+/**
+ * Decides, from chat state, when the Watch service must run and which notifications to post.
+ * Only turns started on the phone are watched; Desktop turns never start it.
+ */
+class WatchPolicy {
+    private class Watched(var seenRequests: Set<String> = emptySet(), var started: Boolean = false)
+
+    private val watched = mutableMapOf<String, Watched>()
+
+    val shouldRun: Boolean @Synchronized get() = watched.isNotEmpty()
+
+    @Synchronized
+    fun watching(sessionId: String): Boolean = sessionId in watched
+
+    @Synchronized
+    fun turnStarted(sessionId: String) {
+        watched.getOrPut(sessionId) { Watched() }
+    }
+
+    /** The chat's state flow stops with its screen, so leaving ends the watch instead of leaving it stuck. */
+    @Synchronized
+    fun chatClosed(sessionId: String): List<WatchAction> =
+        if (watched.remove(sessionId) != null) listOf(WatchAction.Clear(sessionId)) else emptyList()
+
+    @Synchronized
+    fun onState(sessionId: String, state: ChatState): List<WatchAction> {
+        val entry = watched[sessionId] ?: return emptyList()
+        val actions = mutableListOf<WatchAction>()
+        val prompts = state.prompts
+        val now = prompts.map { it.id }.toSet()
+        for (p in prompts) {
+            if (p.id in entry.seenRequests) continue
+            actions += when (p) {
+                is Prompt.Approval -> WatchAction.NeedsApproval(sessionId, p.toolName, p.id)
+                is Prompt.Clarify -> {
+                    val only = p.questions.singleOrNull()
+                    WatchAction.NeedsAnswer(sessionId, p.id, only?.qid, only?.choices?.isNotEmpty() == true)
+                }
+            }
+        }
+        if (entry.seenRequests.any { it !in now }) actions += WatchAction.Clear(sessionId)
+        entry.seenRequests = now
+        if (state.running || state.error != null) entry.started = true
+        // The state seen right after turnStarted may predate the send flipping `running`.
+        if (entry.started && !state.running && prompts.isEmpty()) {
+            actions += if (state.error != null) WatchAction.Failed(sessionId) else WatchAction.Done(sessionId)
+            watched.remove(sessionId)
+        }
+        return actions
+    }
+}
