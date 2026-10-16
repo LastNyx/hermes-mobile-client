@@ -82,7 +82,7 @@ fun SettingsScreen(
 private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(CARD_CORNER.dp))
             .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .padding(ROW_PADDING.dp),
         verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp),

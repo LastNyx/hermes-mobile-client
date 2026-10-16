@@ -80,7 +80,7 @@ fun CheckpointsSheet(
                 Surface(
                     onClick = { scope.launch { controller.showDiff(cp.hash) } },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(CARD_CORNER.dp),
                     color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
                 ) {
                     Column(Modifier.padding(ROW_PADDING.dp)) {

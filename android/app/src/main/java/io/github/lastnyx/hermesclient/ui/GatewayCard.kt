@@ -59,7 +59,7 @@ fun GatewayCard(
     val signedInLike = state is SignInState.SignedIn || state == SignInState.Unavailable
     Card(
         Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(CARD_CORNER.dp),
         colors = CardDefaults.cardColors(containerColor = scheme.surfaceContainerLow),
     ) {
         Row(Modifier.padding(start = ROW_PADDING.dp), verticalAlignment = Alignment.CenterVertically) {

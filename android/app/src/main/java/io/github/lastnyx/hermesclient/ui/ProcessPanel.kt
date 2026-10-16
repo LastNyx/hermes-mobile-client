@@ -95,7 +95,7 @@ fun ProcessPanel(
         anyFailed -> scheme.error
         else -> scheme.onSurfaceVariant
     }
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = scheme.surfaceContainerHigh) {
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(CARD_CORNER.dp), color = scheme.surfaceContainerHigh) {
         Column(Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp)) {
             Row(
                 Modifier.fillMaxWidth().heightIn(min = PROCESS_ROW_HEIGHT.dp).clickable { expanded = !expanded },

@@ -32,7 +32,7 @@ fun QueuePanel(
     modifier: Modifier = Modifier,
 ) {
     if (entries.isEmpty()) return
-    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+    Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(CARD_CORNER.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp)) {
             Text("Queued · ${entries.size}", style = roles.label)
             Column(Modifier.heightIn(max = (QUEUE_ROW_HEIGHT * MAX_VISIBLE_ROWS).dp).verticalScroll(rememberScrollState())) {

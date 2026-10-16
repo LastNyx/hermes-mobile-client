@@ -49,7 +49,7 @@ fun SlashSuggestionList(suggestions: List<SlashSuggestion>, onPick: (SlashSugges
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.4f).dp
     Surface(
         modifier.fillMaxWidth().heightIn(max = maxHeight),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(CARD_CORNER.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         LazyColumn {

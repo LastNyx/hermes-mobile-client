@@ -30,7 +30,7 @@ fun ScreenTopBar(
         }
         Text(
             title,
-            Modifier.weight(1f).padding(start = if (onBack == null) 4.dp else 0.dp),
+            Modifier.weight(1f).padding(start = if (onBack == null) TITLE_START_NO_BACK.dp else 0.dp),
             style = screenTitleStyle(MaterialTheme.typography),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

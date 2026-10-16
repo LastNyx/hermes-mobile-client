@@ -13,10 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -27,37 +24,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -82,7 +64,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -91,7 +72,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.chat.AttachLimits
 import io.github.lastnyx.hermesclient.data.chat.AttachSendResult
@@ -100,14 +80,10 @@ import io.github.lastnyx.hermesclient.data.chat.ChatController
 import io.github.lastnyx.hermesclient.data.chat.ChatItem
 import io.github.lastnyx.hermesclient.data.chat.CheckpointsController
 import io.github.lastnyx.hermesclient.data.chat.ModelsController
-import io.github.lastnyx.hermesclient.data.chat.ModelsState
 import io.github.lastnyx.hermesclient.data.chat.NoticeLevel
 import io.github.lastnyx.hermesclient.data.chat.Prompt
-import io.github.lastnyx.hermesclient.data.chat.REASONING_LEVELS
 import io.github.lastnyx.hermesclient.data.chat.SlashCommands
 import io.github.lastnyx.hermesclient.data.chat.SlashSuggestion
-import io.github.lastnyx.hermesclient.data.chat.TOOL_DETAIL_LIMIT
-import io.github.lastnyx.hermesclient.data.chat.ToolStatus
 import io.github.lastnyx.hermesclient.data.chat.parseSlashLine
 import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
@@ -250,7 +226,7 @@ fun ChatScreen(
     }
     var picking by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    val slackPx = with(LocalDensity.current) { 24.dp.roundToPx() }
+    val slackPx = with(LocalDensity.current) { NEAR_BOTTOM_SLACK.dp.roundToPx() }
     var following by rememberSaveable { mutableStateOf(true) }
     // Only user drags and flings reach this; programmatic scrolls do not, so content growth never unsets it.
     val userScrollWatcher = remember(listState, slackPx) {
@@ -373,7 +349,7 @@ fun ChatScreen(
                     },
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = ROW_PADDING.dp),
                 ) {
-                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, Modifier.size(18.dp))
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, Modifier.size(SMALL_ICON.dp))
                     Text("Jump to latest")
                 }
             }
@@ -428,8 +404,8 @@ fun ChatScreen(
                 }
             }
             OutlinedTextField(
-                field, { field = it }, modifier = Modifier.weight(1f).heightIn(min = 44.dp),
-                shape = RoundedCornerShape(24.dp),
+                field, { field = it }, modifier = Modifier.weight(1f).heightIn(min = COMPOSER_MIN_HEIGHT.dp),
+                shape = RoundedCornerShape(COMPOSER_CORNER.dp),
                 maxLines = 6,
                 placeholder = { Text(if (state.running) "Redirect the reply" else "Message") },
             )
@@ -442,7 +418,7 @@ fun ChatScreen(
                     shape = CircleShape,
                     color = if (sendable || state.running) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.padding(start = ROW_PADDING.dp).size(40.dp).combinedClickable(
+                    modifier = Modifier.padding(start = ROW_PADDING.dp).size(SEND_BUTTON.dp).combinedClickable(
                         enabled = sendable || state.running,
                         role = Role.Button,
                         onLongClick = { if (sendable && state.running) queueMenu = true },
@@ -490,152 +466,6 @@ fun ChatScreen(
                     )
                 }
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Composable
-private fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss: () -> Unit) {
-    val scope = rememberCoroutineScope()
-    ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { BottomSheetDefaults.DragHandle() }) {
-        LazyColumn(Modifier.padding(horizontal = SCREEN_EDGE.dp), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
-            item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Model", Modifier.weight(1f), style = roles.title)
-                    IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = "Close") }
-                }
-            }
-            val notice = state.confirmMessage
-            if (notice != null || state.error != null) {
-                item {
-                    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.errorContainer) {
-                        Column(Modifier.padding(PROMPT_CARD_PADDING.dp)) {
-                            if (notice != null) {
-                                Text(notice, style = roles.body, color = MaterialTheme.colorScheme.onErrorContainer)
-                                Row(Modifier.padding(top = LIST_GAP.dp)) {
-                                    Button(onClick = { scope.launch { models.confirmPending() } }) { Text("Confirm") }
-                                    OutlinedButton(onClick = { models.cancelConfirm() }, modifier = Modifier.padding(start = LIST_GAP.dp)) { Text("Cancel") }
-                                }
-                            }
-                            state.error?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.onErrorContainer) }
-                        }
-                    }
-                }
-            }
-            item {
-                Text("Reasoning", style = roles.label, modifier = Modifier.padding(top = ROW_PADDING.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
-                    REASONING_LEVELS.forEach { level ->
-                        val selected = level == state.reasoningEffort
-                        FilterChip(
-                            selected = selected,
-                            onClick = { scope.launch { models.selectReasoning(level) } },
-                            label = { Text(level) },
-                            leadingIcon = if (selected) {
-                                { Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp)) }
-                            } else null,
-                        )
-                    }
-                }
-                if (state.reasoningEffort !in REASONING_LEVELS && state.reasoningDisplay.isNotBlank()) {
-                    Text(
-                        "Current: ${state.reasoningDisplay}",
-                        Modifier.padding(top = LIST_GAP.dp),
-                        style = roles.secondary,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            state.groups.forEach { group ->
-                item {
-                    Text(
-                        group.name,
-                        Modifier.padding(top = ROW_PADDING.dp),
-                        style = roles.label,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                items(group.models) { model ->
-                    val current = model == state.model && group.slug == state.provider
-                    Surface(
-                        onClick = { scope.launch { models.selectModel(group.slug, model) } },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (current) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                    ) {
-                        Row(Modifier.padding(horizontal = ROW_PADDING.dp, vertical = ROW_PADDING.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(model, Modifier.weight(1f), style = roles.body)
-                            if (current) Icon(Icons.Filled.Check, contentDescription = "Current model")
-                        }
-                    }
-                }
-            }
-            item { Spacer(Modifier.size(24.dp)) }
-        }
-    }
-}
-
-@Composable
-private fun ApprovalCard(prompt: Prompt.Approval, enabled: Boolean, guard: TapGuard, onChoose: (String) -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(PROMPT_CARD_PADDING.dp), verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp)) {
-            val preview = commandPreview(prompt.command)
-            var full by rememberSaveable(prompt.id) { mutableStateOf(false) }
-            SelectionContainer(Modifier.heightIn(max = promptBodyMaxHeight()).verticalScroll(rememberScrollState())) {
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp)) {
-                    Text(prompt.toolName.ifBlank { "Approval needed" }, style = roles.title)
-                    if (prompt.description.isNotBlank()) Text(prompt.description, style = roles.body)
-                    Text(if (preview.cut && !full) preview.text else prompt.command, style = roles.code)
-                }
-            }
-            if (preview.cut) TextButton(onClick = { full = !full }) { Text(if (full) "Show less" else "Show full command") }
-            val labels = listOf("once" to "Allow once", "session" to "Allow for session", "always" to "Always allow", "deny" to "Deny")
-            labels.filter { it.first in prompt.choices }.forEach { (choice, label) ->
-                val tap = { if (guard.allows()) onChoose(choice) }
-                if (choice == "deny") OutlinedButton(onClick = tap, Modifier.fillMaxWidth(), enabled = enabled) { WrappedLabel(label) }
-                else Button(onClick = tap, Modifier.fillMaxWidth(), enabled = enabled) { WrappedLabel(label) }
-            }
-        }
-    }
-}
-
-internal fun promptBodyMaxHeight(screenHeight: Dp): Dp = (screenHeight.value * 3 / 5).dp
-
-@Composable
-private fun promptBodyMaxHeight(): Dp = promptBodyMaxHeight(LocalConfiguration.current.screenHeightDp.dp)
-
-@Composable
-private fun WrappedLabel(text: String) = Text(text, Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
-
-@Composable
-private fun ClarifyCard(prompt: Prompt.Clarify, enabled: Boolean, guard: TapGuard, onAnswer: (Map<String, String>) -> Unit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(PROMPT_CARD_PADDING.dp), verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp)) {
-            // §5.1 documents one string per question id, so multi-select is answered as a single value too.
-            var answers by remember(prompt.id) { mutableStateOf(mapOf<String, String>()) }
-            Column(
-                Modifier.heightIn(max = promptBodyMaxHeight()).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(PROMPT_CARD_SPACING.dp),
-            ) {
-                prompt.questions.forEach { q ->
-                    SelectionContainer { Text(q.question, style = roles.body) }
-                    q.choices.forEach { choice ->
-                        val picked = answers[q.qid] == choice
-                        val pick = { answers = answers + (q.qid to choice) }
-                        if (picked) Button(onClick = pick, Modifier.fillMaxWidth()) { WrappedLabel(choice) }
-                        else OutlinedButton(onClick = pick, Modifier.fillMaxWidth()) { WrappedLabel(choice) }
-                    }
-                    OutlinedTextField(
-                        answers[q.qid].orEmpty().takeIf { it !in q.choices }.orEmpty(),
-                        { answers = answers + (q.qid to it) },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("Your answer") },
-                    )
-                }
-            }
-            val ready = prompt.questions.all { !answers[it.qid].isNullOrBlank() }
-            Button(onClick = { if (guard.allows()) onAnswer(answers.mapValues { it.value.trim() }) }, enabled = ready && enabled) { Text("Answer") }
         }
     }
 }
@@ -697,7 +527,7 @@ private fun MessageBubble(
                     onClick = {},
                     onLongClick = { menu = true },
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(BUBBLE_CORNER.dp),
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
@@ -720,7 +550,7 @@ private fun MessageBubble(
         Column(Modifier.fillMaxWidth()) {
             Surface(
                 Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(BUBBLE_CORNER.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
                 MarkdownText(shown, Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp))
@@ -736,153 +566,3 @@ private fun MessageBubble(
     }
 }
 
-internal const val COMMAND_OUTPUT_MAX_LINES = 12
-
-@Composable
-private fun CommandOutputCard(item: ChatItem.CommandOutput) {
-    var expanded by rememberSaveable(item.key) { mutableStateOf(false) }
-    val long = item.text.lineSequence().count() > COMMAND_OUTPUT_MAX_LINES
-    val container = if (item.failed) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
-    val content = if (item.failed) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
-    Surface(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = container,
-        contentColor = content,
-    ) {
-        Column(Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp)) {
-            Text(
-                item.command,
-                style = roles.code,
-                color = content.copy(alpha = 0.7f),
-            )
-            SelectionContainer {
-                Text(
-                    item.text,
-                    Modifier.padding(top = LIST_GAP.dp),
-                    style = roles.body,
-                    maxLines = if (long && !expanded) COMMAND_OUTPUT_MAX_LINES else Int.MAX_VALUE,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (long) TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Show less" else "Show more") }
-        }
-    }
-}
-
-@Composable
-private fun ReasoningRow(item: ChatItem.Reasoning) {
-    // Saveable so the expanded state survives the row leaving the lazy list.
-    var open by rememberSaveable(item.key) { mutableStateOf(false) }
-    val shown = remember(item.text, item.streaming) { if (item.streaming) item.text else clipForDisplay(item.text) }
-    Surface(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    ) {
-        Column(Modifier.clickable { open = !open }.padding(horizontal = CARD_PADDING_H.dp, vertical = REASONING_VERTICAL_PADDING.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (item.streaming) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                Text(
-                    if (item.streaming) "Thinking…" else "Thought",
-                    Modifier.padding(start = if (item.streaming) ROW_PADDING.dp else 0.dp),
-                    style = roles.label,
-                )
-                val preview = remember(item.text, item.streaming, open) { if (open) "" else reasoningPreview(item.text, item.streaming) }
-                Text(
-                    preview,
-                    Modifier.weight(1f).padding(start = ROW_PADDING.dp),
-                    style = roles.secondary,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Icon(
-                    if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                    contentDescription = if (open) "Collapse" else "Expand",
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            if (open) Text(shown, style = roles.body)
-        }
-    }
-}
-
-@Composable
-private fun ToolRow(item: ChatItem.Tool) {
-    // Keyed on status so a finished tool collapses to its final state.
-    var open by remember(item.key, item.status) { mutableStateOf(false) }
-    val body = toolExpandedText(item.status, item.detail)
-    Surface(
-        Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    ) {
-        Column {
-            Row(
-                Modifier.fillMaxWidth().then(if (body != null) Modifier.clickable { open = !open } else Modifier).padding(horizontal = CARD_PADDING_H.dp, vertical = TOOL_HEADER_VERTICAL_PADDING.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(ROW_PADDING.dp),
-            ) {
-                if (item.status == ToolStatus.Running) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                else Icon(Icons.Filled.Check, contentDescription = "Done", modifier = Modifier.size(16.dp))
-                Text(toolLabel(item.name), style = roles.label, maxLines = 1)
-                Text(
-                    item.preview,
-                    Modifier.weight(1f),
-                    style = roles.code,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                item.durationS?.let { Text(durationText(it), style = roles.caption) }
-                if (body != null) Icon(
-                    if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                    contentDescription = if (open) "Collapse" else "Expand",
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            if (open && body != null) {
-                val shown = remember(body) { toolDetailPreview(body, TOOL_DETAIL_LIMIT) }
-                Text(
-                    shown,
-                    Modifier.fillMaxWidth().heightIn(max = 200.dp).verticalScroll(rememberScrollState())
-                        .padding(horizontal = CARD_PADDING_H.dp, vertical = TOOL_DETAIL_VERTICAL_PADDING.dp),
-                    style = roles.code,
-                )
-                if (item.detail.isNotBlank()) CopyButton(shown)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ToolGroupRow(group: ChatRow.ToolGroup) {
-    var open by rememberSaveable(group.key) { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(INSIDE_TURN_GAP.dp)) {
-        Surface(
-            Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ) {
-            Row(
-                Modifier.fillMaxWidth().clickable { open = !open }.padding(horizontal = CARD_PADDING_H.dp, vertical = TOOL_HEADER_VERTICAL_PADDING.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(ROW_PADDING.dp),
-            ) {
-                if (group.running) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                else Icon(Icons.Filled.Check, contentDescription = "Done", modifier = Modifier.size(16.dp))
-                Text("Used ${group.tools.size} tools", Modifier.weight(1f), style = roles.label)
-                Icon(
-                    if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                    contentDescription = if (open) "Collapse" else "Expand",
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
-        if (open) group.tools.forEach { ToolRow(it) }
-    }
-}

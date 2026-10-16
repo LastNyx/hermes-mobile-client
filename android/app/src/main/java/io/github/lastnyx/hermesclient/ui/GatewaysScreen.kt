@@ -74,7 +74,7 @@ fun GatewaysScreen(
             IconButton(onClick = onOpenSettings) { Icon(Icons.Filled.Settings, contentDescription = "Settings") }
         }
         if (updateStatus.startsWith("Update available")) {
-            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(CARD_CORNER.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
                 Text(updateStatus, Modifier.padding(ROW_PADDING.dp), style = roles.body)
             }
         }
