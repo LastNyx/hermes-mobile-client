@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -19,13 +20,17 @@ import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.markdownDimens
 import com.mikepenz.markdown.model.markdownPadding
 
+/** Set by a screen that can show gateway files; null means such links do nothing. */
+val LocalOpenGatewayFile = compositionLocalOf<((String) -> Unit)?> { null }
+
 @Composable
 fun MarkdownText(text: String, modifier: Modifier = Modifier) {
     val outer = LocalUriHandler.current
-    val handler = remember(outer) {
+    val openFile = LocalOpenGatewayFile.current
+    val handler = remember(outer, openFile) {
         object : UriHandler {
             override fun openUri(uri: String) {
-                if (isAllowedLink(uri)) runCatching { outer.openUri(uri) }
+                if (isAllowedLink(uri)) runCatching { outer.openUri(uri) } else gatewayFilePath(uri)?.let { openFile?.invoke(it) }
             }
         }
     }

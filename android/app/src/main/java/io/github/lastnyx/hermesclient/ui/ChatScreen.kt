@@ -166,8 +166,12 @@ fun ChatHost(
     }
     val linkState by link.state.collectAsState()
     val access = remember(media, gatewayUrl, controller) { media?.let { MediaAccess(it, gatewayUrl) { controller.state.value.storedId } } }
-    CompositionLocalProvider(LocalMedia provides access) {
+    var viewing by remember { mutableStateOf<String?>(null) }
+    CompositionLocalProvider(LocalMedia provides access, LocalOpenGatewayFile provides { viewing = it }) {
         ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack, promptActionsEnabled(linkState), seed, onBranched, beforeSend)
+        viewing?.let { path ->
+            if (mimeFor(path).startsWith("image/")) MediaViewer(path) { viewing = null } else FileTextViewer(path) { viewing = null }
+        }
     }
 }
 

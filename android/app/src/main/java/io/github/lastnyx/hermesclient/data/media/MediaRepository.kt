@@ -10,6 +10,8 @@ import org.json.JSONObject
 
 private const val MAX_IMAGE_BODY = 40L * 1024 * 1024
 
+private const val MAX_TEXT_BODY = 4L * 1024 * 1024
+
 private class Refused(message: String) : Exception(message)
 
 /** Agent pictures and files from the gateway over REST. Blocking; call off the main thread. */
@@ -46,6 +48,21 @@ class MediaRepository(
             if (!it.isSuccessful) throw Refused(fileSentence(it.code))
             readBounded(it, maxDownloadBytes) ?: throw Refused(FILE_TOO_LARGE)
         }
+    }
+
+    fun readText(path: String): Result<FileText> = attempt(OPEN_FAILED) {
+        http.execute(request("/api/fs/read-text", "path" to path)).use { response ->
+            if (!response.isSuccessful) throw Refused(textSentence(response.code))
+            val body = readBounded(response, MAX_TEXT_BODY) ?: throw Refused(OPEN_FAILED)
+            parseFileText(org.json.JSONTokener(String(body, Charsets.UTF_8)).nextValue() as? JSONObject ?: JSONObject())
+        }
+    }
+
+    private fun textSentence(code: Int) = when (code) {
+        403 -> "The gateway won't show this file."
+        404, 405 -> "This gateway can't show files yet."
+        413 -> "This file is too large to view."
+        else -> OPEN_FAILED
     }
 
     private fun <T> attempt(fallback: String, block: () -> T): Result<T> = try {
@@ -93,5 +110,6 @@ class MediaRepository(
         const val IMAGE_FAILED = "Couldn't load this picture."
         const val FILE_TOO_LARGE = "This file is too large to download."
         const val FILE_FAILED = "Couldn't download this file."
+        const val OPEN_FAILED = "Couldn't open this file."
     }
 }
