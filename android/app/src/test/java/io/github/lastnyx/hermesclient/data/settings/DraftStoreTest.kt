@@ -23,6 +23,22 @@ class DraftStoreTest {
     }
 
     @Test
+    fun leavingAChatSavesItsOwnTextNotTheNextChatsDraft() {
+        val store = DraftStore(Fake())
+        store.set("b", "bbb")
+        val tracker = DraftTracker("a", "")
+        tracker.track("a", "aaa")
+        tracker.track("a", "aaaa")
+        store.flush(tracker)
+        tracker.track("b", store.get("b"))
+        assertEquals("aaaa", store.get("a"))
+        assertEquals("bbb", store.get("b"))
+        store.flush(tracker)
+        assertEquals("aaaa", store.get("a"))
+        assertEquals("bbb", store.get("b"))
+    }
+
+    @Test
     fun storeKeepsDraftsPerKeyAndDropsBlankOnes() {
         val fake = Fake()
         val store = DraftStore(fake)

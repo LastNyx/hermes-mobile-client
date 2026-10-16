@@ -60,14 +60,16 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import io.github.lastnyx.hermesclient.data.settings.DraftStore
+import io.github.lastnyx.hermesclient.data.settings.DraftTracker
 import io.github.lastnyx.hermesclient.data.settings.draftKey
+import io.github.lastnyx.hermesclient.data.settings.flush
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -185,13 +187,16 @@ fun ChatScreen(
         mutableStateOf(TextFieldValue(saved, TextRange(saved.length)))
     }
     val draft = field.text
-    val latestDraft by rememberUpdatedState(draft)
+    val tracker = remember { DraftTracker(key, draft) }
     LaunchedEffect(key, draft) {
         delay(300)
         drafts.set(key, draft)
     }
-    // A quick Back must not lose the last keystrokes the debounce has not saved yet.
-    DisposableEffect(key) { onDispose { drafts.set(key, latestDraft) } }
+    // A quick Back must not lose the last keystrokes the debounce has not saved yet. The tracker
+    // is updated in a SideEffect, which runs after the old key's onDispose, so that save still
+    // sees the outgoing chat's key and text.
+    DisposableEffect(key) { onDispose { drafts.flush(tracker) } }
+    SideEffect { tracker.track(key, draft) }
     fun setDraft(text: String) { field = TextFieldValue(text, TextRange(text.length)) }
     var suggestions by remember { mutableStateOf(emptyList<SlashSuggestion>()) }
     LaunchedEffect(draft) {
