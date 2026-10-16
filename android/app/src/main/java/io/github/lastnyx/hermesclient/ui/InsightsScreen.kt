@@ -2,6 +2,8 @@ package io.github.lastnyx.hermesclient.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -30,14 +32,15 @@ fun InsightsScreen(model: InsightsModel, onBack: () -> Unit) {
         ScreenTopBar("Insights", onBack)
         RangeChips(state.days) { days -> scope.launch { model.setDays(days) } }
         val data = state.data
+        val centered = Modifier.fillMaxWidth().heightIn(min = EMPTY_STATE_MIN_HEIGHT.dp)
         when {
-            state.loading -> Text("Loading...", style = roles.secondary)
+            state.loading -> OpeningSpinner(centered)
             state.error != null -> {
                 Text(state.error.orEmpty(), style = roles.body, color = MaterialTheme.colorScheme.error)
                 TextButton(onClick = { scope.launch { model.load() } }) { Text("Retry") }
             }
             data == null -> Unit
-            data.isEmpty -> Text("Nothing used yet", style = roles.body)
+            data.isEmpty -> EmptyStateText("Nothing used yet", centered)
             else -> UsageCards(data)
         }
     }

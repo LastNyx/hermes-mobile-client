@@ -3,6 +3,8 @@ package io.github.lastnyx.hermesclient.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -54,7 +56,9 @@ fun CronScreen(model: CronListModel, onEdit: (CronEditTarget) -> Unit, onBack: (
         TextButton(onClick = { onEdit(CronEditTarget.New) }) { Text("New job") }
         state.error?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.error) }
         state.notice?.let { Text(it, style = roles.secondary) }
-        if (state.jobs.isEmpty() && !state.loading && state.error == null) Text("No scheduled jobs.", style = roles.body)
+        cronEmptyText(state.jobs.size, state.loading, state.error != null)?.let {
+            EmptyStateText(it, Modifier.fillMaxWidth().heightIn(min = EMPTY_STATE_MIN_HEIGHT.dp))
+        }
         state.jobs.forEach { job ->
             JobCard(
                 job,

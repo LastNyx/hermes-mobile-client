@@ -23,6 +23,17 @@ class EmptyStatesTest {
     }
 
     @Test
+    fun cronEmptyTextBranches() {
+        assertNull(cronEmptyText(0, loading = true, error = false))
+        assertNull(cronEmptyText(0, loading = false, error = true))
+        assertNull(cronEmptyText(2, loading = false, error = false))
+        assertEquals(
+            "No scheduled jobs. Tap New job to add one.",
+            cronEmptyText(0, loading = false, error = false),
+        )
+    }
+
+    @Test
     fun chatPlaceholderBranches() {
         assertEquals(ChatPlaceholder.Opening, chatPlaceholder(ChatState()))
         assertEquals(ChatPlaceholder.Empty, chatPlaceholder(ChatState(sessionId = "s")))

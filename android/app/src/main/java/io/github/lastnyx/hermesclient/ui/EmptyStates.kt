@@ -25,6 +25,9 @@ internal fun listEmptyText(state: SessionListState, filtered: Boolean): String? 
     else -> null
 }
 
+internal fun cronEmptyText(jobs: Int, loading: Boolean, error: Boolean): String? =
+    if (loading || error || jobs > 0) null else "No scheduled jobs. Tap New job to add one."
+
 internal enum class ChatPlaceholder { Opening, Empty, None }
 
 // A stored chat has no sessionId until create/resume returned, so null + no error means still opening.

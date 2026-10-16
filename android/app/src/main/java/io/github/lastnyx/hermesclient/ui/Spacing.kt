@@ -19,6 +19,7 @@ internal const val SESSION_SEARCH_HEIGHT = 48
 
 internal const val OPENING_SPINNER_SIZE = 24
 internal const val OPENING_SPINNER_STROKE = 2
+internal const val EMPTY_STATE_MIN_HEIGHT = 240
 
 internal const val INSIDE_TURN_GAP = 2
 internal const val PROMPT_TO_REPLY_GAP = 8
