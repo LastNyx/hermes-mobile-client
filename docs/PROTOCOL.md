@@ -337,12 +337,26 @@ Common rules (`tui_gateway/contracts/base.py:11-20`, `rpc_dispatch.py`):
 | 4006 | `request_id required` | `methods_prompt.py:1197` |
 | 4009 | `session busy` (truncating submit while running) | `methods_prompt.py:765` |
 | 4010 | agent does not support steer/redirect | `methods_session_interrupt.py:127` |
-| 4018 | slash commands (§4.5): `not a quick/plugin/bundle/skill command: <name>`, `skill command: use command.dispatch for /<name>`, `bundle dispatch failed: …`, or a quick `exec` command's own failure text | `methods_tools.py` |
+| 4008 | `session.branch`: `nothing to branch — send a message first` / `send a message first` | `methods_session.py:107` |
+| 4012 | `process.kill`: `process_id required` | `methods_tools.py:290` |
+| 4014 | `rollback.diff` / `rollback.restore`: `hash required` | `methods_tools.py` |
+| 4015 | attach: `path required`, `content_base64 required`, `path or content_base64 required`, `path or data_url required` | `methods_prompt.py` |
+| 4016 | `image.attach*`: `image not found: …`, `unsupported image: …`, `unsupported image extension: …` | `methods_prompt.py` |
+| 4017 | PDF attach: `payload is not a PDF (missing %PDF- magic bytes)` | `methods_prompt.py:1293` |
+| 4018 | `prompt.submit` truncation: `target user message is no longer in session history` (+ `data`, §4.6); attach: `PDF too large; cap is N MB`, payload too large; slash commands (§4.5): `not a quick/plugin/bundle/skill command: <name>`, `skill command: use command.dispatch for /<name>`, `bundle dispatch failed: …`, or a quick `exec` command's own failure text | `methods_tools.py` |
+| 4028 | `prompt.submit`: a truncation would erase the whole transcript; resend with `confirm_empty_truncate: true` | `methods_prompt.py:499` |
+| 4029 | `prompt.submit`: truncation target sent without `confirm_truncate: true` | `methods_prompt.py:333-337` |
+| 4044 | `process.kill`: `no such process` (it belongs to another session) | `methods_tools.py:294` |
 | 4064 | profile unavailable | `rpc_dispatch.py:35-36` |
 | 4090 | active-session limit reached (`data.reason`) | `methods_prompt.py:719-723` |
 | 4404 | (client→server answer) "no window shows this session" decline | `server_requests.py:110-114` |
 | 5000 | steer/redirect failed: … | `methods_session_interrupt.py:88` |
 | 5019 | compute-host interrupt failed | `methods_session_interrupt.py:63` |
+| 5008 | `session.branch`: `branch failed: …`, or the state DB is unavailable | `methods_session.py:121` |
+| 5020 / 5021 / 5022 | `rollback.list` / `.restore` / `.diff` failed (message is the reason) | `methods_tools.py:1208-1262` |
+| 5027 | `image.attach*`: clipboard or write failed | `methods_prompt.py:897,938,966` |
+| 5028 | file/PDF attach: `pdftoppm` missing, timed out, failed or produced no pages | `methods_prompt.py:983-1013` |
+| 5061 / 5062 / 5063 | `projects.*`: store failure / project id not found / bad argument (missing `project_id`, duplicate path) | `methods_projects.py:13`, `methods_config.py:69-75,158` |
 | 5030 | `slash.exec`: slash worker failed to start or crashed (message is the worker's error text) | `methods_tools.py` |
 | 5032 | agent still starting / agent init failed / build timed out | `server.py:921-925,962-967` |
 | 5035 | `backend is retiring; reconnect to continue` | `rpc_dispatch.py:13,68` |
@@ -476,6 +490,75 @@ one to show.
 
 Not checked and not to be assumed: which built-ins return `send` or `prefill` besides the ones named above, and the `goal`/`loop`
 result shapes (they also push `session.control` snapshots).
+
+---
+
+### 4.6 Edit, branch, attach, projects, subagents, checkpoints (read for tickets 75-77, 79, 84-85, 91-93)
+
+Source: the Hermes install on this PC, `/opt/hermes-agent/tui_gateway/` (read on 2026-10-16). It has no git history, so it is
+NOT matched to the checkout the earlier research read (`dce1e9b375`), and it is NOT WorkLab. Params models reject unknown keys
+(4000), and WorkLab has rejected a param the source accepts, so **send only the params listed under "send"** and test on the phone.
+
+**`prompt.submit` truncation (edit, regenerate)** (`contracts/prompt_voice.py:26-78`, `methods_prompt.py:326-365,455-500,712`)
+- Send: `{session_id, text, confirm_truncate: true, truncate_before_row_id: <int>}`. Add `confirm_empty_truncate: true` ONLY when the
+  target is the first user message of the transcript (otherwise a cut that would erase everything is refused, 4028).
+- `truncate_before_row_id` is the durable row id of the USER message to replace; that row and everything after it are dropped, then
+  `text` is submitted as the new turn. Other targets (`truncate_before_message_id`, `truncate_before_user_ordinal`) exist; do not use them.
+- Refusals: 4029 (target without `confirm_truncate`), 4004 (`confirm_truncate` without a target; non-integer target),
+  4018 with `data {user_turn_count, ordinal, segment_ordinal, prefix_user_count}` and message `target user message is no longer in
+  session history` (stale or unresolvable target: reload history and retry once), 4028 (above), 4009 `session busy` (a turn is running).
+- Result: `{status, user_row_id?, survivor_user_row_ids?, survivor_row_id_map?}`. `user_row_id` is absent when persistence is not yet
+  proven; never treat a missing id as failure.
+- Row ids: REST `GET /api/sessions/{id}/messages` rows carry `id`; `session.resume` rows carry `row_id` (`TranscriptMessage.row_id`,
+  `contracts/common.py:160-169`); `message.complete.persisted_turn` = `{row_ids: int[], complete: bool, user_row_id?, final_assistant_row_id?}`
+  (`contracts/events.py:195-229`). Ids are scoped to the owning profile's store. `persisted_turn` fields that are missing are unproven.
+  NOT checked: that the REST `id` and the resume `row_id` are the same number for the same message (the REST code was only read as far as
+  `_project_for_display`); verify on the phone before relying on a REST id as a truncate target.
+
+**`session.branch`, `session.branch_whole`** (`contracts/sessions.py:402-436`, `methods_session.py:2209-2214`)
+- Send: `{session_id}` plus `count?: int` (keep only the first N rows of the source history; `session.branch` only). Do not send `name` or
+  `idempotency_key` unless the ticket says so. `session_id` is the RUNTIME id.
+- `session.branch` result: `{session_id, stored_session_id, title, parent, message_count, messages: TranscriptMessage[], info}`.
+  `session.branch_whole` result: the same with `messages_omitted: bool` instead of `messages`.
+- Errors: 4008 (nothing to branch yet), 5008, 5000 (agent init failed on branch), 4001 (stale runtime id). The `4002` in the earlier
+  research notes is raised only for a bad model override on session creation, not for branch params.
+
+**`image.detach`, attach** (`contracts/prompt_voice.py:188-198`, `methods_prompt.py:887-1091`)
+- `image.detach {session_id, path}` -> `{detached: bool, count: int}`: drops a queued image before the turn is sent. 4015 `path required`.
+- Attach error codes are in section 4.1 (4015-4018, 5027, 5028). 4018 is also used for `PDF too large; cap is N MB`. The byte cap of
+  `image.attach_bytes` was not located.
+
+**Projects** (`contracts/projects_pets.py:73-88,264-308`, `methods_projects.py`, `methods_config.py:138-158`)
+- `projects.tree {session_limit?: int, preview_limit?: int, profile?}` -> `{projects: ProjectTreeNode[], active_id?: str, scoped_session_ids: str[]}`.
+  `ProjectTreeNode`: `id, label, path?, color?, icon?, isAuto, isNoProject, sessionCount, lastActive (epoch seconds, float), totalTokens,
+  totalCostUsd, repos[], previewSessions[], sessionIds[]` (stored session ids, newest `session_limit` rows only).
+- `projects.project_sessions {project_id, session_limit?, profile?}` -> `{project: ProjectTreeNode | null}`; 5063 if `project_id` is missing.
+- `projects.create {name, folders?: str[], primary_path?, slug?, description?, icon?, color?, board_slug?, use?: bool, profile?}` ->
+  `{project: Project | null}`; a duplicate primary path is refused with 5063. `use: true` also activates the new project.
+- A `session.create` `cwd` (section 4.2) is how a new chat is started inside a project folder.
+
+**Subagents** (`contracts/profiles_vault_complete_foreign_subagents.py:635-700`, `contracts/events.py:483-540`, `contracts/common.py:179-190`, `methods_subagents.py`)
+- `subagent.list {session_id}` -> `{subagents: SubagentSnapshot[], delegations: FailedDelegation[]}`. `SubagentSnapshot`: `subagent_id, parent_id?,
+  depth?, goal?, delegation_id?, model?, started_at? (epoch seconds), status?, tool_count?, last_tool?, accepting_steer?`. 4001 when the session
+  is not owned by this connection.
+- `subagent.interrupt {session_id, subagent_id}` -> `{found: bool, subagent_id}`; `found:false` = it already finished. 4000 if `subagent_id` is empty.
+- `subagent.tail {session_id, subagent_id}` -> `{subagent_id, available, text, truncated}` (last 16 KB of a live child transcript). Not used by a ticket yet.
+- Events `subagent.spawn_requested | start | progress | thinking | tool | complete` share one payload: `goal, task_count, task_index` (required);
+  optional `subagent_id, parent_id, child_session_id, delegation_id, depth, model, tool_count, toolsets, input_tokens, output_tokens,
+  reasoning_tokens, api_calls, files_read, files_written, output_tail[{tool, preview, is_error}], tool_name, text, status, summary,
+  duration_seconds, tool_preview`. Older emitters omit the identity fields.
+- `SubagentStatus`: `queued | running | completed | failed | error | timeout | interrupted`; the last five are terminal.
+
+**Checkpoints** (`contracts/tools_commands.py:345-410`, `methods_tools.py:1208-1262`)
+- `rollback.list {session_id}` -> `{enabled: bool, checkpoints: [{hash, timestamp, message}]}`; `enabled:false` when checkpointing is off.
+- `rollback.diff {session_id, hash}` -> `{stat, diff, rendered?}` (ignore `rendered`, it is ANSI sized for the TUI). 4014 `hash required`, 5022.
+- `rollback.restore {session_id, hash}` (never send `file_path`: it is the single-file variant) -> open object: `success, restored_to?, reason?,
+  directory?, file?, restored_files?, skipped_user_edits?, skipped_oversize?, failed_deletes?, history_removed?, error?`. `history_removed` is
+  set for a full restore that also rewound the live transcript. 4014, 4009 `session busy` while a turn runs (full restore), 5021.
+- Generic failure codes (`methods_tools.py:1208-1262`, the `fail_code` of each handler): `rollback.list` 5020, `rollback.restore` 5021, `rollback.diff` 5022.
+
+Not checked in 4.6: handler bodies past the lines cited, `session.branch` result `info` shape, `ProjectTreeRepo` and `ProjectTreeSession` fields,
+any per-method gate on remote clients (none found in the earlier research), and behaviour on WorkLab.
 
 ---
 
@@ -674,6 +757,64 @@ Body `ModelAssignment` (`hermes_cli/web_models.py:105-123`): `{"scope": "main"|"
 "model": str, "task": str = "", "reasoning_effort"?: str|null (auxiliary only), "base_url": str = "",
 "api_key": str = "", "confirm_expensive_model": bool = false, "profile"?: str}`. 400 `scope must be 'main' or 'auxiliary'`.
 May return `{"ok":false,"confirm_required":true,"confirm_message":"…",…}`.
+
+---
+
+### REST endpoints for tickets 82-83, 86-90 (read on 2026-10-16 from `/opt/hermes-agent/hermes_cli/web_routers/`)
+
+Same source caveat as 4.6: not matched to `dce1e9b375`, not WorkLab. In gated mode a normal bearer token reaches all of these (the OAuth gate has
+no per-route scope check; `/api/config/schema` is public). A route that does not exist on the gateway answers 404; one that exists but needs
+a token answers 401 without one. Where a query says `profile`, send it only when the user picked a non-default profile (ticket 90).
+
+**Media and files** (`files.py`)
+- `GET /api/media?path=` -> `{data_url}` (base64 `data:` URL). Images only (png, jpg, jpeg, gif, webp, svg, bmp, ico; else 415); the path must
+  resolve under the gateway's media roots (else 403); 404 if missing; 413 over 25 MiB.
+- `GET /api/files/download?path=` -> the file as an attachment. Absolute paths only; a sensitive-file denylist answers 403 (`.env*`, `auth.json`,
+  `config.yaml`, credentials, MCP token and pairing directories); 409 for a live SQLite DB; capped at 100 MiB. Authenticate with the
+  `Authorization: Bearer` header (the `?token=` form works only with the dashboard's own session token).
+- `GET /api/fs/read-text?path=&profile=` -> `{binary, byteSize, language, mimeType, path, text, truncated}`; the preview is capped at 512 KiB
+  (`truncated: true` beyond it), the source at 64 MiB (413).
+- `GET /api/fs/download?path=&profile=&session_id=` -> attachment; `session_id` resolves a RELATIVE path against that session's cwd; same denylist.
+- `GET /api/fs/read-data-url?path=&profile=&session_id=` -> `{dataUrl}`.
+- The gateway has no parser for `MEDIA:` lines: the client takes the path from the message text and calls the route above.
+
+**Cron** (`cron.py`)
+- `GET /api/cron/jobs?profile=all` -> bare JSON ARRAY of job objects (not `{jobs: []}`), de-duplicated by id. `GET /api/cron/jobs/{id}` -> one job.
+- Job object keys (`cron/jobs.py:1895-1935`): `id, name, prompt, skills, skill, model, provider, base_url, script, no_agent, schedule (object),
+  schedule_display (string), repeat {times, completed}, enabled, state ("scheduled" | "paused" | "completed" | …), paused_at, paused_reason, created_at,
+  next_run_at, last_run_at, last_status, last_error, last_delivery_error, failure_streak, deliver, origin, enabled_toolsets, workdir`. Times are ISO
+  strings or epoch numbers depending on the field: read defensively, never `optString` a JSON null.
+- `GET /api/cron/jobs/{id}/runs?limit=20&profile=` -> `{runs: [...], limit}` newest first (limit 1-100); run rows are session rows plus
+  `is_active, scheduler_owned, archived`, or script-only output docs (`started_at` epoch seconds). Row keys beyond those were not read.
+- `POST /api/cron/jobs/{id}/pause`, `/resume` -> the updated job; `POST /api/cron/jobs/{id}/trigger` -> the job; 409 `Job is already running or was
+  claimed by another scheduler`; 404 `Job not found`.
+- `POST /api/cron/jobs` body: `schedule` (required), `prompt`, `name`, `deliver`, `paused`, `repeat`, and more; -> the stored job; 400 for a bad schedule.
+- `PUT /api/cron/jobs/{id}` body `{updates: {...}}` (the method is PUT, not PATCH) -> the job; 400 ValueError text, 404. `DELETE /api/cron/jobs/{id}` -> `{ok: true}`; 404; 400.
+
+**Insights** (`analytics.py:60-155`)
+- `GET /api/analytics/usage?days=30&profile=` (`days` 1-365) -> `{daily: [{day, input_tokens, output_tokens, cache_read_tokens, reasoning_tokens,
+  estimated_cost, actual_cost, sessions, api_calls}], by_model: [{model, input_tokens, output_tokens, estimated_cost, sessions, api_calls, ...}],
+  by_task, totals: {total_input, total_output, total_cache_read, total_reasoning, total_estimated_cost, total_actual_cost, total_sessions,
+  total_api_calls}, period_days, skills, tools}`. `totals` values come from SQL `SUM`, so they are JSON null when there are no sessions.
+
+**Capabilities** (`skills.py`, `tools.py`, `mcp.py`)
+- `GET /api/skills?profile=` -> JSON array of skill objects with `name`, `enabled`, `usage`, `provenance` ("hub" | "bundled" | "external" | "agent")
+  plus the skill's own fields (description, category). `PUT /api/skills/toggle` body `{name, enabled, profile?}` -> `{ok, name, enabled}`.
+- `GET /api/tools/toolsets?profile=` -> JSON array of `{name, label, description, platform, platform_label, enabled, available, configured, tools[]}`.
+  `PUT /api/tools/toolsets/{name}` body `{enabled, profile?}` -> `{ok, name, platform, enabled, post_setup_started}`.
+- `GET /api/mcp/servers?profile=` -> `{servers: [...]}` (row keys from `_mcp_server_summary`, not read; plugin-provided servers are marked there).
+  `PUT /api/mcp/servers/{name}/enabled` body `{enabled, profile?}` -> `{ok, name, enabled}`; 409 for a plugin-provided server; 404 unknown.
+  `POST /api/mcp/servers/{name}/test` -> `{ok, tools: [{name, description}], prompts, ...}`; a failed probe is HTTP 200 with `{ok: false, error}`.
+
+**Profiles** (`profiles.py`)
+- `GET /api/profiles` -> `{profiles: [{name, path, is_default, model, provider, has_env, skill_count, gateway_running, description, description_auto,
+  display_name, bot_title, distribution_name, distribution_version, distribution_source, has_alias}]}`.
+- `GET /api/profiles/active` -> `{active, current}` (both default to the text `"default"`). `POST /api/profiles/active` `{name}` -> `{ok, active}`
+  rewrites the host's sticky CLI profile for everyone and does not retarget the running gateway: **the app must never call it**.
+- Selecting a profile in the app is local: send `profile: <name>` on REST queries and RPC params that accept it (4064 when the profile is unavailable).
+
+Not checked in these REST sections: `cron.jobs` internals (run-row keys), `_mcp_server_summary` keys, loopback-mode behaviour with native tokens,
+plugin-registered routes, and every route on WorkLab.
 
 ---
 
