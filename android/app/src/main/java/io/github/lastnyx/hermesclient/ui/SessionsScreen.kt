@@ -316,6 +316,7 @@ fun SessionsHost(
                         title = chatTitle(listState.sessions, chatId),
                         onBack = if (wide) null else ({ chatOpen = false }),
                         seed = sharedDraft,
+                        onBranched = { id -> open(id); linkScope.launch { model.refresh() } },
                     )
                 }
             }

@@ -556,6 +556,23 @@ class ChatController(
         return result
     }
 
+    /** Stored id of a new chat holding the turns up to the one at user message [key], or null (with a fixed error text). */
+    suspend fun branch(key: String): String? {
+        settle()
+        val point = branchCount(_state.value.items, key)
+        val id = if (point == null) null else try {
+            val reply = if (point.whole) sessionCall("session.branch_whole") { it }
+            else sessionCall("session.branch") { it.put("count", point.count) }
+            branchedId(reply)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+        if (id == null) _state.update { it.copy(error = "Couldn't branch this chat.") }
+        return id
+    }
+
     /**
      * Text that cannot go now (redirect rejected or failed, or a prompt is open) is queued.
      * Returns false only when a plain submit failed, so the caller can keep the text.

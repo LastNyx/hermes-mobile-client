@@ -131,6 +131,7 @@ fun ChatHost(
     title: String,
     onBack: (() -> Unit)? = null,
     seed: String? = null,
+    onBranched: (String) -> Unit = {},
 ) {
     val key = draftKey(gatewayId, storedId)
     val scope = remember(storedId) { CoroutineScope(SupervisorJob() + Dispatchers.Main) }
@@ -169,7 +170,7 @@ fun ChatHost(
         controller.send(text)
     }
     val linkState by link.state.collectAsState()
-    ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack, promptActionsEnabled(linkState), seed)
+    ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack, promptActionsEnabled(linkState), seed, onBranched)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -186,6 +187,7 @@ fun ChatScreen(
     onBack: (() -> Unit)? = null,
     promptsEnabled: Boolean = true,
     seed: String? = null,
+    onBranched: (String) -> Unit = {},
 ) {
     val state by controller.state.collectAsState()
     val modelState by models.state.collectAsState()
@@ -287,6 +289,8 @@ fun ChatScreen(
                                 is ChatItem.Message -> MessageBubble(
                                     item,
                                     actions,
+                                    canBranch = !state.running,
+                                    onBranch = { scope.launch { controller.branch(item.key)?.let(onBranched) } },
                                     onRetry = { scope.launch { slash.runLine("/retry") } },
                                     onEdit = { rowId, text -> scope.launch { controller.rewind(rowId, text) } },
                                     onRegenerate = {
@@ -574,6 +578,8 @@ internal fun itemGapBefore(previous: ChatItem?, item: ChatItem): Int = when {
 private fun MessageBubble(
     item: ChatItem.Message,
     actions: MessageActions,
+    canBranch: Boolean,
+    onBranch: () -> Unit,
     onRetry: () -> Unit,
     onEdit: (Long, String) -> Unit,
     onRegenerate: () -> Unit,
@@ -623,6 +629,7 @@ private fun MessageBubble(
                         clipboard.setText(AnnotatedString(item.text))
                     },
                 )
+                if (canBranch) DropdownMenuItem(text = { Text("Branch from here") }, onClick = { menu = false; onBranch() })
             }
         }
     } else if (item.text.isNotEmpty()) {
