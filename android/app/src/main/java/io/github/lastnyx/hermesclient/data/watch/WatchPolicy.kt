@@ -15,6 +15,16 @@ sealed interface WatchAction {
     data class Clear(override val sessionId: String) : WatchAction
 }
 
+data class ApprovalButton(val label: String, val choice: String)
+
+/** Only one-shot answers go on a notification; "always" and "for session" stay in the chat. */
+fun approvalButtons(): List<ApprovalButton> = listOf(ApprovalButton("Allow once", "once"), ApprovalButton("Deny", "deny"))
+
+/** Android 12 (API 31) added the flag that makes a notification action wait for an unlocked phone. */
+fun actionNeedsUnlock(sdkInt: Int): Boolean = sdkInt >= 31
+
+fun offersReply(action: WatchAction.NeedsAnswer): Boolean = action.qid != null
+
 /**
  * Decides, from chat state, when the Watch service must run and which notifications to post.
  * Only turns started on the phone are watched; Desktop turns never start it.

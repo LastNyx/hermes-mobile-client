@@ -71,10 +71,9 @@ class WatchNotifier(private val context: Context) {
             .setAutoCancel(true)
             .setContentIntent(open(action.sessionId))
         if (action is WatchAction.NeedsApproval) {
-            builder.addAction(choiceAction(action, "Allow once", "once"))
-            builder.addAction(choiceAction(action, "Deny", "deny"))
+            approvalButtons().forEach { builder.addAction(choiceAction(action, it.label, it.choice)) }
         }
-        if (action is WatchAction.NeedsAnswer && action.qid != null) builder.addAction(replyAction(action, action.qid))
+        if (action is WatchAction.NeedsAnswer && offersReply(action)) action.qid?.let { builder.addAction(replyAction(action, it)) }
         manager.notify(action.sessionId.hashCode(), builder.build())
     }
 
@@ -100,6 +99,10 @@ class WatchNotifier(private val context: Context) {
             context, (action.sessionId + choice).hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        return Notification.Action.Builder(null, label, pending).build()
+        val builder = Notification.Action.Builder(null, label, pending)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && actionNeedsUnlock(Build.VERSION.SDK_INT)) {
+            builder.setAuthenticationRequired(true)
+        }
+        return builder.build()
     }
 }

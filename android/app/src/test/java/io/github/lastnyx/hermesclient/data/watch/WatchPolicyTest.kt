@@ -69,6 +69,21 @@ class WatchPolicyTest {
     }
 
     @Test
+    fun notificationButtonsAreTwoSafeChoicesApprovalsNeedUnlockAndOnlyOneQuestionOffersReply() {
+        assertEquals(listOf(ApprovalButton("Allow once", "once"), ApprovalButton("Deny", "deny")), approvalButtons())
+        approvalButtons().forEach { assertTrue(watchAnswer("p", it.choice) != null) }
+
+        assertFalse(actionNeedsUnlock(26))
+        assertFalse(actionNeedsUnlock(30))
+        assertTrue(actionNeedsUnlock(31))
+        assertTrue(actionNeedsUnlock(33))
+        assertTrue(actionNeedsUnlock(35))
+
+        assertTrue(offersReply(WatchAction.NeedsAnswer("s1", "p", qid = "q1", hasChoices = false)))
+        assertFalse(offersReply(WatchAction.NeedsAnswer("s1", "p", qid = null, hasChoices = false)))
+    }
+
+    @Test
     fun leavingTheChatEndsTheWatchWithAClear() {
         val policy = WatchPolicy()
         policy.turnStarted("s1")
