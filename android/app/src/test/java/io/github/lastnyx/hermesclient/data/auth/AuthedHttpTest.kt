@@ -69,6 +69,30 @@ class AuthedHttpTest {
         gateway.shutdown()
     }
 
+    @Test
+    fun anUnreadableStoreIsUnreadableStateWithNoRequestAndAnEmptyOneIsSignedOut() {
+        val gateway = MockWebServer()
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val request = Request.Builder().url("$base/api/sessions").build()
+        val bad = MemoryStorage().apply { text = "%%%not-base64" }
+        val authed = AuthedHttp(OkHttpClient(), TokenStore(bad, XorCipher()), "gw-1", base)
+        assertEquals(AuthState.Unreadable, authed.state.value)
+
+        val e = runCatching { authed.execute(request) }.exceptionOrNull()
+
+        assertEquals(java.io.IOException::class.java, e?.javaClass)
+        assertEquals(SAVED_SIGN_IN_UNREADABLE, e?.message)
+        assertEquals(0, gateway.requestCount)
+        assertEquals(AuthState.Unreadable, authed.state.value)
+
+        val empty = AuthedHttp(OkHttpClient(), TokenStore(MemoryStorage(), XorCipher()), "gw-1", base)
+        val e2 = runCatching { empty.execute(request) }.exceptionOrNull()
+        assertEquals("Signed out — sign in again", e2?.message)
+        assertEquals(AuthState.SignedOut, empty.state.value)
+        gateway.shutdown()
+    }
+
     private val rotated =
         """{"access_token":"at-2","refresh_token":"rt-2","token_type":"Bearer","expires_at":1760000000,"provider":"basic","user_id":"u1"}"""
 

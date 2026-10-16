@@ -15,6 +15,7 @@ sealed interface AuthState {
     data class SignedIn(val user: String) : AuthState
     data object Expired : AuthState
     data object AuthUnavailable : AuthState
+    data object Unreadable : AuthState
 }
 
 /** Signed-in REST for one gateway. Blocking; call off the main thread. */
@@ -30,7 +31,8 @@ class AuthedHttp(
     private val lock = Any()
     private val _state = object {
         private val flow = MutableStateFlow<AuthState>(
-            tokens.load(gatewayId)?.let { AuthState.SignedIn(it.userId) } ?: AuthState.SignedOut,
+            tokens.load(gatewayId)?.let { AuthState.SignedIn(it.userId) }
+                ?: if (tokens.isUnreadable()) AuthState.Unreadable else AuthState.SignedOut,
         )
         val stateFlow: StateFlow<AuthState> get() = flow
         var value: AuthState
@@ -41,10 +43,7 @@ class AuthedHttp(
 
     @Throws(IOException::class)
     fun execute(request: Request): Response {
-        var pair = tokens.load(gatewayId) ?: run {
-            _state.value = AuthState.SignedOut
-            throw IOException("Signed out — sign in again")
-        }
+        var pair = tokens.load(gatewayId) ?: throw missingTokens()
         if (pair.expiresAt <= 0 || now() >= pair.expiresAt - 60) pair = refresh(pair.accessToken)
         val response = http.newCall(withBearer(request, pair)).execute()
         if (response.code != 401 || !replayable(request) || !refreshable(response)) {
@@ -63,6 +62,15 @@ class AuthedHttp(
         }
     }
 
+    private fun missingTokens(): IOException =
+        if (tokens.isUnreadable()) {
+            _state.value = AuthState.Unreadable
+            IOException(SAVED_SIGN_IN_UNREADABLE)
+        } else {
+            _state.value = AuthState.SignedOut
+            IOException("Signed out — sign in again")
+        }
+
     private fun withBearer(request: Request, pair: TokenPair) =
         request.newBuilder().header("Authorization", "Bearer ${pair.accessToken}").build()
 
@@ -77,7 +85,7 @@ class AuthedHttp(
 
     /** [usedAccess] is the token the caller failed with; if another caller already rotated it, reuse that result. */
     private fun refresh(usedAccess: String): TokenPair = synchronized(lock) {
-        val current = tokens.load(gatewayId) ?: throw IOException("Signed out — sign in again")
+        val current = tokens.load(gatewayId) ?: throw missingTokens()
         if (current.accessToken != usedAccess) return current
         val body = JSONObject().put("refresh_token", current.refreshToken).put("provider", current.provider)
             .toString().toRequestBody("application/json".toMediaType())

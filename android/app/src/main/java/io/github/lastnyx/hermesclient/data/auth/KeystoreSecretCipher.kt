@@ -8,7 +8,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** Output is a 12-byte IV followed by the ciphertext. A failed decrypt makes TokenStore treat tokens as absent. */
+/** Output is a 12-byte IV followed by the ciphertext. A failed decrypt makes TokenStore.isUnreadable() true. */
 class KeystoreSecretCipher : SecretCipher {
     override fun encrypt(plain: ByteArray): ByteArray {
         val cipher = Cipher.getInstance(TRANSFORM).apply { init(Cipher.ENCRYPT_MODE, key()) }

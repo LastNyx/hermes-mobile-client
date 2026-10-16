@@ -285,7 +285,7 @@ fun SessionsHost(
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer); link.stop() }
     }
-    LaunchedEffect(auth) { if (auth == AuthState.Expired) link.stop() }
+    LaunchedEffect(auth) { if (auth == AuthState.Expired || auth == AuthState.Unreadable) link.stop() }
 
     Column(Modifier.fillMaxSize()) {
         val linkState by link.state.collectAsState()
@@ -326,7 +326,7 @@ private fun SessionsBody(
     statusDot: @Composable () -> Unit,
     chat: @Composable (Modifier) -> Unit,
 ) {
-    val expired = auth == AuthState.Expired
+    val expired = auth == AuthState.Expired || auth == AuthState.Unreadable
     if (wide) {
         Row(Modifier.fillMaxSize()) {
             SessionsScreen(model, expired, open, onGateways, viewStore, Modifier.width(360.dp).fillMaxHeight(), offline, statusDot)

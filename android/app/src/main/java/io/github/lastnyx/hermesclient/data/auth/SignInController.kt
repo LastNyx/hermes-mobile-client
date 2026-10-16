@@ -30,8 +30,11 @@ class SignInController(
     val states: StateFlow<Map<String, SignInState>> = _states
 
     fun stateOf(gatewayId: String): SignInState =
-        _states.value[gatewayId]
-            ?: if (tokens.load(gatewayId) != null) SignInState.SignedIn(FALLBACK_NAME) else SignInState.SignedOut(null)
+        _states.value[gatewayId] ?: when {
+            tokens.isUnreadable() -> SignInState.SignedOut(SAVED_SIGN_IN_UNREADABLE)
+            tokens.load(gatewayId) != null -> SignInState.SignedIn(FALLBACK_NAME)
+            else -> SignInState.SignedOut(null)
+        }
 
     /** Ignored while another sign-in runs. */
     suspend fun signIn(gatewayId: String, baseUrl: String) {
@@ -81,6 +84,7 @@ class SignInController(
         when (auth) {
             AuthState.Expired -> set(gatewayId, SignInState.SignedOut(SIGNED_OUT_MESSAGE))
             AuthState.AuthUnavailable -> set(gatewayId, SignInState.Unavailable)
+            AuthState.Unreadable -> set(gatewayId, SignInState.SignedOut(SAVED_SIGN_IN_UNREADABLE))
             AuthState.SignedOut -> if (current !is SignInState.SignedOut) set(gatewayId, SignInState.SignedOut(null))
             is AuthState.SignedIn ->
                 if (current is SignInState.Unavailable || current is SignInState.SignedOut) {

@@ -83,6 +83,32 @@ class SignInControllerTest {
     }
 
     @Test
+    fun anUnreadableStoreSaysSoAndASignInRepairsIt() = runBlocking {
+        val gateway = MockWebServer()
+        gateway.enqueue(MockResponse().setBody(tokenJson))
+        gateway.enqueue(MockResponse().setBody("""{"display_name":"Ada"}"""))
+        gateway.start()
+        val base = gateway.url("/").toString().trimEnd('/')
+        val message = "Saved sign-in could not be read; sign in again"
+        val storage = MemoryStorage().apply { text = "%%%not-base64" }
+        val tokens = TokenStore(storage, XorCipher())
+        val controller = SignInController(OkHttpClient(), tokens, completingBrowser(mutableListOf()))
+
+        assertEquals(SignInState.SignedOut(message), controller.stateOf("gw-1"))
+        assertEquals(SignInState.SignedOut(null), SignInController(OkHttpClient(), TokenStore(MemoryStorage(), XorCipher()), completingBrowser(mutableListOf())).stateOf("gw-1"))
+
+        val authed = controller.authed("gw-1", base)
+        runCatching { authed.execute(okhttp3.Request.Builder().url("$base/api/sessions").build()) }
+        assertEquals(SignInState.SignedOut(message), controller.states.value["gw-1"])
+        assertEquals(0, gateway.requestCount)
+
+        controller.signIn("gw-1", base)
+        assertEquals(SignInState.SignedIn("Ada"), controller.stateOf("gw-1"))
+        assertEquals(false, tokens.isUnreadable())
+        gateway.shutdown()
+    }
+
+    @Test
     fun meFailingStillSignsInWithFallbackName() = runBlocking {
         val gateway = MockWebServer()
         gateway.enqueue(MockResponse().setBody(tokenJson))

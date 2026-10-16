@@ -1,5 +1,6 @@
 package io.github.lastnyx.hermesclient.ui
 
+import io.github.lastnyx.hermesclient.data.auth.SAVED_SIGN_IN_UNREADABLE
 import io.github.lastnyx.hermesclient.data.auth.SignInController
 import io.github.lastnyx.hermesclient.data.auth.SignInState
 
@@ -18,7 +19,7 @@ internal fun gatewayStatusLine(state: SignInState, testResult: String?): Gateway
         SignInState.Unavailable -> GatewayStatus("Gateway auth unavailable, retrying", StatusTone.Warning)
         is SignInState.SignedOut -> when (state.message) {
             null -> GatewayStatus("Signed out", StatusTone.Normal)
-            SignInController.SIGNED_OUT_MESSAGE -> GatewayStatus(state.message, StatusTone.Error)
+            SignInController.SIGNED_OUT_MESSAGE, SAVED_SIGN_IN_UNREADABLE -> GatewayStatus(state.message, StatusTone.Error)
             else -> GatewayStatus(state.message, StatusTone.Normal)
         }
     }

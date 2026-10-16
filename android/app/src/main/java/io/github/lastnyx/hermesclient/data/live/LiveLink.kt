@@ -169,7 +169,7 @@ class LiveLink(
             }
         } catch (e: IOException) {
             val auth = authed.state.value
-            if (auth == AuthState.SignedOut || auth == AuthState.Expired) Minted.SignedOut else Minted.Failed
+            if (auth == AuthState.SignedOut || auth == AuthState.Expired || auth == AuthState.Unreadable) Minted.SignedOut else Minted.Failed
         } catch (e: Exception) {
             Minted.Failed
         }
