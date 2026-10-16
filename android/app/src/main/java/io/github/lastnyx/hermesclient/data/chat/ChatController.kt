@@ -93,7 +93,8 @@ class ChatController(
             link.state.collect { link ->
                 // Not yet opened means this is the first connect, which open() handles.
                 if (link == LinkState.Connected && _state.value.sessionId != null) scope.launch {
-                    catchUp()
+                    // session.events.since replays but does not re-attach: only activate re-binds the new socket.
+                    if (!reattach()) catchUp()
                     // Process changes during the drop are otherwise missed; kept out of adopt() so catch-up stays untouched.
                     refreshProcesses()
                 }
@@ -311,6 +312,28 @@ class ChatController(
             synchronized(queueLock) { sendNowReady = true }
             drainQueue()
         }
+    }
+
+    /** True when the session was gone and history was reloaded, so the since call is not needed. */
+    private suspend fun reattach(): Boolean {
+        try {
+            link.call("session.activate", JSONObject().put("session_id", _state.value.sessionId))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: RpcError) {
+            if (e.code != 4001 && e.code != 4007) return false
+            try {
+                reload(null)
+            } catch (c: CancellationException) {
+                throw c
+            } catch (x: Exception) {
+                fail(x)
+            }
+            return true
+        } catch (e: IOException) {
+            // The next reconnect or event gap tries again.
+        }
+        return false
     }
 
     private suspend fun catchUp() {

@@ -77,8 +77,9 @@ class ChatControllerTest {
                         webSocket.send(event("message.delta", """{"text":"lo"}""", 2))
                         webSocket.close(1001, "")
                     }
+                    "session.activate" -> result("""{"session_id":"rt2","stored_session_id":"stored-1","running":true}""")
                     "session.events.since" -> {
-                        sinceParams += params.toString().let { p -> JSONObject(p).let { "${it.getString("session_id")} ${it.getInt("last_seen")} ${it.length()}" } }
+                        sinceParams +=params.toString().let { p -> JSONObject(p).let { "${it.getString("session_id")} ${it.getInt("last_seen")} ${it.length()}" } }
                         result(
                             """{"events":[{"type":"message.delta","session_id":"rt2","payload":{"text":"lo"},"seq":2},""" +
                                 """{"type":"message.delta","session_id":"rt2","payload":{"text":"!"},"seq":3}],""" +
@@ -147,6 +148,7 @@ class ChatControllerTest {
                         resumeKeys += frame.getJSONObject("params").keys().asSequence().sorted().joinToString(",")
                         result("""{"session_id":"rt2","stored_session_id":"stored-1","running":false}""")
                     }
+                    "session.activate" -> result("""{"session_id":"rt2","stored_session_id":"stored-1","running":true}""")
                     "session.events.since" -> {
                         sinceCalls.incrementAndGet()
                         result(

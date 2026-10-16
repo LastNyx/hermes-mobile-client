@@ -82,6 +82,7 @@ class EventGapChatTest {
                 when (frame.optString("method")) {
                     "client.capabilities", "process.list" -> result("{}")
                     "session.resume" -> result("""{"session_id":"rt2","stored_session_id":"stored-1","running":true}""")
+                    "session.activate" -> result("""{"session_id":"rt2","stored_session_id":"stored-1","running":true}""")
                     "session.events.since" -> {
                         val p = frame.getJSONObject("params")
                         r.sinceParams += "${p.getString("session_id")} ${p.getInt("last_seen")}"
