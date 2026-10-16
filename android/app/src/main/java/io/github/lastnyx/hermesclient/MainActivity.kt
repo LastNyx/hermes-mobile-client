@@ -3,6 +3,7 @@ package io.github.lastnyx.hermesclient
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +26,8 @@ import io.github.lastnyx.hermesclient.data.auth.KeystoreSecretCipher
 import io.github.lastnyx.hermesclient.data.auth.SignInController
 import io.github.lastnyx.hermesclient.data.auth.SignInState
 import io.github.lastnyx.hermesclient.data.auth.TokenStore
+import io.github.lastnyx.hermesclient.data.capabilities.CapabilitiesModel
+import io.github.lastnyx.hermesclient.data.capabilities.CapabilitiesRepository
 import io.github.lastnyx.hermesclient.data.gateway.GatewayClient
 import io.github.lastnyx.hermesclient.data.gateway.GatewayRegistry
 import io.github.lastnyx.hermesclient.data.gateway.PrefsGatewayStorage
@@ -36,6 +39,7 @@ import io.github.lastnyx.hermesclient.data.update.ApkInstaller
 import io.github.lastnyx.hermesclient.data.update.UpdateController
 import io.github.lastnyx.hermesclient.data.update.Updater
 import io.github.lastnyx.hermesclient.data.watch.EXTRA_SESSION_ID
+import io.github.lastnyx.hermesclient.ui.CapabilitiesScreen
 import io.github.lastnyx.hermesclient.ui.GatewaysScreen
 import io.github.lastnyx.hermesclient.ui.SessionsHost
 import io.github.lastnyx.hermesclient.ui.SettingsScreen
@@ -113,12 +117,20 @@ class MainActivity : ComponentActivity() {
                     }
                     val updateUi by updates.state.collectAsState()
                     val active = registry.active()
-                    if (showSettings) {
+                    var showCapabilities by rememberSaveable { mutableStateOf(false) }
+                    val capabilities = remember(active?.id, active?.url) {
+                        active?.let { CapabilitiesModel(CapabilitiesRepository(signIn.authed(it.id, it.url), it.url), Dispatchers.IO) }
+                    }
+                    if (showSettings && showCapabilities && capabilities != null) {
+                        BackHandler { showCapabilities = false }
+                        CapabilitiesScreen(capabilities, onBack = { showCapabilities = false })
+                    } else if (showSettings) {
                         SettingsScreen(
                             updates, BuildConfig.VERSION_NAME,
                             textScale = textScale,
                             onTextScale = { textScale = it; textScaleStore.set(it) },
                             onBack = { showSettings = false },
+                            onOpenCapabilities = capabilities?.let { { showCapabilities = true } },
                         )
                     } else if (showGateways || active == null) {
                         GatewaysScreen(

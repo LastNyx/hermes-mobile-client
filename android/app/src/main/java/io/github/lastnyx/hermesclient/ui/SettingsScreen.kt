@@ -35,6 +35,7 @@ fun SettingsScreen(
     textScale: TextScale,
     onTextScale: (TextScale) -> Unit,
     onBack: () -> Unit,
+    onOpenCapabilities: (() -> Unit)? = null,
 ) {
     val ui by updates.state.collectAsState()
     val scope = rememberCoroutineScope()
@@ -61,6 +62,12 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+        }
+        if (onOpenCapabilities != null) {
+            Section("Capabilities") {
+                Text("Skills, toolsets and MCP servers", style = roles.secondary)
+                Button(onClick = onOpenCapabilities) { Text("Capabilities") }
             }
         }
         Section("About") {
