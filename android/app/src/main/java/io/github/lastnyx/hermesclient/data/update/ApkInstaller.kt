@@ -8,8 +8,6 @@ import android.content.pm.PackageInstaller
 import android.os.Build
 import java.io.File
 
-private const val ACTION = "io.github.lastnyx.hermesclient.INSTALL_STATUS"
-
 /** Thin glue: streams the verified APK into a PackageInstaller session. */
 object ApkInstaller {
     fun install(context: Context, apk: File) {
@@ -26,7 +24,7 @@ object ApkInstaller {
                     session.fsync(out)
                 }
             }
-            val intent = Intent(ACTION).setPackage(context.packageName)
+            val intent = Intent(context, InstallStatusReceiver::class.java)
             val pending = PendingIntent.getBroadcast(
                 context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
             )

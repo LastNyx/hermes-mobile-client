@@ -1,9 +1,12 @@
 package io.github.lastnyx.hermesclient.data.update
 
 import java.io.File
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+
+private const val INSTALL_START_FAILED = "Couldn't start the install"
 
 data class UpdateUi(val status: String = "", val available: UpdateInfo? = null, val busy: Boolean = false)
 
@@ -43,7 +46,13 @@ class UpdateController(
         val result = kotlinx.coroutines.withContext(io) { updater.download(info, File(cacheDir, "update.apk")) }
         result.onSuccess {
             _state.value = UpdateUi("Installing…", info)
-            install(it)
+            try {
+                install(it)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.value = UpdateUi(INSTALL_START_FAILED, info)
+            }
         }.onFailure { _state.value = UpdateUi(it.message ?: CANT_REACH_GITHUB, info) }
     }
 }
