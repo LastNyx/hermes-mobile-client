@@ -311,6 +311,69 @@ The reason string for 4401 is `auth: <reason>` on the `/api/console`/`/api/pty` 
   - `open_requests` (also on `session.resume`/`session.activate`): `[{"id":"srq-…","method":"approval","params":{…}}]` —
     re-show these prompts exactly as if just received (`server_requests.py:15-18,86-92`).
 
+### 3.7 Shared sessions: two clients on one chat (investigation)
+Question: does the Desktop app take over the phone's chat stream when both open the same chat? Talaria's notes say
+"a `session.resume` from another client takes over the event stream" and "detached sessions lose events and orphans
+may be reaped after 20 s". This section records what the source says and what the phone test showed.
+
+**What the app sends.** New chat: `session.create` with no params (`close_on_disconnect` takes the server default,
+false). Existing chat: `loadHistory`, then `session.resume {session_id: <stored id>}` with no extras. On a 4001 it
+resumes the stored id again. After a reconnect it calls `session.events.since`. The app never calls `session.close`
+and does not handle `session.reclaimed`.
+
+**Source reading (not live-verified).** Read from the Hermes checkout `tui_gateway` on 2026-10-15 and from
+`/opt/hermes-agent/tui_gateway` on 2026-10-16:
+- `session_lifecycle.py:830-852 _rebind_live_transport`: attaches a live peer "without displacing existing
+  subscribers" and cancels a pending orphan reap.
+- `session_transports.py:71-103 _attach_session_transport`: a second live peer turns the session transport into a
+  `FanoutTransport(existing, transport)`; a third just attaches. `transport.py:143-175 FanoutTransport`: ordered,
+  bounded per-peer mailboxes (256 frames / 4 MiB); RPC replies stay request-local. A peer that cannot keep up is
+  detached and its socket closed, so the client must reconnect and replay.
+- `methods_session.py:877-899 _resume_reuse_live_locked`: `session.resume` of a live session reattaches, cancels the
+  reap timer and returns the snapshot. `methods_prompt.py:738-748`: `prompt.submit` also rebinds the caller's transport.
+- `session_transports.py:106-120 _detach_session_transport`: a disconnect parks the session (starting the 20 s reap)
+  only when no other live client is attached.
+- `_reattach_refusal` (`session_lifecycle.py:818-827`) can refuse with 4009 "session disconnect interrupt settling"
+  or 4007 "session no longer live; retry resume".
+- `methods_prompt.py` has no event that announces a prompt submitted by one client to the session's other
+  subscribers: the other client receives the reply stream (`message.delta`, `message.complete`) but not the user message.
+- The source reading predicts that Desktop's resume adds a subscriber instead of replacing the phone's. The phone
+  test decides; the source alone does not.
+
+**The phone test (verbatim).**
+1. Gateway running, phone signed in. On the phone open Hermes and start a NEW chat; send "say hello". Wait for the reply. Note the chat title (the chat now exists on the gateway).
+2. On Desktop (the Hermes desktop app on the same gateway/profile) open the same chat from the sidebar. Do not send anything yet.
+3. On the phone, send "count from 1 to 20 slowly, one number per line, using a terminal sleep between numbers". While it streams, watch the PHONE: do the numbers keep appearing until the end? Also watch the Desktop: do the numbers appear there too? Write down: phone keeps streaming (yes/no), Desktop shows the stream (yes/no).
+4. When that turn finishes, on Desktop send "say desktop here". Watch the PHONE for 30 s without touching it: does "say desktop here" and its reply appear on the phone (yes/no)? Does the live-link indicator stay Connected (yes/no)?
+5. Send a second message from the phone ("say phone again"). Does the phone get its own reply (yes/no)? Does Desktop show it (yes/no)?
+6. Close the chat on Desktop (leave it, or quit the Desktop app) and wait 40 s with the phone chat still open and idle. Send "still there?" from the phone. Does it work (yes/no)? If the phone shows an error or an empty reply, write the exact words.
+7. Reverse: on the phone, leave the chat (back to the list) and wait 40 s. Reopen it from the list. Is the whole history there and does sending work (yes/no)? (This checks the 20 s orphan reap on the phone's own detach.)
+
+**Outcomes.** "Code change" is a follow-up ticket, not part of this investigation. Combined outcomes apply each row.
+
+| Letter | Observed | Meaning | Code change (later ticket) |
+|---|---|---|---|
+| A | Step 3 and 4 both yes, step 5 yes, step 6 yes | Resume adds a subscriber (as the source reads); no takeover | None. Keep `session.resume` as is. Record in PROTOCOL.md that two clients can share a chat. |
+| B | Step 3 yes but step 4 no (phone stops receiving after Desktop's message or the Desktop open) | Desktop's resume/submit takes the stream from the phone | On the phone: when events stop while the chat is open and the link is Connected, call `session.resume {session_id: <stored id>}` again when the app returns to the foreground and on a tap-to-refresh; show a plain note "This chat is open on another device" if `session.events.since` shows no new seq for a running turn. No change to `session.create`. |
+| C | Step 6 fails (4001 or empty after Desktop leaves) | Detach by the Desktop reaped or parked the session for the phone too | `sessionCall` already retries 4001 with `session.resume`; make `ChatController` also handle `session.reclaimed` for the open chat by resuming the stored id once, and say so in the chat as a note; add a test for it. |
+| D | Step 7 fails (history missing or send fails after 40 s away) | The 20 s orphan reap ended the live session; reopen must resume | Confirm `open()` for an existing chat always does `loadHistory` + `session.resume`; if a reply is missing, fix the order of those two calls; add a test with a mock gateway answering 4001 on the first `prompt.submit`. Consider `close_on_disconnect` unchanged (default false). |
+| E | Something else | Unknown | Report the exact observation; the planner decides. |
+
+**Observed on WorkLab, 2026-10-16 (user).** Outcome E, with rows A, C and D confirmed:
+- Steps 1 to 7 worked. The phone streamed its own turn to the end (step 3), stayed Connected, got its own reply
+  (step 5), still sent after Desktop left (step 6), and reopened with full history (step 7). So the test showed no
+  takeover (B), no reaping for the phone (C) and no orphan problem on reopen (D).
+- Deviation: a message written from Desktop does not appear on the phone live, and the phone's message does not
+  appear on Desktop live, in both directions. The user's words: "the chat won't appear. i know it's problem from
+  hermes, it's kinda delay". It shows after a delay (not recorded whether reopening the chat is needed).
+- Recorded as gateway behaviour. The cause is not proven. The source reading above (no event announcing another
+  client's prompt; bounded fanout mailboxes that reset a slow peer and replay history) could explain it but was
+  not live-verified.
+- Decision (user, 2026-10-16): no app code change. A possible later ticket, not part of this one: refresh history
+  on the open chat when a reply from another client completes.
+
+Status: waiting for the user's phone test; no code change until a letter is reported.
+
 ---
 
 ## 4. JSON-RPC methods (client → server)
