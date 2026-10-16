@@ -73,6 +73,8 @@ import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
 import io.github.lastnyx.hermesclient.data.sessions.groupSessions
 import io.github.lastnyx.hermesclient.data.settings.DraftStore
 import io.github.lastnyx.hermesclient.data.settings.PrefsDraftStorage
+import io.github.lastnyx.hermesclient.data.settings.draftKey
+import io.github.lastnyx.hermesclient.data.share.ShareRequest
 import io.github.lastnyx.hermesclient.data.settings.PrefsSessionViewStorage
 import io.github.lastnyx.hermesclient.data.settings.SessionViewStore
 import io.github.lastnyx.hermesclient.data.watch.WatchHub
@@ -248,6 +250,7 @@ fun SessionsHost(
     signIn: SignInController,
     onGateways: () -> Unit,
     openSessionId: String? = null,
+    share: ShareRequest? = null,
 ) {
     val authed = remember(gateway.id, gateway.url) { signIn.authed(gateway.id, gateway.url) }
     val model = remember(authed) { SessionListModel(SessionsRepository(authed, gateway.url), Dispatchers.IO) }
@@ -256,7 +259,10 @@ fun SessionsHost(
     var chatId by rememberSaveable(gateway.id) { mutableStateOf<String?>(null) }
     val wide = LocalConfiguration.current.screenWidthDp >= 720
     var chatKey by rememberSaveable(gateway.id) { mutableStateOf(0) }
-    val open = { id: String? -> chatId = id; chatKey++; chatOpen = true }
+    // Shared text for the new chat; the old new-chat screen saves its own text on the way out, so the
+    // fresh composer takes this directly instead of reading the store.
+    var sharedDraft by remember { mutableStateOf<String?>(null) }
+    val open = { id: String? -> sharedDraft = null; chatId = id; chatKey++; chatOpen = true }
     BackHandler(enabled = chatOpen && !wide) { chatOpen = false }
     LaunchedEffect(openSessionId) { if (openSessionId != null) open(openSessionId) }
 
@@ -264,6 +270,13 @@ fun SessionsHost(
     val context = LocalContext.current
     val viewStore = remember { SessionViewStore(PrefsSessionViewStorage(context.applicationContext)) }
     val drafts = remember { DraftStore(PrefsDraftStorage(context.applicationContext)) }
+    LaunchedEffect(share) {
+        if (share != null) {
+            drafts.set(draftKey(gateway.id, null), share.draft)
+            open(null)
+            sharedDraft = share.draft
+        }
+    }
     val network = remember { AndroidNetworkMonitor(context) }
     DisposableEffect(network) { onDispose { network.close() } }
     val link = remember(authed) { LiveLink(http, authed, gateway.url, linkScope, network) }
@@ -302,6 +315,7 @@ fun SessionsHost(
                         chatId, link, repo, gateway.id, drafts, Modifier.weight(1f),
                         title = chatTitle(listState.sessions, chatId),
                         onBack = if (wide) null else ({ chatOpen = false }),
+                        seed = sharedDraft,
                     )
                 }
             }

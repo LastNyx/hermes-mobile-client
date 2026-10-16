@@ -30,6 +30,8 @@ import io.github.lastnyx.hermesclient.data.gateway.GatewayRegistry
 import io.github.lastnyx.hermesclient.data.gateway.PrefsGatewayStorage
 import io.github.lastnyx.hermesclient.data.gateway.restClient
 import io.github.lastnyx.hermesclient.data.settings.PrefsTextScaleStorage
+import io.github.lastnyx.hermesclient.data.share.ShareRequest
+import io.github.lastnyx.hermesclient.data.share.draftFromShare
 import io.github.lastnyx.hermesclient.data.update.ApkInstaller
 import io.github.lastnyx.hermesclient.data.update.UpdateController
 import io.github.lastnyx.hermesclient.data.update.Updater
@@ -47,14 +49,28 @@ class MainActivity : ComponentActivity() {
     // Set when a Watch notification is tapped; SessionsHost opens that chat.
     private var requestedSession by mutableStateOf<String?>(null)
 
+    private var shareRequest by mutableStateOf<ShareRequest?>(null)
+    private var shareCount = 0L
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        requestedSession = intent.getStringExtra(EXTRA_SESSION_ID)
+        setIntent(intent)
+        intent.getStringExtra(EXTRA_SESSION_ID)?.let { requestedSession = it }
+        handleShare(intent)
+    }
+
+    // The text only fills the new-chat composer (SessionsHost); it is never sent.
+    private fun handleShare(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_SEND || intent.type?.startsWith("text/") != true) return
+        val text = intent.getStringExtra(Intent.EXTRA_TEXT) ?: intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+        val draft = draftFromShare(intent.getStringExtra(Intent.EXTRA_SUBJECT), text) ?: return
+        shareRequest = ShareRequest(++shareCount, draft)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedSession = intent?.getStringExtra(EXTRA_SESSION_ID)
+        if (savedInstanceState == null) handleShare(intent)
         enableEdgeToEdge()
         val registry = GatewayRegistry(PrefsGatewayStorage(applicationContext))
         val http = OkHttpClient()
@@ -112,7 +128,7 @@ class MainActivity : ComponentActivity() {
                             updateStatus = updateUi.status,
                         )
                     } else {
-                        SessionsHost(active, http, signIn, onGateways = { showGateways = true }, openSessionId = requestedSession)
+                        SessionsHost(active, http, signIn, onGateways = { showGateways = true }, openSessionId = requestedSession, share = shareRequest)
                     }
                 }
             }

@@ -129,6 +129,7 @@ fun ChatHost(
     modifier: Modifier = Modifier,
     title: String,
     onBack: (() -> Unit)? = null,
+    seed: String? = null,
 ) {
     val key = draftKey(gatewayId, storedId)
     val scope = remember(storedId) { CoroutineScope(SupervisorJob() + Dispatchers.Main) }
@@ -167,7 +168,7 @@ fun ChatHost(
         controller.send(text)
     }
     val linkState by link.state.collectAsState()
-    ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack, promptActionsEnabled(linkState))
+    ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack, promptActionsEnabled(linkState), seed)
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -183,12 +184,13 @@ fun ChatScreen(
     title: String,
     onBack: (() -> Unit)? = null,
     promptsEnabled: Boolean = true,
+    seed: String? = null,
 ) {
     val state by controller.state.collectAsState()
     val modelState by models.state.collectAsState()
     val scope = rememberCoroutineScope()
     var field by remember(key) {
-        val saved = drafts.get(key)
+        val saved = seed ?: drafts.get(key)
         mutableStateOf(TextFieldValue(saved, TextRange(saved.length)))
     }
     val draft = field.text
