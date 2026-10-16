@@ -288,21 +288,12 @@ fun ChatScreen(
             if (onBack != null) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
             }
-            Text(
+            ChatHeaderTitle(
                 title,
-                Modifier.weight(1f).padding(start = if (onBack == null) 4.dp else 0.dp),
-                style = roles.title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                modelChipLabel(modelState.model, modelState.reasoningEffort),
+                onChip = { picking = true },
+                stacked = headerStacked(onBack != null),
             )
-            TextButton(onClick = { picking = true }) {
-                Text(
-                    modelChipLabel(modelState.model, modelState.reasoningEffort),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = roles.label,
-                )
-            }
             Box {
                 IconButton(onClick = { overflow = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
                 DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
