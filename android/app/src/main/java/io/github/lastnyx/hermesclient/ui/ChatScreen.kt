@@ -92,8 +92,8 @@ import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.chat.ChatController
 import io.github.lastnyx.hermesclient.data.chat.ChatItem
 import io.github.lastnyx.hermesclient.data.chat.ModelsController
-import io.github.lastnyx.hermesclient.data.chat.NoticeLevel
 import io.github.lastnyx.hermesclient.data.chat.ModelsState
+import io.github.lastnyx.hermesclient.data.chat.NoticeLevel
 import io.github.lastnyx.hermesclient.data.chat.Prompt
 import io.github.lastnyx.hermesclient.data.chat.REASONING_LEVELS
 import io.github.lastnyx.hermesclient.data.chat.SlashCommands

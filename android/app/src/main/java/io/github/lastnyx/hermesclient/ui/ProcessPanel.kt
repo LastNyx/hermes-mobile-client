@@ -31,8 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.lastnyx.hermesclient.data.chat.BackgroundProcess
 import io.github.lastnyx.hermesclient.data.chat.ANSI
+import io.github.lastnyx.hermesclient.data.chat.BackgroundProcess
 import io.github.lastnyx.hermesclient.data.chat.ProcessState
 import kotlinx.coroutines.launch
 
@@ -141,7 +141,7 @@ fun ProcessPanel(
                         }
                         if (p.id in shownOutput) {
                             SelectionContainer {
-                                Text(processOutputText(p),Modifier.padding(bottom = LIST_GAP.dp), style = roles.code)
+                                Text(processOutputText(p), Modifier.padding(bottom = LIST_GAP.dp), style = roles.code)
                             }
                         }
                     }
