@@ -545,8 +545,6 @@ private fun ClarifyCard(prompt: Prompt.Clarify, enabled: Boolean, guard: TapGuar
     }
 }
 
-// A turn is a prompt plus the reply's parts: air after the prompt and before the next
-// prompt, tight between the reply's own parts.
 @Composable
 private fun noticeColor(level: NoticeLevel): Color = when (level) {
     NoticeLevel.Error -> MaterialTheme.colorScheme.error
@@ -554,6 +552,8 @@ private fun noticeColor(level: NoticeLevel): Color = when (level) {
     NoticeLevel.Info, NoticeLevel.Success -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
+// A turn is a prompt plus the reply's parts: air after the prompt and before the next
+// prompt, tight between the reply's own parts.
 internal fun itemGapBefore(previous: ChatItem?, item: ChatItem): Int = when {
     previous == null -> 0
     item is ChatItem.Message && item.role == "user" -> PROMPT_TO_REPLY_GAP
