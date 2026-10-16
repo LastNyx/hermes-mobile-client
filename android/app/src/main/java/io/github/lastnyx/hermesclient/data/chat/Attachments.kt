@@ -17,6 +17,7 @@ object AttachLimits {
     const val JPEG_QUALITY = 85
     const val IMAGE_ATTACH_TIMEOUT_MS = 90_000L
     const val FILE_ATTACH_TIMEOUT_MS = 120_000L
+    const val IMAGE_DETACH_TIMEOUT_MS = 120_000L
 }
 
 private val IMAGE_MIMES = setOf("image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp", "image/heic", "image/heif")

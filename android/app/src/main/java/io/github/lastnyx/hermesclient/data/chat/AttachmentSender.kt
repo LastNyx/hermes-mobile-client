@@ -43,7 +43,7 @@ class AttachmentSender(
     suspend fun detach(paths: List<String>) {
         for (p in paths) {
             try {
-                call("image.detach", 120_000L) { it.put("path", p) }
+                call("image.detach", AttachLimits.IMAGE_DETACH_TIMEOUT_MS) { it.put("path", p) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
