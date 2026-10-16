@@ -51,7 +51,7 @@ Built (tickets 23-26) and phone-checked by the user on 2026-10-14.
 - [x] Docs worker, drift report (2026-10-14).
 - [x] Release decision (2026-10-14): no release. The user runs the debug build for himself; v0.1.0 stays the only tag.
 
-## Phase 5: research tickets 57-109 (2026-10-15 to 2026-10-16)
+## Phase 5: research tickets 57-109 plus 82, 83, 68 (2026-10-15 to 2026-10-16)
 Tickets came from the research rounds (`.scratch/research-*.md`). Batches are in `.scratch/v1/batches.md`; every one below passed the reviewer. Phone checks are by the user on a Realme RMX1921 (Android 11).
 - [x] Batch 17 (57-60, 98): history latest page, tool row, dismissed processes, answer result, id-less keys. Review rounds: 2.
 - [x] Batch 18 (61-63, 65, 99, 100): failed Stop, updater install status, event-gap catch-up, drafts. Rounds: 3. Phone-checked 2026-10-16.
@@ -67,8 +67,8 @@ Tickets came from the research rounds (`.scratch/research-*.md`). Batches are in
 - [x] Batch 26 (91-93 and two fixes): subagent cards, subagent list and Stop, checkpoints sheet. Rounds: 2. Checkpoints sheet seen on the phone ("off on this gateway" message); the Subagents panel and checkpoint list not seen (no delegating chat, checkpoints off).
 - [x] Batch 30 (106-109): chat title above the model chip on the phone layout, empty and opening states, `ChatScreen.kt` spacing constants and file split (891 to 568 lines). Rounds: 2. Header and the unchanged look checked on the phone; empty states not seen.
 - [x] Batch 27 (86-90 and two fixes): Scheduled jobs (list, Run now, Pause, Resume, create, edit, delete), Insights, Capabilities switches, profile picker, one shared REST helper. Rounds: 2. Insights and the empty Scheduled jobs page seen on the phone; job rows, Capabilities and the profile picker not opened.
-- [ ] 82 and 83 (media and file viewers): blocked until WorkLab is checked for `GET /api/media` and `GET /api/fs/read-text`; the user skipped it.
-- [ ] 68 (session takeover): blocked until the user's phone test (Desktop and phone open on the same chat).
+- [x] Batch 32 (82, 83 and a fix): agent images inline with a full-screen zoom viewer and Save/Share, linked gateway files in a plain text viewer. Rounds: 2. Route check on WorkLab 0.22.2 done by the user in a signed-in browser (all four routes exist). Chat looks unchanged on the phone; images and the viewers not seen (no chat with a file or picture).
+- [x] 68 (session takeover investigation): note 3.7 in `docs/PROTOCOL.md`. Phone test by the user: no takeover, no reaping; a message from the other client does not show live in either direction (gateway behaviour, cause not proven). No app change.
 
 ## Backlog (user decision 2026-10-14)
 Goal: usable almost like Hermes Desktop, essential usage only. Herald is a feature reference, not a plan to follow. Picked by the user: session tools, send-while-running, notification actions. Order is the planner's; each one gets its own ticket batch after a protocol check.

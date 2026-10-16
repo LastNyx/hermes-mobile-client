@@ -23,12 +23,12 @@ Status travels with the branch.
 
 - Branch `feature/v1`, pushed to origin (batch 27 build is `dcbda1f`; docs commits come after it). Nothing merged to main, nothing tagged since
   v0.1.0. User decision: no release; the user runs the debug build.
-- Tickets 01-81, 84-109 and all their fix tickets are `Status: done`. `./build.sh test`: 294 tests, 0 failures. Every batch up to 30 passed the reviewer
-  (`.scratch/v1/review-*.md`, batches in `.scratch/v1/batches.md`). Left: 82, 83 and 68 (blocked), 31 (wontfix).
+- Every ticket is `Status: done` except 31 (wontfix). `./build.sh test`: 319 tests, 0 failures. Every batch up to 32 passed the reviewer
+  (`.scratch/v1/review-*.md`, batches in `.scratch/v1/batches.md`). Nothing is blocked.
 - Roadmap: `docs/ROADMAP.md` lists every phase and batch. Dev lessons: `docs/dev-notes.md` (34 lines, approved by the user 2026-10-16).
 - Markdown library is `com.mikepenz:multiplatform-markdown-renderer-m3` **0.33.0** (`docs/work/MARKDOWN-LIB.md`); raising it needs a Compose BOM bump first.
-- Test device: Realme RMX1921, Android 11, USB debugging on, `adb` in `~/tools/android-sdk/platform-tools`. The debug build of 13:14 on 2026-10-16
-  (batch 27, all batches) is installed. Toolchain in `~/tools`; dev-team kit at `~/Dokumen/projects/hermes-dev-team/kit` (run with `python3 -u`).
+- Test device: Realme RMX1921, Android 11, USB debugging on, `adb` in `~/tools/android-sdk/platform-tools`. The debug build of 14:45 on 2026-10-16
+  (batch 32, all batches) is installed. Toolchain in `~/tools`; dev-team kit at `~/Dokumen/projects/hermes-dev-team/kit` (run with `python3 -u`).
 - Reference app for behaviour: `Giton22/herald` (read-only reference, no code copied). Desktop source on this PC: `/opt/hermes-agent/apps/desktop/src`.
 
 ### Built and phone-checked by the user (2026-10-16 unless noted)
@@ -46,6 +46,7 @@ notification hardening; notices banner; process output. Earlier (2026-10-14): sl
 - Capabilities (89) and the profile picker (90): not opened. Switches change which tools the agent has; the profile is sent as a `profile` query or body key.
 - Empty and opening states (107): not seen (needs an empty list or a slow open).
 - Insights (88): seen on the phone, loads real data. Plain layout.
+- Agent images and the file viewer (82-83): the chat looks unchanged, but no inline image, zoom viewer, Save/Share or text viewer was seen (no chat had a file or picture). To try: ask the agent to make a PNG in its images folder, or to reply with a link to a text file. Images outside the gateway's media folders are refused with a short sentence by design.
 - Unchecked: the updater's install confirmation (needs a newer release); the wide layout draft switch (99).
 
 ### Non-blocking reviewer smells (no ticket)
@@ -56,14 +57,13 @@ notification hardening; notices banner; process output. Earlier (2026-10-14): sl
 - Raw `e.message` is shown by `SlashRun` for RPC code 4004 only (deliberate).
 
 ### Next steps
-1. 82 (agent media viewer) and 83 (gateway file viewer): blocked until WorkLab is checked (read-only) for `GET /api/media` and `GET /api/fs/read-text`. The user skipped it.
-2. 68 (session takeover): needs the user's phone test (Desktop and phone on the same chat); the table is in the ticket.
-3. Phone-check the "NOT tried" list above, ideally against a gateway with checkpoints on and a scheduled job to look at (read-only).
-4. Possible UI work from the audit: Insights as cards, the "Connected" status line sits left of the title, the empty Scheduled jobs text sits top left. Animation was skipped on purpose.
-5. Not scheduled: offline cache, app lock (needs `androidx.biometric`, a build-file change), dictation, notification toggles, voice.
-6. No release. Do not tag, merge or push to main.
+1. Phone-check the "NOT tried" list above, ideally against a gateway with checkpoints on and a scheduled job to look at (read-only).
+2. Session sharing (68, closed): a message from Desktop does not show live on the phone and vice versa; it appears after a delay. Gateway behaviour, cause not proven (`docs/PROTOCOL.md` 3.7). A possible later ticket: refresh history on the open chat when another client's reply completes.
+3. Possible UI work from the audit: Insights as cards, the "Connected" status line sits left of the title, the empty Scheduled jobs text sits top left. Animation was skipped on purpose.
+4. Not scheduled: offline cache, app lock (needs `androidx.biometric`, a build-file change), dictation, notification toggles, voice.
+5. Merging `feature/v1` to main and any release are the user's call. Do not tag, merge or push to main.
 
-## Session 2026-10-16: batches 18 to 30
+## Session 2026-10-16: batches 18 to 32
 
 - One ticket at a time, then reviewer rounds per batch (usually 1 to 3). Batch bases are in `.scratch/v1/batches.md`. A worker FAIL never happened this session.
 - Planner task P1 is done: `docs/PROTOCOL.md` section 4.6 (edit, branch, attach, projects, subagents, checkpoints) and a REST block in section 7 were written from
@@ -74,6 +74,7 @@ notification hardening; notices banner; process output. Earlier (2026-10-14): sl
 - Dev workers may not edit `CONTEXT.md` (glossary): the planner adds glossary rows (Project was added by hand).
 - Cost at list price: about $54.7 for 171 worker runs (a subscription seat bills differently).
 - Batches 26, 27 and 30 were driven while the planner looked at the phone over adb (screenshots, read-only taps only). A screenshot found the title squeezed to "Chec..." by the model chip (106).
+- Route check for 82 and 83: unauthenticated `/api/*` answers 401 even for a made-up path, so a token-less curl proves nothing. The user opened four URLs in a signed-in browser instead: `/api/media` answered "Path outside media roots" and the other three "Path not found", so all four exist. WorkLab now reports 0.22.2.
 - Insights note: the total cost uses `total_actual_cost` when it is above 0, but the gateway's `by_model` rows only carry `estimated_cost`, so the model rows can add up to more than the total. That is the gateway, not an app bug.
 - The docs worker ran: 16 CHANGELOG entries, drift list in `.scratch/v1/drift.md` (12 new-doc terms not in the glossary, 3 renamed-term candidates).
 - Install steps used: `./build.sh assemble`, `python3 -I tools/linkcheck.py <apk>`, `adb install -r`, then compare `lastUpdateTime` with the APK mtime.
