@@ -1,6 +1,6 @@
 # Handoff
 
-Where the build stands (as of 2026-10-13), so work can continue on another PC (Windows or Arch Linux).
+Where the build stands (as of 2026-10-16), so work can continue on another PC (Windows or Arch Linux).
 Read this top to bottom, then `docs/DESIGN.md` (settled decisions; do not reopen) and `docs/PROTOCOL.md`
 (the only source for gateway endpoints and methods).
 
@@ -21,132 +21,54 @@ Status travels with the branch.
 
 ## Where we are
 
-- Branch `feature/v1`, pushed to origin up to `dd13d53`. Nothing merged to main, nothing tagged since v0.1.0.
-- Tickets 01-22 plus fixes (45 tickets) in `.scratch/v1/issues/` are `Status: done`. Phase 3 tickets 23-25 (slash commands) are written;
-  23 (catalog and `complete.slash`, data only) and 24 (run on send, dispatch types) 25 (output card) and 26 (suggestion list, old API removed) are `review`; Phase 3 waits for the phone check. Verified protocol facts: `docs/PROTOCOL.md` 4.5.
-  Herald is cloned at `C:/home/project/herald` (reference only; feature gaps vs it are listed for a later 'Herald parity' roadmap).
-- `./build.sh test`: 59 tests, 0 failures. A flaky LiveLinkTest race was fixed by `05-fix-flaky-livelink-test`.
-- Kotlin upgraded from 2.1.0 to 2.4.21 (batch 5). `jvmTarget` moved to `kotlin { compilerOptions }`.
-- Phase 2 Markdown chat is done (batch 6: tickets 13 Markdown replies, 14 code cards and Copy, 15 reasoning rows,
-  16 chat look, 16-fix turn spacing, 17 Markdown library version fix).
-- Markdown library is `com.mikepenz:multiplatform-markdown-renderer-m3` **0.33.0**; see `docs/work/MARKDOWN-LIB.md`.
-  On the Realme RMX1921 (Android 11) the debug build with 0.33.0 opens a chat with a Markdown reply (bold, bullets,
-  inline code) and does not crash. That is the only device check of the Markdown work so far.
-- Phase 2b design polish is done (batches 7 to 9: tickets 18 to 22 plus fixes; see `docs/ROADMAP.md`).
-  Phone feedback drove it: "UI minimalist, not great enough", then "compact, font size setting, all pages consistent",
-  then "effort and model selection not nice, default reasoning not selected". The debug build with these changes is
-  installed on the Realme RMX1921. The user said they are satisfied with the design "for now". Next is Phase 3.
-- Test device: Realme RMX1921, Android 11, USB debugging on. `adb` is in `~/tools/android-sdk/platform-tools`.
-- v0.1.0 is published (tag `v0.1.0`). All of the fixes below are NOT in the published v0.1.0.
-- Machine now: Arch Linux PC. Repo at `~/Proyek/hermes-mobile-client`. Toolchain installed by
-  `scripts/setup-toolchain.sh` into `~/tools` (JDK 17 + Android SDK). `build.sh` and
-  `scripts/setup-toolchain.sh` are executable. Dev-team kit at `~/Dokumen/projects/hermes-dev-team/kit`
-  (run with `python3 -u`).
-- Telegram APK delivery works: Bot API `sendDocument` with `TELEGRAM_BOT_TOKEN` and the first `TELEGRAM_ALLOWED_USERS`
-  id from `~/.hermes/.env`. The user had to send `/start` to the bot first. `hermes send` has no home channel set.
-- Reference app for building features: `Giton22/herald` (Kotlin Multiplatform Android client for Hermes).
-  Read its `docs/ROADMAP.md` and `docs/hermes-protocol-research.md` for how a feature behaves; do not copy
-  code and do not build anything `docs/PROTOCOL.md` does not list.
-- Plan: `docs/ROADMAP.md`.
+- Branch `feature/v1`, pushed to origin at `8d239c4` (plus the docs commits made after it). Nothing merged to main, nothing tagged since
+  v0.1.0. User decision: no release; the user runs the debug build.
+- Tickets 01-81, 84-85, 94-105 and all their fix tickets are `Status: done`. `./build.sh test`: 255 tests, 0 failures. Every batch up to 25, plus
+  28 and 29, passed the reviewer (`.scratch/v1/review-*.md`, batches in `.scratch/v1/batches.md`).
+- Roadmap: `docs/ROADMAP.md` lists every phase and batch. Dev lessons: `docs/dev-notes.md` (34 lines, approved by the user 2026-10-16).
+- Markdown library is `com.mikepenz:multiplatform-markdown-renderer-m3` **0.33.0** (`docs/work/MARKDOWN-LIB.md`); raising it needs a Compose BOM bump first.
+- Test device: Realme RMX1921, Android 11, USB debugging on, `adb` in `~/tools/android-sdk/platform-tools`. The debug build of 12:00 on 2026-10-16
+  (batches up to 25) is installed. Toolchain in `~/tools`; dev-team kit at `~/Dokumen/projects/hermes-dev-team/kit` (run with `python3 -u`).
+- Reference app for behaviour: `Giton22/herald` (read-only reference, no code copied). Desktop source on this PC: `/opt/hermes-agent/apps/desktop/src`.
 
-### Review batches (`.scratch/v1/batches.md`)
+### Built and phone-checked by the user (2026-10-16 unless noted)
+Edit any message, Regenerate, Branch from here; rotation in both layouts; reconnect re-attach; offline send without a crash; drafts; plain errors and
+connection wording; long-chat smoothness, clipped long text and the "N earlier steps" line; usage line; share into the app; approval, question and
+notification hardening; notices banner; process output. Earlier (2026-10-14): slash commands, session list, send-while-running, notification actions
+(buttons did not show on the Realme, accepted), background processes.
 
-| Batch | Tickets | Base | Result |
-|---|---|---|---|
-| 1 | 01, 02, 02b, 03 | `16a46fc` | PASS round 2 (`review-1-2.md`) |
-| 2 | 04, 04b, 05, 05b | `beb9368` | PASS round 2 (`review-2-2.md`) |
-| 3 | 05c, 06, 07, 08 | `37aae4a` | FAIL round 2 on two style findings, fixed by `06-fix-dedupe-history-mapping`, then PASS round 3 (`review-3-2.md`, `review-3-3.md`) |
-| 4 | 09, 10, 11 | `f573778` | PASS round 2 (`review-4-2.md`) |
-| 5 | 12 (Kotlin 2.1.0 to 2.4.21) | `34cd034` | PASS round 1 (`review-5-1.md`) |
-| 6 | 13, 14, 15, 16, 16-fix, 17 (Markdown chat) | `b9ef8da` | FAIL round 1 on turn spacing (`review-6-1.md`), fixed by `16-fix`; PASS round 2 (`review-6-2.md`); PASS round 3 after ticket 17 (`review-6-3.md`) |
-| 7 | 18, 18-fix (chat design polish) | `b1ab414` | FAIL round 1 (style: "New chat" default repeated), PASS round 2 (`review-7-2.md`) |
-| 8 | 19, 20, 21, 19-fix, 20-fix, 21-fix, 20-fix-imports (text size, compact chat, consistent screens) | `6ac4980` | FAIL round 1 (layering, spacing, indent), FAIL round 2 (imports), PASS round 3 (`review-8-3.md`) |
-| 9 | 22, 22-fix (model picker) | `b88a0c5` | FAIL round 1 (missing test, imports), PASS round 2 (`review-9-2.md`) |
-
-The docs worker ran; its drift list is `.scratch/v1/drift.md`. `CHANGELOG.md` has an Unreleased section.
-
-### Fix tickets (all `Status: done`, in `.scratch/v1/issues/`)
-
-| # | Ticket | What changed |
-|---|---|---|
-| 1 | `10-fix-watch-survives-leaving-chat` | Leaving the chat ends the watch and stops the service. |
-| 2 | `01-fix-ipv6-gateway-url` | IPv6 gateway URLs no longer crash the Gateways form. |
-| 3 | `03-fix-auth-state-surfacing` | Gateways row shows 'Signed out, sign in again' and 'Gateway auth unavailable, retrying'. |
-| 4 | `08-fix-clarify-answers-and-coverage` | Clarify card answers every question. |
-| 5 | `09-fix-expensive-model-confirm` | Expensive-model switch has Confirm and Cancel. |
-| 6 | `11-fix-download-checksum-and-install-failure` | Updater download checksum is tested; install failures show in Settings. |
-| 7 | `05c-fix-offline-line-only-when-offline` | Grey Offline line only while Offline. |
-| 8 | `03-fix-missing-auth-tests` | Extra tests for auth. |
-| 9 | `05b-fix-untested-friendly-error-and-reconnect-refresh` | Extra tests for friendly errors and reconnect refresh. |
-| 10 | `07-fix-untested-reload-paths` | Extra tests for the reload paths. |
-| 11 | `06-fix-dedupe-history-mapping` | History-to-items mapping exists once in `ChatController`. |
-| 12 | `05-fix-flaky-livelink-test` | Flaky LiveLinkTest race fixed. |
-
-### Not run on a device
-
-Only the Markdown reply (bold, bullets, inline code) and the new look were seen on the Realme. Everything below was not.
-
-- Leaving the chat during a running turn (no Done notification comes after leaving, by design of the chosen rule).
-- The Gateways row auth messages.
-- Approval and clarify cards (approvals are off on the WorkLab gateway).
-- The expensive-model Confirm.
-- The updater and install failure messages.
-- Markdown code card.
-- Markdown table.
-- Reasoning row (the Thinking row).
-- Tool cards.
-- Link tap.
-- Whole-reply Copy.
-
-### Unchecked
-
-- Slash commands, resolved from the code (not device-checked): suggestions filter as you type and tapping one runs it;
-  Send on a typed `/cmd` runs it as a command (`slash.exec`, then `command.dispatch`); output shows in a card cut at 12 lines with Show more.
-- Text size setting, model picker and reasoning chips, and the Redirect/Stop button: not seen on a device (the user checked redirect, queue, retry and edit on 2026-10-14 and said they work).
+### Built, NOT tried on a phone
+- Attachments (tickets 79-81): the user rarely uses them and skipped the check. Limits: 6 per message, photos 25 MB, files 10 MB; PDFs need `pdftoppm` on the gateway host.
+- Projects (tickets 84-85): Group by Project, new chat in a project, New project. Needs a gateway with `projects.tree`; older ones fall back to folder names.
+- Unchecked: the updater's install confirmation (needs a newer release); the wide layout draft switch (99); the airplane-mode Stop path on WorkLab beyond the cases tried.
 
 ### Non-blocking reviewer smells (no ticket)
-
-- Anonymous state wrapper in `AuthedHttp`.
-- The 'Signed out — sign in again' string is repeated in `AuthedHttp` and `SignInController`.
-- `SignInState` and `AuthState` both exist.
-- Raw `e.message` in `ModelsController.fail` and `SlashCommands`.
-- Fully qualified names in `UpdateController` and `MainActivity`.
+- A successful send clears the whole attachment tray, so files picked while it was in flight are lost.
+- `chatCwd` of a new project chat is not saved across rotation (reopens as a plain chat).
+- A file path with a space is cut at the space in the chat-list preview.
+- `reloadHistory` flushes pending deltas twice; the thumbnail and `AttachmentReader` decode code overlap; chat test rigs are duplicated.
+- Raw `e.message` is shown by `SlashRun` for RPC code 4004 only (deliberate).
 
 ### Next steps
+1. Batches 26-27 (tickets 86-93, `todo`): cron list and actions (86), cron create/edit/delete (87), insights page (88), capabilities switches (89), profiles (90),
+   subagent cards (91), subagent list and stop (92), checkpoints (93). PROTOCOL.md 4.6 and section 7 already carry their rows. Order by value: ask the user.
+2. 82 (agent media viewer) and 83 (gateway file viewer): blocked until WorkLab is checked (read-only) for `GET /api/media` and `GET /api/fs/read-text`. The user skipped it.
+3. 68 (session takeover): needs the user's phone test (Desktop and phone on the same chat); the table is in the ticket.
+4. Not scheduled: offline cache, app lock (needs `androidx.biometric`, a build-file change), dictation, notification toggles, voice, follow-all-sessions notifications.
+5. No release. Do not tag, merge or push to main.
 
-1. Phase 3 is done (batches 10, 11). Session list work (roadmap item 1) and the redesign of Chats, Gateways and the gateway form: batches 12 and 13 (tickets 33-44) passed reviewer (`review-12-2.md`, `review-13-4.md`). The user checked them on the phone. Not released (no release by user decision).
-1b. Send-while-running (batch 14: redirect, queue, retry and edit) and notification actions (batch 15) passed reviewer (`review-14-3.md`, round 2 of batch 15 had no findings) and are pushed. All three picks of the user's roadmap are built.
-1c. Batch 16 (tickets 53-56, background processes via `process.list` / `process.kill`, added to PROTOCOL.md from the gateway source) passed reviewer round 2 and was checked on the phone. Finished rows stay until dismissed by the user's choice. Docs and CHANGELOG are current as of this batch. The user said this is enough for current use (2026-10-14).
-1d. Not scheduled: attachments (check PROTOCOL and Desktop's composer first), offline cache, cron and capabilities, voice. Small leftovers: shared 12 dp corner constant, `SignInState`/`AuthState`/`LinkState` naming, a few glossary terms (Slash command, Reasoning, Model picker, Catch-up, Composer, Markdown, Background process).
-2. Phase 4 docs worker ran (2026-10-14): 5 CHANGELOG entries added, drift list in `.scratch/v1/drift.md`.
-3. No release for now: the user uses the debug build himself (2026-10-14). Do not tag or publish.
-4. Ask the user to approve the 51 lines in `.scratch/dev-notes.md`.
-5. `kit/linkcheck.py` in the dev-team repo: the user said to forget the dev-team repo.
-- Raising the Markdown library above 0.33.0 needs a Compose BOM bump first (planner decision).
+## Session 2026-10-16: batches 18 to 29
 
-## Session 2026-10-15: research and tickets 57-97 (read this first on the other machine)
-
-State: nothing built this session. Research rounds 1 to 3 are done and committed, and 41 new tickets (57-97) are written
-(24 `todo`, 17 `blocked`). No ticket is `in-progress`. Next: user approval, then batch 17.
-
-- Research (all read-only, dev-team researcher): master list `.scratch/research-improvements-all.md`, round 3 (Hermes source, Desktop,
-  own defects, other apps) `.scratch/research-round3-verified.md`, plus `research-mobile-remote-vs-client.md`, `research-ui-smoothness.md`,
-  `research-three-bugs.md`, `research-improvements-chat-ux.md`. Cited findings: `.scratch/v1/research/*/findings.md`.
-  The clones under `C:/Users/User/research/src` do not travel; re-clone with `kit/research.py clone <url>` if needed.
-- Tickets: groups = fixes 57-63, robustness 64-68, performance 69-72, chat features 73-78, media 79-83, organisation 84-90,
-  agent visibility 91-97. Batches 17-27 are in `.scratch/v1/batches.md`. Writer brief: `.scratch/v1/ticket-brief.md`.
-- **Planner task P1 (do before dispatching any `blocked` ticket):** add verified rows to `docs/PROTOCOL.md`; the exact list is
-  `.scratch/v1/p1-protocol-rows.md`. Verified against the Hermes checkout (`dce1e9b375`), NOT WorkLab (its `/api/status` timed out
-  from this PC, version unknown; WorkLab has rejected a param the checkout accepts, so keep minimal params and test on the phone).
-- Decisions made: dismissed background processes are memory-only and process-wide (Desktop precedent), no device storage;
-  the table bug waits for a captured bad reply; `process.stop` kills ALL processes, never wire it per chat.
-- Waiting on the user: follow-all-sessions notifications (changes DESIGN Q9), app lock (needs androidx.biometric), offline cache,
-  dictation (mic permission), notification toggles and boot receiver, and the slow debug build (build files are protected).
-- Own-app defects found (tickets 60-63, 67): offline approval looks answered, `stop()` failure clears `running`, updater
-  receiver may never get its broadcast, events can drop silently, rotation resets the chat (ticket 64, 65).
-- Ticket 68 is an investigation (does a second client's `session.resume` take over the event stream?): needs the user's phone test.
-- Held or dropped: select-and-act on replies, goal/loop strip, voice, config page, threads, three-mode steer, empty-chat starters,
-  New-messages divider, haptics.
+- One ticket at a time, then reviewer rounds per batch (usually 1 to 3). Batch bases are in `.scratch/v1/batches.md`. A worker FAIL never happened this session.
+- Planner task P1 is done: `docs/PROTOCOL.md` section 4.6 (edit, branch, attach, projects, subagents, checkpoints) and a REST block in section 7 were written from
+  `/opt/hermes-agent` on this PC. That install has no git history, so it is NOT matched to the research checkout (`dce1e9b375`), and none of it was checked on WorkLab.
+  Keep params minimal; WorkLab has rejected a param the source accepts.
+- Phone check found three real bugs (fixed in batch 28 and 29): a crash from stopping `WatchService` before `startForeground` (101), the chat rebuilt when
+  rotating between the narrow and wide layouts (103), and a chat that never re-attached to its running session after a reconnect (104).
+- Dev workers may not edit `CONTEXT.md` (glossary): the planner adds glossary rows (Project was added by hand).
+- Cost at list price: about $54.7 for 171 worker runs (a subscription seat bills differently).
+- The docs worker ran: 16 CHANGELOG entries, drift list in `.scratch/v1/drift.md` (12 new-doc terms not in the glossary, 3 renamed-term candidates).
+- Install steps used: `./build.sh assemble`, `python3 -I tools/linkcheck.py <apk>`, `adb install -r`, then compare `lastUpdateTime` with the APK mtime.
 
 ## Working agreement with the user
 
@@ -164,13 +86,17 @@ State: nothing built this session. Research rounds 1 to 3 are done and committed
 
 ## Gateway facts learned on the real WorkLab gateway (0.21.5)
 
+- After a dropped socket the gateway parks the session on a drop sink; events are discarded until `session.resume`, `session.activate` or `prompt.submit`
+  re-binds the new socket. `session.events.since` only replays. The app calls `session.activate` (session id only) on every reconnect, then catch-up.
+- Edit sends a REST history row `id` as `truncate_before_row_id`; it worked on the user's phone for an old message, a just-sent one and the first one.
+
 - `session.resume` must send ONLY `session_id`: extra params (`inline_images`, `omit_messages`) are rejected
   with an invalid-params error even though PROTOCOL.md lists them. Send only what is documented and needed.
 - `GET /api/sessions/{id}/messages` rows carry the body in `content` (string or list of parts), not `text`.
   `SessionsRepository.rowText` handles both; keep fake-gateway replies in tests in the real shape.
 - The phone reaches WorkLab (`http://100.65.118.116:9119`) over Tailscale, a VPN network. In airplane mode the VPN
   stays up, so online = a network with INTERNET and NOT_VPN (`NetworkTracker`), never `activeNetwork != null`.
-- Approvals are switched off on WorkLab, so the approval cards were never seen on a device.
+- Approvals are switched off on WorkLab; the approval card changes (ticket 95) were only exercised through notifications and the mock gateway.
 
 ## Releases
 
@@ -192,15 +118,12 @@ State: nothing built this session. Research rounds 1 to 3 are done and committed
 
 - Notification buttons (tickets 49, 50: Allow once, Deny, and the Reply box for a single-question clarify) did not show on the user's Realme RMX1921 (Android 11). The notification itself and its tap-to-open work. Cause not found; the user said it is fine as it is (2026-10-14). If revisited, start with `adb shell dumpsys notification` while one is showing, to see whether the actions are on the notification or only hidden by the device's styling. The buttons work only while the chat screen is open and the watch runs.
 - Design polish (Phase 2b) is done; the user is satisfied with it "for now". Notification wording may be revised later.
-- Slash commands (Phase 3): `complete.slash` is unused, Enter sends `/cmd` as plain text, and the dispatch types
-  `send`, `skill`, `prefill` and `alias` show nothing.
 - Reasoning events are shown while streaming; reasoning in stored history is not read.
 - Multi-select clarify questions are answered as one value because PROTOCOL.md has no multi-answer shape.
 - Markdown library gotchas: 0.38.1 crashed the chat on Android 11 (`NoSuchMethodError` `shouldExecute`) because the app's
   Compose is 1.7.6 (BOM 2024.12.01). 0.35.0 crashed on a `BasicText` TextAutoSize overload. Unit tests and
   `assembleDebug` do not catch this. Always run `kit/linkcheck.py <apk>` and open a chat with a reply on a device.
-- Phone checkpoints: 1 (sign-in) PASSED; 2 (chat) PASSED with a text-only UI; 3 at the end.
-- The "Not run on a device" list is under "Where we are" above; nothing in it has been run on a device.
+- What is and is not phone-checked is listed under "Where we are" above.
 
 ## APK delivery
 

@@ -41,23 +41,32 @@ Batches 7 to 9 (`.scratch/v1/batches.md`). All three batches PASS; the user is s
 - Batch 9: ticket 22 model picker, 22-fix. Base `b88a0c5`. FAIL round 1 (missing test, imports), PASS round 2 (`review-9-2.md`).
 
 ## Phase 3: slash commands (DESIGN Q3 scope; Herald: Slash commands)
-Gap today: suggestions only run when tapped, Enter sends `/cmd` as plain text, and `command.dispatch` types
-`send`/`skill`/`prefill`/`alias` show nothing.
-- [ ] Autocomplete while typing (`complete.slash`), catalog from `commands.catalog`.
-- [ ] Enter on a slash command runs `slash.exec`, falls back to `command.dispatch`.
-- [ ] Handle every dispatch type: `exec`/`plugin` show output, `alias` re-runs, `send`/`skill` submit, `prefill` fills the composer.
+Built (tickets 23-26) and phone-checked by the user on 2026-10-14.
+- [x] Autocomplete while typing (`complete.slash`), catalog from `commands.catalog`.
+- [x] Enter on a slash command runs `slash.exec`, falls back to `command.dispatch`.
+- [x] Handle every dispatch type: `exec`/`plugin` show output, `alias` re-runs, `send`/`skill` submit, `prefill` fills the composer.
 - [x] Reasoning level read from the session on open.
-
-### Starting notes for the next session
-Read from the code on 2026-10-13. No Phase 3 tickets are written yet.
-- Works now: `SlashCommands.load()` calls `commands.catalog` when a chat opens. Suggestions filter locally as you type (`slash.filter(draft)`, first 6); tapping one runs it. `run()` calls `slash.exec` and, on an RPC error other than 4001, falls back to `command.dispatch`. The result shows as a note using `output`, `warning` or `notice`. The reasoning level is read on open with `config.get` (key `reasoning`, ticket 22).
-- Missing: `complete.slash` is unused; (stale, fixed by tickets 23-26: Send runs `/cmd` as a command, output card cut at 12 lines); error text from `SlashCommands` and `ModelsController.fail` is raw `e.message`.
-- Where the code is: `SlashCommands`; `ChatScreen.kt` (the composer, with the round Send/Redirect/Stop button and the 44 dp field); `ModelsController`.
-- Before cutting tickets, read `docs/PROTOCOL.md` lines ~383-386 (`commands.catalog`, `complete.slash`, `slash.exec`, `command.dispatch`) and Herald's `docs/hermes-protocol-research.md` (https://github.com/Giton22/herald). Herald's notes have not been read yet. Do not add any method or field that PROTOCOL.md does not list.
 
 ## Phase 4: close out
 - [x] Docs worker, drift report (2026-10-14).
 - [x] Release decision (2026-10-14): no release. The user runs the debug build for himself; v0.1.0 stays the only tag.
+
+## Phase 5: research tickets 57-105 (2026-10-15 to 2026-10-16)
+Tickets came from the research rounds (`.scratch/research-*.md`). Batches are in `.scratch/v1/batches.md`; every one below passed the reviewer. Phone checks are by the user on a Realme RMX1921 (Android 11).
+- [x] Batch 17 (57-60, 98): history latest page, tool row, dismissed processes, answer result, id-less keys. Review rounds: 2.
+- [x] Batch 18 (61-63, 65, 99, 100): failed Stop, updater install status, event-gap catch-up, drafts. Rounds: 3. Phone-checked 2026-10-16.
+- [x] Batch 19 (64, 66, 67, 69 and fixes): rotation, friendly errors and timeouts, Keystore failure, token-delta batching. Rounds: 2. Phone-checked.
+- [x] Batch 20 (70-73): remembered Markdown, long-text clip, running-steps collapse, usage line. Rounds: 1. Phone-checked.
+- [x] Batch 21 (74, 94-96 and fixes): notices banner, process output, approval and notification hardening. Rounds: 2. Phone-checked.
+- [x] Batch 22 (97, 78): plain connection wording, share into the app. Rounds: 2. Phone-checked.
+- [x] Batch 23 (75-77): edit any prompt, Regenerate, Branch from here. Rounds: 1. Phone-checked.
+- [x] Batch 24 (79-81): attachments. Rounds: 2. Not tried on a phone (the user rarely uses attachments).
+- [x] Batch 25 (84, 85): gateway projects, new chat in a project. Rounds: 2. Not tried on a phone yet.
+- [x] Batch 28 (101-103): Watch service crash on a failed offline send, stale Stop error, rotation between layouts. Rounds: 1. Phone-checked.
+- [x] Batch 29 (104, 105): re-attach to the running session after a reconnect. Rounds: 2. Phone-checked.
+- [ ] Batches 26-27 (86-93): cron list and edit, insights, capabilities, profiles, subagent cards, checkpoints. Tickets written, rows in PROTOCOL.md 4.6 and section 7, not started.
+- [ ] 82 and 83 (media and file viewers): blocked until WorkLab is checked for `GET /api/media` and `GET /api/fs/read-text`; the user skipped it.
+- [ ] 68 (session takeover): blocked until the user's phone test (Desktop and phone open on the same chat).
 
 ## Backlog (user decision 2026-10-14)
 Goal: usable almost like Hermes Desktop, essential usage only. Herald is a feature reference, not a plan to follow. Picked by the user: session tools, send-while-running, notification actions. Order is the planner's; each one gets its own ticket batch after a protocol check.
@@ -72,4 +81,5 @@ Goal: usable almost like Hermes Desktop, essential usage only. Herald is a featu
 2. (built, tickets 45-47 and 48, 51-52 fixes) Send-while-running: redirect, queue, retry and edit. Original list: queue, steer, stop and send, undo and retry. PROTOCOL has `prompt.submit` (`queued`), `session.steer`, `session.redirect`, `session.interrupt`, `session.undo`.
 3. (built, tickets 49-50; buttons did not show on the Realme, see HANDOFF) Notification actions: approve or answer from the notification. Needs the watch service to answer server requests over the live link.
 4. (built, tickets 53-56, user request 2026-10-14) Background processes panel: list, output, Stop, Dismiss.
-Not scheduled (no decision yet): attachments, offline cache, cron and capabilities, voice.
+5. (built, tickets 79-81, not yet tried on a phone) Attachments: paperclip, thumbnails, upload, history shows `[image]` and a paperclip line.
+Not built: cron and capabilities (tickets 86-89 are written, rows are in PROTOCOL.md), offline cache, voice.
