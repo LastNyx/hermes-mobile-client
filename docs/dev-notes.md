@@ -1,0 +1,34 @@
+- `./build.sh test` prints nothing on success (exit 0); on failure it prints compiler/Gradle errors. It has no per-test filter.
+- `LiveLink` tests shrink heartbeat/silence ms and pass `random={0.0}` for instant backoff; `ChatController` subscribes to `link.events` in `init`, see below.
+- MockWebServer closes with custom codes via `webSocket.close(4401, "")`; WS client needs readTimeout 0 or OkHttp kills silent sockets.
+- ChatController subscribes to `link.events` in `init` (UNDISPATCHED) because the SharedFlow has no replay; events are matched on the runtime session id from create/resume.
+- Live srq frames can arrive before the resume reply sets `sessionId`, so admit them when sessionId is null.
+- Failed test details are in `android/app/build/test-results/testDebugUnitTest/TEST-*.xml` (Grep them).
+- No Compose UI tests: extract UI decisions into pure `internal` functions (e.g. `showsOfflineLine(LinkState)` in SessionsScreen.kt) and test those in `src/test/.../ui/`.
+- `File.createTempFile` prefix must be >= 3 chars. Bash `sed -i` and `git rm` are denied for workers: use Edit, and rewrite a test file instead of deleting it.
+- Tests use `org.junit.Test`/`Assert` (no kotlin.test). Adding a `ChatItem` subtype breaks exhaustive `when` in ChatScreen and ChatControllerTest `rows()`.
+- Auth tests: hit the loopback `redirect_uri` from a `thread {}` inside the fake `BrowserLauncher`; a wrong `state` gets HTTP 400 and the receiver keeps waiting. `error=x` fails with message `x` (or `error_description`).
+- Chat list spacing: `itemGapBefore(prev, item)` (pure, ChatScreen.kt) gives per-item top padding in dp; the LazyColumn has no `spacedBy`. Multiple emits in one lazy item overlap, so wrap in a `Box`.
+- Any mock gateway that drives `ModelsController.load()` must answer `config.get` too, or the call hangs and the test fails by timeout/assert.
+- Slash running: `reloadHistory()` replaces ALL items (notes too), so add a notice after it. Adding a `ChatItem` subtype needs a branch in the `when` of `ChatControllerTest` `rows()` and `ChatReducerTest`.
+- Test JVM `org.json.JSONObject` has no `keySet()`; use `keys().asSequence()`. `SlashRunTest` is a full-stack template with a scripted `slash.exec`/`command.dispatch`.
+- Known flakes in `ChatControllerTest` (reload timeout 8 s, note ordering, `newEpochOrTruncatedSinceReply...`, `approvalsAndQuestions...`): each failed once on a full run and passed on rerun, and did not fail in 20 forced runs. On a failure unrelated to your change, rerun `./build.sh test` once and say so in your Result; keep the failure text; a repeat failure is real.
+- After a Send the chat stays `running`, so a second send in one SlashRunTest needs a fresh `ChatController` (same link, `open()`).
+- Prompt card height cap: pure `promptBodyMaxHeight(Dp)` in ChatScreen.kt (60%); Dp `* 0.6f` gives 480.00003, so use `value * 3 / 5`.
+- Text styles: use `roles.body/secondary/label/caption/title/code` (top-level composable val in `ui/TextRoles.kt`); `roles.monospace(style)` is the one monospace; `markdownTypography(inlineCode=)` compiles.
+- Spacing: all dp values are Int consts in `ui/Spacing.kt` (`SCREEN_EDGE`, `CARD_PADDING_H/V`, `ROW_PADDING`, `LIST_GAP`, ...), used as `X.dp`. Do not write number literals for padding in `ui/`.
+- Ticket 53: `ChatController.open()` now fires `process.list`; mock gateways that count/assert methods must answer it (`ChatControllerTest` does). Refreshing from `adopt()` (reconnect resume) broke `newEpochOrTruncated...` test, so refresh is only launched at the end of `open()`. Template: `BackgroundProcessesChatTest` (`processPollMs` ctor param).
+- Ticket 55: reconnect refresh runs after `catchUp()` in the `link.state` Connected collector (not `adopt()`). To drop a Rig link in tests use server-side `socket.close(1001, "")`; `socket.cancel()` NPEs on a MockWebServer socket.
+- Ticket 59: `DismissedProcesses` (process-wide object, key = storedId ?: sessionId); tests that dismiss must call `DismissedProcesses.reset()` first. `BackgroundProcessesChatTest.Rig` now exposes `authed`, `base`, `scope` to build a second ChatController.
+- Ticket 98: id-less history keys are `"h-$fromEnd"` (distance from the newest row), not the merged index, so a prepend never shifts or collides them.
+- Ticket 99: `DraftTracker(key, text)` + `DraftStore.flush(tracker)` in DraftStore.kt; ChatScreen updates the tracker in a `SideEffect`, which runs after the old key's `onDispose`, so the outgoing save sees the old pair.
+- Ticket 64: `ManifestConfigChangesTest` parses `src/main/AndroidManifest.xml` with namespace-aware DOM; manifest is editable by workers, `MainActivity` has `configChanges` so rotation never recreates it.
+- Ticket 66: all UI error text goes through `friendlyError(t)` / `signInErrorText(t)` in `data/FriendlyError.kt`; `SessionsRepository` failures are raw `HttpFailure`/`IOException` (never read `.message`). `restClient(http)` (30 s callTimeout) is for REST/sign-in only, never LiveLink or Updater.
+- Ticket 69: deltas are batched in `DeltaBatcher` (lock-guarded in `ChatController.apply`); any code that appends to `state.items` outside `apply` must call `settle()` first. In a mock chat after a delta `running` is true, so `send` takes the `session.redirect` path (rig must answer it).
+- Ticket 94: `outputTail` splits on `'\n'` (not `lines()`, which also splits bare `\r`); `ANSI` regex is `internal` in `data/chat/SlashRun.kt`; `processOutputText(p)` in `ProcessPanel.kt`.
+- Ticket 95: `ChatScreen` has a trailing `promptsEnabled` param (ChatHost passes `promptActionsEnabled(link.state)`); pure guards in `ui/PromptGuards.kt`. In mock-gateway tests `calls += method` logs "" for client replies (frames without a method).
+- Ticket 101: `WatchHub.serviceForeground` (set by `WatchService` after `startForeground`) gates `stopService` via pure `serviceStopRequest` in `WatchPolicy.kt`; never stop a started foreground service before that.
+- Ticket 103: `paneLayout(wide, chatOpen)` -> `PanePlan` in `ui/PaneLayout.kt`; `SessionsBody` has one `chat(...)` call site in a single Row so rotation keeps the chat's state.
+- Ticket 104: on reconnect `ChatController.reattach()` sends `session.activate` before `catchUp()`; any mock gateway that drops and reconnects a chat must answer `session.activate` or the test hangs (`ReattachChatTest.scenario(activateCode){calls,chat,socket}` is the template).
+- Ticket 84: `SessionListModel(repo, io, rpc)` loads `projects.tree` in load/refresh/onLinkState(Connected); `Project`/`parseProjects` in `data/sessions/Projects.kt`. CONTEXT.md edits are denied to workers (planner must add the Project row).
+- Ticket 85: JVM `JSONObject.toString()` key order is not insertion order, so assert sent params by parsed fields (except single-key/empty objects). `NewChatInProjectTest` is a minimal `session.create` Rig; new-chat project choices in `data/sessions/NewChat.kt`.
