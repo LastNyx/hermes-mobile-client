@@ -206,9 +206,9 @@ class ChatControllerTest {
         awaitTrue { histories.get() == 2 && resumeKeys.size == 2 && chat.state.value.items.map { (it as ChatItem.Message).text } == listOf("h2") }
         assertEquals(0, sinceCalls.get())
 
-        // Events with low seq numbers still count after a new epoch.
+        // Events with low seq numbers still count after a new epoch. The reply "A" is replaced by the reload
+        // within milliseconds, so the test waits for the reload it causes, not for "A" itself.
         chat.send("go2")
-        awaitTrue { (chat.state.value.items.last() as? ChatItem.Message)?.text == "A" }
 
         // Same epoch, truncated reply: reload, reply events dropped, watermark = latest_seq.
         awaitTrue { histories.get() == 3 && resumeKeys.size == 3 && chat.state.value.items.map { (it as ChatItem.Message).text } == listOf("h3") }
