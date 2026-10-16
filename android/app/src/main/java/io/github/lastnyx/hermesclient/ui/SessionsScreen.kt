@@ -71,6 +71,7 @@ import io.github.lastnyx.hermesclient.data.sessions.Session
 import io.github.lastnyx.hermesclient.data.sessions.SessionListModel
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
 import io.github.lastnyx.hermesclient.data.sessions.groupSessions
+import io.github.lastnyx.hermesclient.data.sessions.newChatChoices
 import io.github.lastnyx.hermesclient.data.settings.DraftStore
 import io.github.lastnyx.hermesclient.data.settings.PrefsDraftStorage
 import io.github.lastnyx.hermesclient.data.settings.PrefsSessionViewStorage
@@ -95,8 +96,12 @@ fun SessionsScreen(
     modifier: Modifier = Modifier,
     offline: Boolean = false,
     statusDot: @Composable () -> Unit = {},
+    onNewChat: (cwd: String?) -> Unit = { onOpen(null) },
 ) {
     val state by model.state.collectAsState()
+    var newChatMenu by remember { mutableStateOf(false) }
+    var creating by remember { mutableStateOf(false) }
+    var projectError by remember { mutableStateOf<String?>(null) }
     var searching by remember { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
     var grouping by remember { mutableStateOf(viewStore.grouping()) }
@@ -149,10 +154,26 @@ fun SessionsScreen(
                             onStatuses = { statuses = it; viewStore.setStatusFilter(it) },
                         )
                     }
-                    IconButton(onClick = { onOpen(null) }) { Icon(Icons.Filled.Add, contentDescription = "New chat") }
+                    Box {
+                        IconButton(onClick = {
+                            if (newChatChoices(state.projects).isEmpty()) onNewChat(null) else newChatMenu = true
+                        }) { Icon(Icons.Filled.Add, contentDescription = "New chat") }
+                        DropdownMenu(expanded = newChatMenu, onDismissRequest = { newChatMenu = false }) {
+                            newChatChoices(state.projects).forEach { choice ->
+                                DropdownMenuItem(
+                                    text = { Text(choice.label) },
+                                    onClick = { newChatMenu = false; onNewChat(choice.cwd) },
+                                )
+                            }
+                        }
+                    }
                     Box {
                         IconButton(onClick = { overflow = true }) { Icon(Icons.Filled.MoreVert, contentDescription = "More") }
                         DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
+                            DropdownMenuItem(
+                                text = { Text("New project") },
+                                onClick = { overflow = false; projectError = null; creating = true },
+                            )
                             DropdownMenuItem(
                                 text = { Text("Archived") },
                                 onClick = { overflow = false; scope.launch { query = ""; searching = false; model.openArchived() } },
@@ -230,6 +251,30 @@ fun SessionsScreen(
             dismissButton = { TextButton(onClick = { renaming = null }) { Text("Cancel") } },
         )
     }
+    if (creating) {
+        var name by remember { mutableStateOf("") }
+        var folder by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { creating = false },
+            title = { Text("New project") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
+                    OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true)
+                    OutlinedTextField(folder, { folder = it }, label = { Text("Folder on the gateway, optional") }, singleLine = true)
+                    projectError?.let { Text(it, style = roles.body, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    scope.launch {
+                        projectError = model.createProject(name, folder)
+                        if (projectError == null) creating = false
+                    }
+                }) { Text("Create") }
+            },
+            dismissButton = { TextButton(onClick = { creating = false }) { Text("Cancel") } },
+        )
+    }
     deleting?.let { session ->
         AlertDialog(
             onDismissRequest = { deleting = null },
@@ -271,7 +316,9 @@ fun SessionsHost(
     // Shared text for the new chat; the old new-chat screen saves its own text on the way out, so the
     // fresh composer takes this directly instead of reading the store.
     var sharedDraft by remember { mutableStateOf<String?>(null) }
-    val open = { id: String? -> sharedDraft = null; chatId = id; chatKey++; chatOpen = true }
+    var chatCwd by remember(gateway.id) { mutableStateOf<String?>(null) }
+    val open = { id: String? -> sharedDraft = null; chatCwd = null; chatId = id; chatKey++; chatOpen = true }
+    val openNew = { cwd: String? -> sharedDraft = null; chatId = null; chatCwd = cwd; chatKey++; chatOpen = true }
     BackHandler(enabled = chatOpen && !wide) { chatOpen = false }
     LaunchedEffect(openSessionId) { if (openSessionId != null) open(openSessionId) }
 
@@ -321,13 +368,14 @@ fun SessionsHost(
                         title = chatTitle(listState.sessions, chatId),
                         onBack = if (wide) null else ({ chatOpen = false }),
                         seed = sharedDraft,
+                        newChatCwd = chatCwd,
                         onBranched = { id -> open(id); linkScope.launch { model.refresh() } },
                     )
                 }
             }
         }
         val dot: @Composable () -> Unit = { LiveLinkDot(link, auth, networkOnline) }
-        Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, auth, model, open, onGateways, offline, viewStore, dot, chat) }
+        Box(Modifier.weight(1f)) { SessionsBody(wide, chatOpen, auth, model, open, openNew, onGateways, offline, viewStore, dot, chat) }
     }
 }
 
@@ -341,6 +389,7 @@ private fun SessionsBody(
     auth: AuthState,
     model: SessionListModel,
     open: (String?) -> Unit,
+    openNew: (String?) -> Unit,
     onGateways: () -> Unit,
     offline: Boolean,
     viewStore: SessionViewStore,
@@ -353,7 +402,7 @@ private fun SessionsBody(
     Row(Modifier.fillMaxSize()) {
         if (plan.showList) {
             val listModifier = if (plan.listFixedWidth) Modifier.width(360.dp).fillMaxHeight() else Modifier.weight(1f).fillMaxHeight()
-            SessionsScreen(model, expired, open, onGateways, viewStore, listModifier, offline, statusDot)
+            SessionsScreen(model, expired, open, onGateways, viewStore, listModifier, offline, statusDot, openNew)
         }
         if (plan.showChat) chat(Modifier.weight(1f)) else if (plan.showPlaceholder) ChatPlaceholder(Modifier.weight(1f))
     }

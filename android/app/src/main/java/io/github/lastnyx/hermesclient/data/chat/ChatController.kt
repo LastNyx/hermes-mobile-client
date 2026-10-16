@@ -47,6 +47,7 @@ class ChatController(
     private val processPollMs: Long = 5000,
     deltaBatchMs: Long = DELTA_BATCH_MS,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val newChatCwd: String? = null,
 ) {
     private var noticeStore = NoticeStore()
     private val batcher = DeltaBatcher(deltaBatchMs) { System.nanoTime() / 1_000_000 }
@@ -508,7 +509,7 @@ class ChatController(
         try {
             val stored = _state.value.storedId
             if (stored == null) {
-                val result = link.call("session.create", JSONObject())
+                val result = link.call("session.create", JSONObject().apply { if (!newChatCwd.isNullOrBlank()) put("cwd", newChatCwd) })
                 adopt(result)
             } else {
                 loadHistory(stored)

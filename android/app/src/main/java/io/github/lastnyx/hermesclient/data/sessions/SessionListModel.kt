@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 
 data class SessionListState(
@@ -55,6 +56,24 @@ class SessionListModel(
             null
         }
         _state.value = _state.value.copy(projects = projects)
+    }
+
+    /** Null on success, else the sentence to show; never touches `state.error`. */
+    suspend fun createProject(name: String, folder: String?): String? {
+        val call = rpc ?: return "Could not create the project."
+        val title = name.trim()
+        if (title.isEmpty()) return "Give the project a name."
+        val params = JSONObject().put("name", title)
+        if (!folder.isNullOrBlank()) params.put("folders", JSONArray().put(folder.trim()))
+        try {
+            call("projects.create", params)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return projectCreateMessage(e)
+        }
+        loadProjects()
+        return null
     }
 
     /** A reconnect may have missed changes, so refresh; skip if a load is already running. */
