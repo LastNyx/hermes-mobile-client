@@ -26,7 +26,7 @@ internal fun RowScope.ChatHeaderTitle(title: String, chip: String, onChip: () ->
     } else {
         Text(
             title,
-            Modifier.weight(1f).padding(start = 4.dp),
+            Modifier.weight(1f).padding(start = TITLE_START_NO_BACK.dp),
             style = roles.title,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
