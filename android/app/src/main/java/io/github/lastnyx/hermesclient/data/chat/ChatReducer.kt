@@ -85,6 +85,7 @@ data class ChatState(
     val processes: List<BackgroundProcess> = emptyList(),
     val hasOlder: Boolean = false,
     val notices: List<Notice> = emptyList(),
+    val subagents: List<Subagent> = emptyList(),
 ) {
     val prompts: List<Prompt> get() = openRequests.mapNotNull { it.toPrompt() }
 }
@@ -174,6 +175,9 @@ fun reduceChat(state: ChatState, event: LinkEvent): ChatState {
             state.copy(items = finished, running = false, error = failure, openRequests = emptyList())
         }
         "error" -> state.copy(error = payload?.optString("message").orEmpty().ifEmpty { "Something went wrong" }, running = false)
+        "subagent.spawn_requested", "subagent.start", "subagent.progress",
+        "subagent.thinking", "subagent.tool", "subagent.complete" ->
+            state.copy(subagents = reduceSubagents(state.subagents, event))
         else -> state
     }
 }
