@@ -554,13 +554,14 @@ private fun MessageBubble(item: ChatItem.Message, actions: LastActions, onRetry:
             }
         }
     } else if (item.text.isNotEmpty()) {
+        val shown = remember(item.text, item.streaming) { if (item.streaming) item.text else clipForDisplay(item.text) }
         Column(Modifier.fillMaxWidth()) {
             Surface(
                 Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
-                MarkdownText(item.text, Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp))
+                MarkdownText(shown, Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp))
             }
             if (!item.streaming) {
                 CopyReplyButton(replyForCopy(item.text)) {
@@ -609,6 +610,7 @@ private fun CommandOutputCard(item: ChatItem.CommandOutput) {
 private fun ReasoningRow(item: ChatItem.Reasoning) {
     // Saveable so the expanded state survives the row leaving the lazy list.
     var open by rememberSaveable(item.key) { mutableStateOf(false) }
+    val shown = remember(item.text, item.streaming) { if (item.streaming) item.text else clipForDisplay(item.text) }
     Surface(
         Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -638,7 +640,7 @@ private fun ReasoningRow(item: ChatItem.Reasoning) {
                     modifier = Modifier.size(20.dp),
                 )
             }
-            if (open) Text(item.text, style = roles.body)
+            if (open) Text(shown, style = roles.body)
         }
     }
 }
