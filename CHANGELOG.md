@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- Edit and branch: long-press one of your messages for Edit (the later messages are removed and the edited text is sent) or Branch from here (opens a new chat with the turns up to that message). The last reply has Retry and Regenerate. Edit and Regenerate show only while the chat is idle.
+- Rotation: turning the phone keeps the open chat, its scroll position and the live connection, in both layouts.
+- Reconnect: after the connection drops and comes back, the open chat re-attaches to its running turn, so the rest of the reply keeps arriving and Stop works without leaving the chat.
+- Offline send: a send in airplane mode no longer crashes the app; a failed Stop keeps the turn shown as running with an error line, and a later successful Stop clears that line.
+- Drafts: text typed in a chat is kept per chat and per gateway, so going Back, reopening the chat and force-stopping the app keep it.
+- Plain errors and status: errors show short plain sentences (for example "Can't reach the gateway. Check your connection."); the connection line reads Waiting for network, Reconnecting, Connected or Offline · retrying; a Keystore read failure is no longer shown as signed out; REST calls time out after 30 s.
+- Long chats: streamed text is batched so long replies stay smooth; very long tool output and replies end with a "... N more characters" line; while a reply runs only the last four finished steps show, with a tappable "N earlier steps" line.
+- Usage line: a small grey line such as "1.2k in · 85 out" under each finished reply (none on replies loaded from history).
+- Share: sharing a page or text to Hermes from another app opens a new chat with the title and link in the composer; nothing is sent.
+- Safer prompts: approval and question cards ignore a tap in the first 700 ms, disable their buttons while the connection is down, show a long command in part with "Show full command", and clear when the turn ends; Allow once and Deny on a notification need the phone unlocked (Android 12 and later); a failed answer keeps the card.
+- Gateway notices: a one-line banner above the composer shows gateway notices (errors red, warnings amber, info grey) with Dismiss; timed ones expire.
+- Background processes: the output view shows the exit code of a failed process and cleaner text.
+- Updater: an install error or a cancelled install shows a message in Settings.
+- Catch-up: a dropped event now triggers a catch-up instead of losing text.
+- Attachments (not yet tried on a phone): a paperclip in the composer adds photos or files (up to 6 per message; photos up to 25 MB, files up to 10 MB); thumbnails show above the box; old chats show attachments as `[image]` and a paperclip line instead of `@file:` text.
+- Projects (not yet tried on a phone): Group by Project uses the gateway's projects (falls back to folder names); "+" offers No project and the gateway's projects (a new chat starts in the project's folder); More > New project creates one from a name and a folder.
+
 - Background processes: a "Background · N running" bar above the composer lists processes the agent started with its terminal tool. Tap it to expand; tap a row for the last 12 lines of output; Stop kills a running process, Dismiss removes a finished one. Finished rows stay until dismissed, so you can see whether each one finished or failed. The list refreshes on open, after a tool finishes, when the gateway reports a process, after a reconnect, and every 5 seconds while one runs.
 - Notification actions: the approval notification has Allow once and Deny; a clarify with one question has a Reply box. They work while the chat screen is open and the watch runs; leaving the chat clears the notification. They did not show on the Realme RMX1921 (see HANDOFF).
 - Retry and edit: Retry sits next to Copy on the last reply, and a long-press on your last message offers Edit and resend. Both show only while the chat is idle.
