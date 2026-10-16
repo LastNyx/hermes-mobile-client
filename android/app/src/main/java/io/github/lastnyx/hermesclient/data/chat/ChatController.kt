@@ -396,7 +396,7 @@ class ChatController(
 
     /** [fromEnd] counts back from the newest history row: prepending older rows never shifts it, so id-less keys stay unique. */
     private fun historyItem(m: HistoryMessage, fromEnd: Int) =
-        ChatItem.Message(m.rowId?.let { "h$it" } ?: "h-$fromEnd", m.role, m.text, rowId = m.rowId)
+        ChatItem.Message(m.rowId?.let { "h$it" } ?: "h-$fromEnd", m.role, if (m.role == "user") historyText(m.text) else m.text, rowId = m.rowId)
 
     private suspend fun loadHistory(stored: String) {
         val page = withContext(io) { repo.messages(stored) }.getOrThrow()

@@ -28,5 +28,10 @@ class SessionPreviewTest {
         assertEquals("fix the bug...", cleanPreview("fix the bug..."))
     }
 
+    @Test fun contextMarkerCutsAndQuotedPathIsOneToken() {
+        assertEquals("hi", cleanPreview("hi\n--- Attached Context ---\nstuff"))
+        assertEquals("look", cleanPreview("@file:\"/a/my file.txt\" look"))
+    }
+
     @Test fun headerTitle() = assertEquals("Today · 6", groupHeaderTitle("Today", 6))
 }
