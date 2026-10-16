@@ -1,15 +1,12 @@
 name: release
 
-# Push a tag like v0.1.0: tests, build a signed APK, publish it to the public releases repo.
+# Push a tag like v0.2.0: tests, build a signed APK, publish it as a GitHub Release of this repo.
 on:
   push:
     tags: ["v*"]
 
 permissions:
-  contents: read
-
-env:
-  RELEASES_REPO: LastNyx/hermes-mobile-client-releases
+  contents: write
 
 jobs:
   release:
@@ -48,10 +45,10 @@ jobs:
           sha256sum HermesClient.apk | awk '{print $1"  HermesClient.apk"}' > HermesClient.apk.sha256
           cat HermesClient.apk.sha256
 
-      - name: Publish to the releases repo
+      - name: Publish the release
         run: |
           gh release create "$GITHUB_REF_NAME" HermesClient.apk HermesClient.apk.sha256 \
-            --repo "$RELEASES_REPO" --title "$GITHUB_REF_NAME" \
-            --notes "Signed build of Hermes Mobile Client $GITHUB_REF_NAME. See CHANGELOG.md for what changed. SHA-256 is in the asset digest and in HermesClient.apk.sha256."
+            --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" \
+            --notes "Signed build of Hermes Mobile Client $GITHUB_REF_NAME. See CHANGELOG.md in the repo for what changed. SHA-256 is in the asset digest and in HermesClient.apk.sha256."
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ github.token }}

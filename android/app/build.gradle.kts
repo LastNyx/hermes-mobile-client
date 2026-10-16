@@ -35,8 +35,8 @@ android {
         targetSdk = 35
         versionCode = appVersionCode
         versionName = appVersionName
-        // Public repo that holds only release APKs (the source repo is private).
-        buildConfigField("String", "RELEASES_REPO", "\"LastNyx/hermes-mobile-client-releases\"")
+        // The Updater reads the latest GitHub Release of this (public) repo.
+        buildConfigField("String", "RELEASES_REPO", "\"LastNyx/hermes-mobile-client\"")
     }
 
     signingConfigs {

@@ -8,5 +8,4 @@ keystore.properties
 *.apk
 .idea/
 *.iml
-.scratch/runs/
-.scratch/runs.log
+.scratch/
