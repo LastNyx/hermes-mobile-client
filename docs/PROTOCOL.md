@@ -359,7 +359,7 @@ and does not handle `session.reclaimed`.
 | D | Step 7 fails (history missing or send fails after 40 s away) | The 20 s orphan reap ended the live session; reopen must resume | Confirm `open()` for an existing chat always does `loadHistory` + `session.resume`; if a reply is missing, fix the order of those two calls; add a test with a mock gateway answering 4001 on the first `prompt.submit`. Consider `close_on_disconnect` unchanged (default false). |
 | E | Something else | Unknown | Report the exact observation; the planner decides. |
 
-**Observed on WorkLab, 2026-10-16 (user).** Outcome E, with rows A, C and D confirmed:
+**Observed on WorkLab, 2026-10-16 (user).** Outcome E (rows B, C and D did not occur; row A does not fit because step 4 showed nothing live):
 - Steps 1 to 7 worked. The phone streamed its own turn to the end (step 3), stayed Connected, got its own reply
   (step 5), still sent after Desktop left (step 6), and reopened with full history (step 7). So the test showed no
   takeover (B), no reaping for the phone (C) and no orphan problem on reopen (D).
@@ -372,7 +372,7 @@ and does not handle `session.reclaimed`.
 - Decision (user, 2026-10-16): no app code change. A possible later ticket, not part of this one: refresh history
   on the open chat when a reply from another client completes.
 
-Status: waiting for the user's phone test; no code change until a letter is reported.
+Status: phone test done 2026-10-16 (outcome E, see above); no app code change.
 
 ---
 
