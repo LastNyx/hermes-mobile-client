@@ -64,6 +64,8 @@ import io.github.lastnyx.hermesclient.data.auth.AuthState
 import io.github.lastnyx.hermesclient.data.auth.SignInController
 import io.github.lastnyx.hermesclient.data.cron.CronListModel
 import io.github.lastnyx.hermesclient.data.cron.CronRepository
+import io.github.lastnyx.hermesclient.data.insights.InsightsModel
+import io.github.lastnyx.hermesclient.data.insights.InsightsRepository
 import io.github.lastnyx.hermesclient.data.gateway.Gateway
 import io.github.lastnyx.hermesclient.data.live.AndroidNetworkMonitor
 import io.github.lastnyx.hermesclient.data.live.LinkState
@@ -100,6 +102,7 @@ fun SessionsScreen(
     statusDot: @Composable () -> Unit = {},
     onNewChat: (cwd: String?) -> Unit = { onOpen(null) },
     onCron: () -> Unit = {},
+    onInsights: () -> Unit = {},
 ) {
     val state by model.state.collectAsState()
     var newChatMenu by remember { mutableStateOf(false) }
@@ -181,6 +184,7 @@ fun SessionsScreen(
                                 text = { Text("Archived") },
                                 onClick = { overflow = false; scope.launch { query = ""; searching = false; model.openArchived() } },
                             )
+                            DropdownMenuItem(text = { Text("Insights") }, onClick = { overflow = false; onInsights() })
                             DropdownMenuItem(text = { Text("Scheduled jobs") }, onClick = { overflow = false; onCron() })
                             DropdownMenuItem(text = { Text("Gateways") }, onClick = { overflow = false; onGateways() })
                         }
@@ -332,6 +336,9 @@ fun SessionsHost(
     var cronOpen by remember(gateway.id) { mutableStateOf(false) }
     val cronModel = remember(authed) { CronListModel(CronRepository(authed, gateway.url), Dispatchers.IO) }
     BackHandler(enabled = cronOpen) { cronOpen = false }
+    var showInsights by remember(gateway.id) { mutableStateOf(false) }
+    val insightsModel = remember(authed) { InsightsModel(InsightsRepository(authed, gateway.url), Dispatchers.IO) }
+    BackHandler(enabled = showInsights) { showInsights = false }
     var cronEdit by remember(gateway.id) { mutableStateOf<CronEditTarget?>(null) }
     BackHandler(enabled = cronEdit != null) { cronEdit = null }
     LaunchedEffect(openSessionId) { if (openSessionId != null) open(openSessionId) }
@@ -391,12 +398,14 @@ fun SessionsHost(
         val dot: @Composable () -> Unit = { LiveLinkDot(link, auth, networkOnline) }
         Box(Modifier.weight(1f)) {
             val editing = cronEdit
-            if (cronOpen && editing != null) {
+            if (showInsights) {
+                InsightsScreen(insightsModel) { showInsights = false }
+            } else if (cronOpen && editing != null) {
                 CronEditScreen(editing, cronModel) { cronEdit = null }
             } else if (cronOpen) {
                 CronScreen(cronModel, onEdit = { cronEdit = it }) { cronOpen = false }
             } else {
-                SessionsBody(wide, chatOpen, auth, model, open, openNew, { cronOpen = true }, onGateways, offline, viewStore, dot, chat)
+                SessionsBody(wide, chatOpen, auth, model, open, openNew, { cronOpen = true }, { showInsights = true }, onGateways, offline, viewStore, dot, chat)
             }
         }
     }
@@ -414,6 +423,7 @@ private fun SessionsBody(
     open: (String?) -> Unit,
     openNew: (String?) -> Unit,
     onCron: () -> Unit,
+    onInsights: () -> Unit,
     onGateways: () -> Unit,
     offline: Boolean,
     viewStore: SessionViewStore,
@@ -426,7 +436,7 @@ private fun SessionsBody(
     Row(Modifier.fillMaxSize()) {
         if (plan.showList) {
             val listModifier = if (plan.listFixedWidth) Modifier.width(360.dp).fillMaxHeight() else Modifier.weight(1f).fillMaxHeight()
-            SessionsScreen(model, expired, open, onGateways, viewStore, listModifier, offline, statusDot, openNew, onCron)
+            SessionsScreen(model, expired, open, onGateways, viewStore, listModifier, offline, statusDot, openNew, onCron, onInsights)
         }
         if (plan.showChat) chat(Modifier.weight(1f)) else if (plan.showPlaceholder) ChatPlaceholder(Modifier.weight(1f))
     }
