@@ -44,7 +44,7 @@ class HistoryAttachmentsTest {
         override val online = MutableStateFlow(true)
     }
 
-    private fun shown(messagesJson: String): List<String> = runBlocking {
+    private fun shown(messagesJson: String): List<ChatItem.Message> = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -82,20 +82,21 @@ class HistoryAttachmentsTest {
         val chat = ChatController(link, SessionsRepository(authed, base), "stored-1", scope)
         chat.open()
         withTimeout(8000) { while (chat.state.value.items.isEmpty()) delay(10) }
-        val out = chat.state.value.items.filterIsInstance<ChatItem.Message>().map { "${it.role}:${it.text}" }
+        val out = chat.state.value.items.filterIsInstance<ChatItem.Message>()
         link.stop()
         gateway.shutdown()
         out
     }
 
     @Test
-    fun userRefsBecomeLinesAndAssistantTextIsUntouched() {
+    fun userImagesBecomePathsFilesStayLinesAndAssistantTextIsUntouched() {
         val rows = shown(
             """{"session_id":"stored-1","messages":[
               {"id":1,"role":"user","content":"@file:/h/a.txt\n\nhello"},
               {"id":2,"role":"assistant","content":"@file:/x"},
               {"id":3,"role":"user","content":"@image:/h/p.png\nWhat do you see in this image?"}]}""",
         )
-        assertEquals(listOf("user:hello\n📎 a.txt", "assistant:@file:/x", "user:What do you see in this image?\n[image]"), rows)
+        assertEquals(listOf("user:hello\n📎 a.txt", "assistant:@file:/x", "user:What do you see in this image?"), rows.map { "${it.role}:${it.text}" })
+        assertEquals(listOf(emptyList(), emptyList(), listOf("/h/p.png")), rows.map { it.images })
     }
 }

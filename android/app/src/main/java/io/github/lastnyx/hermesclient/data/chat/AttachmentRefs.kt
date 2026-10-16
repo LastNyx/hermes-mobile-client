@@ -41,6 +41,18 @@ fun splitAttachmentRefs(text: String): Pair<List<AttachmentRef>, String> {
     return refs to kept.joinToString("\n").trim()
 }
 
+/** A stored user row: [text] keeps file lines only, pictures come back as gateway [imagePaths] to draw. */
+data class HistoryParts(val text: String, val imagePaths: List<String>)
+
+fun historyParts(text: String): HistoryParts {
+    val (refs, visible) = splitAttachmentRefs(text)
+    val files = refs.filter { it.kind == AttachmentKind.File }.map { attachmentLine(it.kind, it.name) }
+    return HistoryParts(
+        (listOfNotNull(visible.ifEmpty { null }) + files).joinToString("\n"),
+        refs.filter { it.kind == AttachmentKind.Image }.map { it.path },
+    )
+}
+
 fun historyText(text: String): String {
     val (refs, visible) = splitAttachmentRefs(text)
     if (refs.isEmpty()) return visible

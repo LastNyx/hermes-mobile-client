@@ -70,6 +70,7 @@ import io.github.lastnyx.hermesclient.data.gateway.Gateway
 import io.github.lastnyx.hermesclient.data.live.AndroidNetworkMonitor
 import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
+import io.github.lastnyx.hermesclient.data.media.MediaRepository
 import io.github.lastnyx.hermesclient.data.sessions.CANT_REACH_GATEWAY
 import io.github.lastnyx.hermesclient.data.sessions.Session
 import io.github.lastnyx.hermesclient.data.sessions.SessionListModel
@@ -379,6 +380,7 @@ fun SessionsHost(
         val offline = showsOfflineLine(linkState)
         val networkOnline by network.online.collectAsState()
         val repo = remember(authed, profile) { SessionsRepository(authed, gateway.url, profile) }
+        val media = remember(authed) { MediaRepository(authed, gateway.url) }
         val listState by model.state.collectAsState()
         val chat: @Composable (Modifier) -> Unit = { m ->
             key(chatId, chatKey) {
@@ -392,6 +394,8 @@ fun SessionsHost(
                         seed = sharedDraft,
                         newChatCwd = chatCwd,
                         profile = profile,
+                        media = media,
+                        gatewayUrl = gateway.url,
                         onBranched = { id -> open(id); linkScope.launch { model.refresh() } },
                     )
                 }

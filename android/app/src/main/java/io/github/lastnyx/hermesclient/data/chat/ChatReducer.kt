@@ -8,7 +8,7 @@ enum class ToolStatus { Running, Done }
 sealed interface ChatItem {
     val key: String
 
-    data class Message(override val key: String, val role: String, val text: String, val streaming: Boolean = false, val usage: String? = null, val rowId: Long? = null) : ChatItem
+    data class Message(override val key: String, val role: String, val text: String, val streaming: Boolean = false, val usage: String? = null, val rowId: Long? = null, val images: List<String> = emptyList()) : ChatItem
 
     data class Tool(
         override val key: String,

@@ -39,3 +39,5 @@ internal const val PROGRESS_STROKE = 2
 internal const val CHEVRON_SIZE = 20
 internal const val TOOL_DETAIL_MAX_HEIGHT = 200
 internal const val TITLE_START_NO_BACK = 4
+internal const val MEDIA_MAX_WIDTH = 280
+internal const val MEDIA_MAX_HEIGHT = 320

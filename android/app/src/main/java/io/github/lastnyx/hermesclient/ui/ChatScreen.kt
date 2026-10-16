@@ -45,6 +45,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -87,6 +88,9 @@ import io.github.lastnyx.hermesclient.data.chat.SlashSuggestion
 import io.github.lastnyx.hermesclient.data.chat.parseSlashLine
 import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
+import io.github.lastnyx.hermesclient.data.media.MediaKind
+import io.github.lastnyx.hermesclient.data.media.MediaRepository
+import io.github.lastnyx.hermesclient.data.media.extractReplyMedia
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
 import io.github.lastnyx.hermesclient.data.settings.DraftStore
 import io.github.lastnyx.hermesclient.data.settings.DraftTracker
@@ -118,6 +122,8 @@ fun ChatHost(
     onBranched: (String) -> Unit = {},
     newChatCwd: String? = null,
     profile: String? = null,
+    media: MediaRepository? = null,
+    gatewayUrl: String = "",
 ) {
     val key = draftKey(gatewayId, storedId)
     val scope = remember(storedId) { CoroutineScope(SupervisorJob() + Dispatchers.Main) }
@@ -159,7 +165,10 @@ fun ChatHost(
         controller.send(text)
     }
     val linkState by link.state.collectAsState()
-    ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack, promptActionsEnabled(linkState), seed, onBranched, beforeSend)
+    val access = remember(media, gatewayUrl, controller) { media?.let { MediaAccess(it, gatewayUrl) { controller.state.value.storedId } } }
+    CompositionLocalProvider(LocalMedia provides access) {
+        ChatScreen(controller, models, slash, key, drafts, modifier, onSend, title, onBack, promptActionsEnabled(linkState), seed, onBranched, beforeSend)
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -532,7 +541,10 @@ private fun MessageBubble(
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
-                Text(item.text, Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp), style = roles.body)
+                Column(Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp)) {
+                    if (item.text.isNotEmpty()) Text(item.text, style = roles.body)
+                    MediaImageStack(item.images)
+                }
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 if (editable) DropdownMenuItem(text = { Text("Edit") }, onClick = { menu = false; editing = true })
@@ -547,14 +559,22 @@ private fun MessageBubble(
             }
         }
     } else if (item.text.isNotEmpty()) {
-        val shown = remember(item.text, item.streaming) { if (item.streaming) item.text else clipForDisplay(item.text) }
+        val hasMedia = LocalMedia.current != null
+        val media = remember(item.text, hasMedia) { if (hasMedia) extractReplyMedia(item.text) else null }
+        val body = media?.text ?: item.text
+        val shown = remember(body, item.streaming) { if (item.streaming) body else clipForDisplay(body) }
         Column(Modifier.fillMaxWidth()) {
-            Surface(
+            if (body.isNotEmpty()) Surface(
                 Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(BUBBLE_CORNER.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
                 MarkdownText(shown, Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = CARD_PADDING_V.dp))
+            }
+            if (!item.streaming && media != null) {
+                val (images, files) = media.refs.partition { it.kind == MediaKind.Image }
+                MediaImageStack(images.map { it.path }, Modifier.padding(top = INSIDE_TURN_GAP.dp))
+                files.forEach { MediaFileLine(it) }
             }
             if (!item.streaming) {
                 CopyReplyButton(replyForCopy(item.text)) {
