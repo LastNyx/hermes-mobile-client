@@ -102,4 +102,27 @@ fun skillLines(u: UsageInsights): List<String> = u.skills.take(TOP).map { "${it.
 fun dayLines(u: UsageInsights): List<String> =
     u.daily.sortedByDescending { it.day }.take(DAYS_SHOWN).map { "${it.day}  ${formatTokens(it.tokens)} tokens  ${formatCost(it.cost)}" }
 
+data class InsightRow(val name: String, val value: String)
+
+fun summaryStats(u: UsageInsights): List<InsightRow> = listOf(
+    InsightRow("Chats", u.sessions.toString()),
+    InsightRow("Requests", u.apiCalls.toString()),
+    InsightRow("Tokens in", formatTokens(u.inputTokens)),
+    InsightRow("Tokens out", formatTokens(u.outputTokens)),
+    InsightRow("Cached", formatTokens(u.cacheReadTokens)),
+    InsightRow("Cost", formatCost(u.cost)),
+)
+
+private fun usageValue(tokens: Long, cost: Double) = "${formatTokens(tokens)} · ${formatCost(cost)}"
+
+fun modelRows(u: UsageInsights): List<InsightRow> =
+    u.byModel.take(TOP).map { InsightRow(it.model, usageValue(it.tokens, it.cost)) }
+
+fun toolRows(u: UsageInsights): List<InsightRow> = u.tools.take(TOP).map { InsightRow(it.tool, it.count.toString()) }
+
+fun skillRows(u: UsageInsights): List<InsightRow> = u.skills.take(TOP).map { InsightRow(it.skill, it.count.toString()) }
+
+fun dayRows(u: UsageInsights): List<InsightRow> =
+    u.daily.sortedByDescending { it.day }.take(DAYS_SHOWN).map { InsightRow(it.day, usageValue(it.tokens, it.cost)) }
+
 fun insightLines(u: UsageInsights): List<String> = summaryLines(u) + modelLines(u) + toolLines(u) + skillLines(u) + dayLines(u)

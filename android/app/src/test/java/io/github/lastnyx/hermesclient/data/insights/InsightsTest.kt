@@ -48,6 +48,31 @@ class InsightsTest {
         "skills":{"top_skills":[{"skill":"plan","total_count":4}]}}"""
 
     @Test
+    fun rows() {
+        val u = UsageInsights(
+            sessions = 29, apiCalls = 2256, inputTokens = 1_200_000, outputTokens = 340_000, cacheReadTokens = 80_000, cost = 93.534,
+            byModel = List(15) { ModelUsage("m$it", 1_900_000, 93.534, 1, 1) },
+            tools = List(12) { ToolUsage("t$it", 7) },
+            skills = List(11) { SkillUsage("s$it", 4) },
+            daily = List(20) { DayUsage("2026-10-%02d".format(it + 1), 1234, 0.5, 1) },
+        )
+        assertEquals(
+            listOf("Chats" to "29", "Requests" to "2256", "Tokens in" to "1.2M", "Tokens out" to "340k", "Cached" to "80k", "Cost" to "$93.53"),
+            summaryStats(u).map { it.name to it.value },
+        )
+        assertEquals(10, modelRows(u).size)
+        assertEquals(InsightRow("m0", "1.9M · $93.53"), modelRows(u)[0])
+        assertEquals(10, toolRows(u).size)
+        assertEquals(InsightRow("t0", "7"), toolRows(u)[0])
+        assertEquals(10, skillRows(u).size)
+        assertEquals(InsightRow("s0", "4"), skillRows(u)[0])
+        assertEquals(14, dayRows(u).size)
+        assertEquals(InsightRow("2026-10-20", "1.2k · $0.50"), dayRows(u)[0])
+        val none = UsageInsights()
+        assertTrue(modelRows(none).isEmpty() && toolRows(none).isEmpty() && skillRows(none).isEmpty() && dayRows(none).isEmpty())
+    }
+
+    @Test
     fun insights() {
         val u = parseUsage(JSONObject(full))
         assertEquals(30, u.periodDays)
