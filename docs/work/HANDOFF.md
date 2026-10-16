@@ -23,12 +23,12 @@ Status travels with the branch.
 
 - Branch `feature/v1`, pushed to origin (batch 27 build is `dcbda1f`; docs commits come after it). Nothing merged to main, nothing tagged since
   v0.1.0. User decision: no release; the user runs the debug build.
-- Every ticket is `Status: done` except 31 (wontfix). `./build.sh test`: 319 tests, 0 failures. Every batch up to 32 passed the reviewer
+- Every ticket is `Status: done` except 31 (wontfix). `./build.sh test`: 321 tests, 0 failures. Every batch up to 33 passed the reviewer
   (`.scratch/v1/review-*.md`, batches in `.scratch/v1/batches.md`). Nothing is blocked.
 - Roadmap: `docs/ROADMAP.md` lists every phase and batch. Dev lessons: `docs/dev-notes.md` (34 lines, approved by the user 2026-10-16).
 - Markdown library is `com.mikepenz:multiplatform-markdown-renderer-m3` **0.33.0** (`docs/work/MARKDOWN-LIB.md`); raising it needs a Compose BOM bump first.
-- Test device: Realme RMX1921, Android 11, USB debugging on, `adb` in `~/tools/android-sdk/platform-tools`. The debug build of 14:45 on 2026-10-16
-  (batch 32, all batches) is installed. Toolchain in `~/tools`; dev-team kit at `~/Dokumen/projects/hermes-dev-team/kit` (run with `python3 -u`).
+- Test device: Realme RMX1921, Android 11, USB debugging on, `adb` in `~/tools/android-sdk/platform-tools`. The debug build of 15:14 on 2026-10-16
+  (batch 33, all batches) is installed. Toolchain in `~/tools`; dev-team kit at `~/Dokumen/projects/hermes-dev-team/kit` (run with `python3 -u`).
 - Reference app for behaviour: `Giton22/herald` (read-only reference, no code copied). Desktop source on this PC: `/opt/hermes-agent/apps/desktop/src`.
 
 ### Built and phone-checked by the user (2026-10-16 unless noted)
@@ -45,7 +45,7 @@ notification hardening; notices banner; process output. Earlier (2026-10-14): sl
 - Scheduled jobs (86-87): the page opened and showed "No scheduled jobs." Not seen: rows, Run now, Pause, Resume, create, edit, delete. The edit call is a PUT; the worker flagged a possible 405 on WorkLab.
 - Capabilities (89) and the profile picker (90): not opened. Switches change which tools the agent has; the profile is sent as a `profile` query or body key.
 - Empty and opening states (107): not seen (needs an empty list or a slow open).
-- Insights (88): seen on the phone, loads real data. Plain layout.
+- Insights (88, 110): seen on the phone with real data, now as cards. The Scheduled jobs empty state (111) is seen centred.
 - Agent images and the file viewer (82-83): the chat looks unchanged, but no inline image, zoom viewer, Save/Share or text viewer was seen (no chat had a file or picture). To try: ask the agent to make a PNG in its images folder, or to reply with a link to a text file. Images outside the gateway's media folders are refused with a short sentence by design.
 - Unchecked: the updater's install confirmation (needs a newer release); the wide layout draft switch (99).
 
@@ -59,11 +59,11 @@ notification hardening; notices banner; process output. Earlier (2026-10-14): sl
 ### Next steps
 1. Phone-check the "NOT tried" list above, ideally against a gateway with checkpoints on and a scheduled job to look at (read-only).
 2. Session sharing (68, closed): a message from Desktop does not show live on the phone and vice versa; it appears after a delay. Gateway behaviour, cause not proven (`docs/PROTOCOL.md` 3.7). A possible later ticket: refresh history on the open chat when another client's reply completes.
-3. Possible UI work from the audit: Insights as cards, the "Connected" status line sits left of the title, the empty Scheduled jobs text sits top left. Animation was skipped on purpose.
+3. UI polish done (batch 33). The "Connected" line above the chat header lines up with the list's left edge; left as is. Animation was skipped on purpose.
 4. Not scheduled: offline cache, app lock (needs `androidx.biometric`, a build-file change), dictation, notification toggles, voice.
 5. Merging `feature/v1` to main and any release are the user's call. Do not tag, merge or push to main.
 
-## Session 2026-10-16: batches 18 to 32
+## Session 2026-10-16: batches 18 to 33
 
 - One ticket at a time, then reviewer rounds per batch (usually 1 to 3). Batch bases are in `.scratch/v1/batches.md`. A worker FAIL never happened this session.
 - Planner task P1 is done: `docs/PROTOCOL.md` section 4.6 (edit, branch, attach, projects, subagents, checkpoints) and a REST block in section 7 were written from

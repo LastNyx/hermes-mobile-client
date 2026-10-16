@@ -69,6 +69,7 @@ Tickets came from the research rounds (`.scratch/research-*.md`). Batches are in
 - [x] Batch 27 (86-90 and two fixes): Scheduled jobs (list, Run now, Pause, Resume, create, edit, delete), Insights, Capabilities switches, profile picker, one shared REST helper. Rounds: 2. Insights and the empty Scheduled jobs page seen on the phone; job rows, Capabilities and the profile picker not opened.
 - [x] Batch 32 (82, 83 and a fix): agent images inline with a full-screen zoom viewer and Save/Share, linked gateway files in a plain text viewer. Rounds: 2. Route check on WorkLab 0.22.2 done by the user in a signed-in browser (all four routes exist). Chat looks unchanged on the phone; images and the viewers not seen (no chat with a file or picture).
 - [x] 68 (session takeover investigation): note 3.7 in `docs/PROTOCOL.md`. Phone test by the user: no takeover, no reaping; a message from the other client does not show live in either direction (gateway behaviour, cause not proven). No app change.
+- [x] Batch 33 (110, 111): Insights as cards with aligned numbers and range chips, centred empty and loading states on Scheduled jobs and Insights. Rounds: 1. Both checked on the phone by screenshot.
 
 ## Backlog (user decision 2026-10-14)
 Goal: usable almost like Hermes Desktop, essential usage only. Herald is a feature reference, not a plan to follow. Picked by the user: session tools, send-while-running, notification actions. Order is the planner's; each one gets its own ticket batch after a protocol check.
