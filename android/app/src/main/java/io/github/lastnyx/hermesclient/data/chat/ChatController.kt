@@ -232,8 +232,10 @@ class ChatController(
             return
         }
         if (synchronized(queueLock) { sendNowId } != id) return
-        stop()
-        // A failed stop leaves nothing to wait for.
+        if (!stop()) {
+            synchronized(queueLock) { sendNowId = null; sendNowReady = false }
+            return
+        }
         if (!_state.value.running) {
             synchronized(queueLock) { sendNowReady = true }
             drainQueue()
@@ -479,11 +481,16 @@ class ChatController(
         _state.update { it.copy(items = it.items + ChatItem.CommandOutput("n${it.items.size}", command, text, failed)) }
     }
 
-    suspend fun stop() {
+    /** True when the gateway accepted the interrupt. `running` is left to events: a lost Stop means the turn still runs. */
+    suspend fun stop(): Boolean {
         try {
             sessionCall("session.interrupt") { it }
+            return true
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            fail(e)
+            _state.update { it.copy(error = errorText(e)) }
+            return false
         }
     }
 
