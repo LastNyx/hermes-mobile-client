@@ -165,6 +165,19 @@ class HistoryPagingChatTest {
     }
 
     @Test
+    fun idLessRowsKeepDistinctKeysAcrossPages() = runBlocking {
+        fun idLess(from: Int, to: Int, returned: Int) = MockResponse().setBody(
+            """{"messages":[${(from..to).joinToString(",") { """{"role":"user","content":"r$it"}""" }}],"pagination":{"limit":120,"offset":0,"order":"latest","returned":$returned}}"""
+        )
+        val rig = Rig { offset -> if (offset == 0) idLess(201, 320, 120) else idLess(1, 5, 5) }
+        rig.chat.open()
+        rig.chat.loadOlder()
+        val keys = rig.chat.state.value.items.filterIsInstance<ChatItem.Message>().map { it.key }
+        assertEquals(125, keys.size)
+        assertEquals(125, keys.toSet().size)
+    }
+
+    @Test
     fun failedOlderPageKeepsEverythingAndSetsError() = runBlocking {
         val rig = Rig { offset -> if (offset == 0) page(1, 120) else MockResponse().setResponseCode(500) }
         rig.chat.open()

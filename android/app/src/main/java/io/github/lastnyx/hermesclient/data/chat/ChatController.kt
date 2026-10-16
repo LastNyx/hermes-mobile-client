@@ -290,8 +290,9 @@ class ChatController(
     private var historyGeneration = 0
     private val loadingOlder = AtomicBoolean(false)
 
-    private fun historyItem(m: HistoryMessage, index: Int) =
-        ChatItem.Message(m.rowId?.let { "h$it" } ?: "h-$index", m.role, m.text)
+    /** [fromEnd] counts back from the newest history row: prepending older rows never shifts it, so id-less keys stay unique. */
+    private fun historyItem(m: HistoryMessage, fromEnd: Int) =
+        ChatItem.Message(m.rowId?.let { "h$it" } ?: "h-$fromEnd", m.role, m.text)
 
     private suspend fun loadHistory(stored: String) {
         val page = withContext(io) { repo.messages(stored) }.getOrThrow()
@@ -300,7 +301,7 @@ class ChatController(
             history = page.messages
             historyOffset = page.returned
         }
-        _state.update { it.copy(items = page.messages.mapIndexed { i, m -> historyItem(m, i) }, hasOlder = page.returned >= HISTORY_PAGE) }
+        _state.update { it.copy(items = page.messages.mapIndexed { i, m -> historyItem(m, page.messages.size - 1 - i) }, hasOlder = page.returned >= HISTORY_PAGE) }
     }
 
     /** Prepends the next older page; live items are never touched. One load at a time. */
@@ -321,7 +322,7 @@ class ChatController(
                 // A reload replaced the transcript while this page was in flight.
                 if (generation != historyGeneration) return
                 val merged = mergeHistory(history, page.messages)
-                val added = merged.take(merged.size - history.size).mapIndexed { i, m -> historyItem(m, i) }
+                val added = merged.take(merged.size - history.size).mapIndexed { i, m -> historyItem(m, merged.size - 1 - i) }
                 history = merged
                 historyOffset += page.returned
                 _state.update { it.copy(items = added + it.items, hasOlder = page.returned >= HISTORY_PAGE) }
