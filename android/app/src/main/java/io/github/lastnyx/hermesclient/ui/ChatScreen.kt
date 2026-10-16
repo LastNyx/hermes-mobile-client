@@ -66,10 +66,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import io.github.lastnyx.hermesclient.data.settings.DraftStore
-import io.github.lastnyx.hermesclient.data.settings.DraftTracker
-import io.github.lastnyx.hermesclient.data.settings.draftKey
-import io.github.lastnyx.hermesclient.data.settings.flush
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -105,6 +101,10 @@ import io.github.lastnyx.hermesclient.data.chat.parseSlashLine
 import io.github.lastnyx.hermesclient.data.live.LinkState
 import io.github.lastnyx.hermesclient.data.live.LiveLink
 import io.github.lastnyx.hermesclient.data.sessions.SessionsRepository
+import io.github.lastnyx.hermesclient.data.settings.DraftStore
+import io.github.lastnyx.hermesclient.data.settings.DraftTracker
+import io.github.lastnyx.hermesclient.data.settings.draftKey
+import io.github.lastnyx.hermesclient.data.settings.flush
 import io.github.lastnyx.hermesclient.data.watch.WatchHub
 import io.github.lastnyx.hermesclient.data.watch.WatchReply
 import kotlinx.coroutines.CoroutineScope

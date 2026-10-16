@@ -422,8 +422,10 @@ class ChatController(
         }
     }
 
-    /** Text that could not be sent is queued. */
-    /** False only when a plain submit failed, so the caller can hand the text back to the user. */
+    /**
+     * Text that could not be sent is queued and counts as handled. False only when a plain
+     * submit failed, so the caller can hand the text back to the user.
+     */
     suspend fun send(text: String): Boolean {
         val trimmed = text.trim()
         unblockDrain()
