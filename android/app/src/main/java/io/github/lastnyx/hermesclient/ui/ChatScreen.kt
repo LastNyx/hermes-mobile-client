@@ -576,6 +576,7 @@ private fun MessageBubble(item: ChatItem.Message, actions: LastActions, onRetry:
             }
             if (!item.streaming) {
                 CopyReplyButton(replyForCopy(item.text)) {
+                    item.usage?.let { Text(it, style = roles.caption, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     if (actions.retryKey == item.key) TextButton(onClick = onRetry) { Text("Retry", style = roles.label) }
                 }
             }

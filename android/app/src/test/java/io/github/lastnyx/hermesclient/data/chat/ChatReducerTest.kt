@@ -44,6 +44,33 @@ class ChatReducerTest {
         assertEquals(true, unknown.length <= 4000 && unknown.endsWith("more characters"))
     }
 
+    private fun complete(json: String) = LinkEvent("message.complete", "s1", JSONObject(json), null)
+
+    private fun usages(s: ChatState) = s.items.filterIsInstance<ChatItem.Message>().map { it.usage }
+
+    @Test
+    fun completeStoresUsageOnTheReplyOfThisTurn() {
+        val done = run(ev("message.delta", "hi"), complete("""{"text":"hi","usage":{"input":1200,"output":85}}"""))
+        val reply = done.items.single() as ChatItem.Message
+        assertEquals("1.2k in · 85 out", reply.usage)
+        assertEquals(false, reply.streaming)
+
+        assertEquals(listOf<String?>(null), usages(run(ev("message.delta", "hi"), complete("""{"text":"hi"}"""))))
+        assertEquals(listOf<String?>(null), usages(run(ev("message.delta", "hi"), complete("""{"usage":null}"""))))
+        assertEquals(0, run(complete("""{"text":"","usage":{"input":5,"output":5}}""")).items.size)
+
+        val second = reduceChat(
+            reduceChat(done, LinkEvent("message.delta", "s1", JSONObject("""{"text":"again"}"""), null)),
+            complete("""{"usage":{"input":10,"output":2}}"""),
+        )
+        assertEquals(listOf<String?>("1.2k in · 85 out", "10 in · 2 out"), usages(second))
+
+        val event = complete("""{"usage":{"input":10,"output":2}}""")
+        val once = reduceChat(ChatState(), complete("""{"text":"done","usage":{"input":10,"output":2}}"""))
+        assertEquals(listOf<String?>("10 in · 2 out"), usages(once))
+        assertEquals(once, reduceChat(once, event))
+    }
+
     @Test
     fun reasoningBlocks() {
         assertEquals(

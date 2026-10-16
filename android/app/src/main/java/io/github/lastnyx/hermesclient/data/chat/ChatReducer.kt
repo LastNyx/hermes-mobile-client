@@ -8,7 +8,7 @@ enum class ToolStatus { Running, Done }
 sealed interface ChatItem {
     val key: String
 
-    data class Message(override val key: String, val role: String, val text: String, val streaming: Boolean = false) : ChatItem
+    data class Message(override val key: String, val role: String, val text: String, val streaming: Boolean = false, val usage: String? = null) : ChatItem
 
     data class Tool(
         override val key: String,
@@ -153,7 +153,13 @@ fun reduceChat(state: ChatState, event: LinkEvent): ChatState {
             val turnHasReply = items.takeLastWhile { !(it is ChatItem.Message && it.role == "user") }
                 .any { it is ChatItem.Message && it.role == "assistant" }
             val text = payload?.optString("text").orEmpty()
-            val finished = if (!turnHasReply && text.isNotBlank()) items + ChatItem.Message("m${items.size}", "assistant", text) else items
+            val withReply = if (!turnHasReply && text.isNotBlank()) items + ChatItem.Message("m${items.size}", "assistant", text) else items
+            val line = usageLine(payload?.optJSONObject("usage"))
+            val replyAt = withReply.indexOfLast { it is ChatItem.Message && it.role == "assistant" }
+            val lastUser = withReply.indexOfLast { it is ChatItem.Message && it.role == "user" }
+            val finished = if (line != null && replyAt > lastUser) {
+                withReply.mapIndexed { i, it -> if (i == replyAt) (it as ChatItem.Message).copy(usage = line) else it }
+            } else withReply
             val failure = if (payload?.optString("status") == "error") {
                 payload.optString("error").ifEmpty { "The turn failed" }
             } else null
