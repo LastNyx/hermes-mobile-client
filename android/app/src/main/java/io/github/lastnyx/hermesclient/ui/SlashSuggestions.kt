@@ -30,8 +30,9 @@ fun suggestionRows(suggestions: List<SlashSuggestion>): List<SuggestionRow> {
     val rows = ArrayList<SuggestionRow>()
     var group: String? = null
     for (s in suggestions) {
-        if (s.group != null && s.group != group) rows += SuggestionRow.Header(s.group)
-        group = s.group
+        val g = s.group
+        if (g != null && g != group) rows += SuggestionRow.Header(g)
+        group = g
         rows += SuggestionRow.Item(s)
     }
     return rows

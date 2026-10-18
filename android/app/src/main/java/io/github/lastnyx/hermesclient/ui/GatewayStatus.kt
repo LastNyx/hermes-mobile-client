@@ -17,10 +17,10 @@ internal fun gatewayStatusLine(state: SignInState, testResult: String?): Gateway
             )
         SignInState.SigningIn -> GatewayStatus("Signing in…", StatusTone.Normal)
         SignInState.Unavailable -> GatewayStatus("Gateway auth unavailable, retrying", StatusTone.Warning)
-        is SignInState.SignedOut -> when (state.message) {
+        is SignInState.SignedOut -> when (val message = state.message) {
             null -> GatewayStatus("Signed out", StatusTone.Normal)
-            SignInController.SIGNED_OUT_MESSAGE, SAVED_SIGN_IN_UNREADABLE -> GatewayStatus(state.message, StatusTone.Error)
-            else -> GatewayStatus(state.message, StatusTone.Normal)
+            SignInController.SIGNED_OUT_MESSAGE, SAVED_SIGN_IN_UNREADABLE -> GatewayStatus(message, StatusTone.Error)
+            else -> GatewayStatus(message, StatusTone.Normal)
         }
     }
     return if (testResult == null) base else base.copy(text = "${base.text} · $testResult")
