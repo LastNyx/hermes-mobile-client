@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 
 private const val TEST_NAMES_SHOWN = 5
 
-internal fun mcpResultLine(r: McpTestResult): String =
+fun mcpResultLine(r: McpTestResult): String =
     if (r.ok) "OK, ${r.tools.size} tools: ${r.tools.take(TEST_NAMES_SHOWN).joinToString(", ")}" else r.error ?: "Test failed"
 
 @Composable

@@ -3,12 +3,12 @@ package io.github.lastnyx.hermesclient.ui
 import io.github.lastnyx.hermesclient.data.chat.ChatItem
 import io.github.lastnyx.hermesclient.data.chat.ToolStatus
 
-internal fun toolLabel(name: String): String {
+fun toolLabel(name: String): String {
     val words = name.trim().replace('_', ' ').trim()
     return if (words.isEmpty()) "Tool" else words.replaceFirstChar { it.uppercase() }
 }
 
-internal fun durationText(seconds: Double): String {
+fun durationText(seconds: Double): String {
     val s = seconds.coerceAtLeast(0.0)
     // Round first so 59.96 reads "1 min", not "60.0 s".
     val tenths = Math.round(s * 10) / 10.0
@@ -22,7 +22,7 @@ internal fun durationText(seconds: Double): String {
     }
 }
 
-internal fun reasoningPreview(text: String, streaming: Boolean): String {
+fun reasoningPreview(text: String, streaming: Boolean): String {
     // A "\r\n" pair reads as one empty line between two separators, which is skipped like any blank line.
     fun isBreak(c: Char) = c == '\n' || c == '\r'
     if (streaming) {
@@ -47,15 +47,15 @@ internal fun reasoningPreview(text: String, streaming: Boolean): String {
     }
 }
 
-internal const val TOOL_STILL_RUNNING = "Still running…"
+const val TOOL_STILL_RUNNING = "Still running…"
 
-internal fun toolExpandedText(status: ToolStatus, detail: String): String? = when {
+fun toolExpandedText(status: ToolStatus, detail: String): String? = when {
     detail.isNotBlank() -> detail
     status == ToolStatus.Running -> TOOL_STILL_RUNNING
     else -> null
 }
 
-internal sealed interface ChatRow {
+sealed interface ChatRow {
     val key: String
     val first: ChatItem
     val last: ChatItem
@@ -74,9 +74,9 @@ internal sealed interface ChatRow {
     }
 }
 
-internal const val LIVE_STEPS_SHOWN = 4
+const val LIVE_STEPS_SHOWN = 4
 
-internal data class ChatRows(val rows: List<ChatRow>, val earlierSteps: Int, val earlierBeforeKey: String?)
+data class ChatRows(val rows: List<ChatRow>, val earlierSteps: Int, val earlierBeforeKey: String?)
 
 private fun isUser(item: ChatItem) = item is ChatItem.Message && item.role == "user"
 
@@ -86,11 +86,11 @@ private fun isFinishedStep(item: ChatItem) = when (item) {
     else -> false
 }
 
-internal fun turnKey(items: List<ChatItem>): String? = items.lastOrNull(::isUser)?.key
+fun turnKey(items: List<ChatItem>): String? = items.lastOrNull(::isUser)?.key
 
-internal fun earlierStepsText(count: Int): String = if (count == 1) "1 earlier step" else "$count earlier steps"
+fun earlierStepsText(count: Int): String = if (count == 1) "1 earlier step" else "$count earlier steps"
 
-internal fun chatRows(
+fun chatRows(
     items: List<ChatItem>,
     running: Boolean,
     showEarlier: Boolean,
@@ -118,9 +118,9 @@ internal fun chatRows(
     return ChatRows(before + kept.map { ChatRow.Single(it) }, dropCount, beforeKey)
 }
 
-internal const val MIN_GROUPED_TOOLS = 3
+const val MIN_GROUPED_TOOLS = 3
 
-internal fun groupTools(items: List<ChatItem>): List<ChatRow> {
+fun groupTools(items: List<ChatItem>): List<ChatRow> {
     val rows = mutableListOf<ChatRow>()
     var i = 0
     while (i < items.size) {

@@ -13,7 +13,7 @@ import io.github.lastnyx.hermesclient.data.sessions.SessionOrdering
 import io.github.lastnyx.hermesclient.data.sessions.SessionStatus
 
 @Composable
-internal fun SessionViewMenu(
+fun SessionViewMenu(
     expanded: Boolean,
     onDismiss: () -> Unit,
     ordering: SessionOrdering,

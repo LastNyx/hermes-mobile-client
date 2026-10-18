@@ -89,7 +89,7 @@ fun SettingsScreen(
 }
 
 @Composable
-internal fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
+fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(CARD_CORNER.dp))

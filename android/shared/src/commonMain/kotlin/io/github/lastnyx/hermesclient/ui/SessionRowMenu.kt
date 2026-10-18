@@ -15,7 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 @Composable
-internal fun SessionRowMenu(
+fun SessionRowMenu(
     session: Session,
     archivedPage: Boolean,
     model: SessionListModel,

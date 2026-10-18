@@ -44,7 +44,7 @@ import java.net.URI
 private const val CORNER_DP = 12
 
 /** Live, non-blocking hint under the URL field; null when there is nothing to say. */
-internal fun urlHint(url: String): String? {
+fun urlHint(url: String): String? {
     val text = url.trim()
     if (text.isEmpty()) return null
     GatewayUrl.normalise(text)?.let { normal ->
@@ -59,7 +59,7 @@ internal fun urlHint(url: String): String? {
 
 /** [onSubmit] returns an error message to show, or null when it saved. */
 @Composable
-internal fun GatewayForm(initial: Gateway?, onSubmit: (String, String) -> String?, onCancel: () -> Unit) {
+fun GatewayForm(initial: Gateway?, onSubmit: (String, String) -> String?, onCancel: () -> Unit) {
     var name by remember(initial) { mutableStateOf(initial?.name.orEmpty()) }
     var url by remember(initial) { mutableStateOf(initial?.url.orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }

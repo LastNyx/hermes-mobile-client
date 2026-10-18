@@ -1,13 +1,13 @@
 package io.github.lastnyx.hermesclient.ui
 
-internal const val DISPLAY_MAX_CHARS = 24_000
-internal const val DISPLAY_MAX_LINE = 1_000
+const val DISPLAY_MAX_CHARS = 24_000
+const val DISPLAY_MAX_LINE = 1_000
 
 // Our own markers: recognised so clipping already-clipped text changes nothing.
 private val LINE_MARKER = Regex(" \\.\\.\\. \\d+ more characters$")
 private val TOTAL_MARKER = Regex("\n\\.\\.\\. \\d+ more characters$")
 
-internal fun clipForDisplay(
+fun clipForDisplay(
     text: String,
     maxChars: Int = DISPLAY_MAX_CHARS,
     maxLine: Int = DISPLAY_MAX_LINE,

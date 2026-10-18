@@ -28,7 +28,7 @@ private const val SUBAGENT_MAX_HEIGHT = 200
 private const val MAX_INDENT_STEPS = 6
 private const val INDENT_STEP = 12
 
-internal fun subagentSummary(all: List<Subagent>): String {
+fun subagentSummary(all: List<Subagent>): String {
     val running = all.count { it.status == SubagentStatus.Running || it.status == SubagentStatus.Queued }
     val done = all.size - running
     val parts = listOfNotNull(

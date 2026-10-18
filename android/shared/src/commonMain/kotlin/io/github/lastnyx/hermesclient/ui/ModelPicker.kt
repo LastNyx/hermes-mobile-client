@@ -39,7 +39,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-internal fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss: () -> Unit) {
+fun ModelPicker(state: ModelsState, models: ModelsController, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
     ModalBottomSheet(onDismissRequest = onDismiss, dragHandle = { BottomSheetDefaults.DragHandle() }) {
         LazyColumn(Modifier.padding(horizontal = SCREEN_EDGE.dp), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {

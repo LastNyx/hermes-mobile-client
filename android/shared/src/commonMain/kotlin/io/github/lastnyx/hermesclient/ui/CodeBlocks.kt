@@ -32,16 +32,16 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
-internal fun codeLabel(language: String?): String =
+fun codeLabel(language: String?): String =
     if (language.isNullOrBlank()) "code" else language.trim().lowercase().take(20)
 
-internal fun codeForCopy(code: String): String = code.trimEnd('\n', '\r', ' ')
+fun codeForCopy(code: String): String = code.trimEnd('\n', '\r', ' ')
 
-internal fun replyForCopy(text: String): String =
+fun replyForCopy(text: String): String =
     text.lines().dropWhile { it.isBlank() }.joinToString("\n").trimEnd()
 
 @Composable
-internal fun CodeCard(code: String, language: String?, style: TextStyle) {
+fun CodeCard(code: String, language: String?, style: TextStyle) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(vertical = LIST_GAP.dp),
         shape = RoundedCornerShape(8.dp),
@@ -67,7 +67,7 @@ internal fun CodeCard(code: String, language: String?, style: TextStyle) {
 }
 
 @Composable
-internal fun CopyReplyButton(text: String, trailing: @Composable () -> Unit = {}) {
+fun CopyReplyButton(text: String, trailing: @Composable () -> Unit = {}) {
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) {
@@ -92,7 +92,7 @@ internal fun CopyReplyButton(text: String, trailing: @Composable () -> Unit = {}
 }
 
 @Composable
-internal fun CopyButton(text: String) {
+fun CopyButton(text: String) {
     val clipboard = LocalClipboardManager.current
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) {

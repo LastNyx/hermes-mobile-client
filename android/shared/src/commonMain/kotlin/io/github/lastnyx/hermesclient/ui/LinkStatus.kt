@@ -5,7 +5,7 @@ import io.github.lastnyx.hermesclient.data.live.LinkState
 
 data class LinkStatus(val text: String, val problem: Boolean)
 
-internal fun linkStatus(
+fun linkStatus(
     link: LinkState,
     auth: AuthState,
     networkOnline: Boolean,

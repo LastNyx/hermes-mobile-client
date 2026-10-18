@@ -39,7 +39,7 @@ import kotlinx.coroutines.launch
 private const val MAX_VISIBLE_ROWS = 4
 private const val PROCESS_ROW_HEIGHT = 40
 
-internal fun processSummary(processes: List<BackgroundProcess>): String {
+fun processSummary(processes: List<BackgroundProcess>): String {
     val parts = listOf(
         ProcessState.Running to "running",
         ProcessState.Failed to "failed",
@@ -51,13 +51,13 @@ internal fun processSummary(processes: List<BackgroundProcess>): String {
     return if (parts.isEmpty()) "Background" else "Background · ${parts.joinToString(", ")}"
 }
 
-internal fun outputTail(output: String?): String? =
+fun outputTail(output: String?): String? =
     output?.let { ANSI.replace(it, "").replace("\r\n", "\n") }
         ?.takeIf { it.isNotBlank() }?.trimEnd()?.split('\n')
         ?.map { it.substringAfterLast('\r') }
         ?.takeLast(COMMAND_OUTPUT_MAX_LINES)?.joinToString("\n")
 
-internal fun processOutputText(p: BackgroundProcess): String {
+fun processOutputText(p: BackgroundProcess): String {
     val body = outputTail(p.output)
     val exit = if (p.state == ProcessState.Failed) p.exitCode?.let { "Exit code $it" } else null
     return when {

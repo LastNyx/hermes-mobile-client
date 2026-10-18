@@ -12,10 +12,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 /** The phone layout (back arrow shown) is too narrow for title and model chip side by side. */
-internal fun headerStacked(onBack: Boolean): Boolean = onBack
+fun headerStacked(onBack: Boolean): Boolean = onBack
 
 @Composable
-internal fun RowScope.ChatHeaderTitle(title: String, chip: String, onChip: () -> Unit, stacked: Boolean) {
+fun RowScope.ChatHeaderTitle(title: String, chip: String, onChip: () -> Unit, stacked: Boolean) {
     if (stacked) {
         Column(Modifier.weight(1f)) {
             Text(title, style = roles.title, maxLines = 1, overflow = TextOverflow.Ellipsis)

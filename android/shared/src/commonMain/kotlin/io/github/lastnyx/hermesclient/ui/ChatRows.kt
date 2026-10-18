@@ -36,10 +36,10 @@ import io.github.lastnyx.hermesclient.data.chat.ChatItem
 import io.github.lastnyx.hermesclient.data.chat.TOOL_DETAIL_LIMIT
 import io.github.lastnyx.hermesclient.data.chat.ToolStatus
 
-internal const val COMMAND_OUTPUT_MAX_LINES = 12
+const val COMMAND_OUTPUT_MAX_LINES = 12
 
 @Composable
-internal fun CommandOutputCard(item: ChatItem.CommandOutput) {
+fun CommandOutputCard(item: ChatItem.CommandOutput) {
     var expanded by rememberSaveable(item.key) { mutableStateOf(false) }
     val long = item.text.lineSequence().count() > COMMAND_OUTPUT_MAX_LINES
     val container = if (item.failed) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
@@ -71,7 +71,7 @@ internal fun CommandOutputCard(item: ChatItem.CommandOutput) {
 }
 
 @Composable
-internal fun ReasoningRow(item: ChatItem.Reasoning) {
+fun ReasoningRow(item: ChatItem.Reasoning) {
     // Saveable so the expanded state survives the row leaving the lazy list.
     var open by rememberSaveable(item.key) { mutableStateOf(false) }
     val shown = remember(item.text, item.streaming) { if (item.streaming) item.text else clipForDisplay(item.text) }
@@ -110,7 +110,7 @@ internal fun ReasoningRow(item: ChatItem.Reasoning) {
 }
 
 @Composable
-internal fun ToolRow(item: ChatItem.Tool) {
+fun ToolRow(item: ChatItem.Tool) {
     // Keyed on status so a finished tool collapses to its final state.
     var open by remember(item.key, item.status) { mutableStateOf(false) }
     val body = toolExpandedText(item.status, item.detail)
@@ -159,7 +159,7 @@ internal fun ToolRow(item: ChatItem.Tool) {
 }
 
 @Composable
-internal fun ToolGroupRow(group: ChatRow.ToolGroup) {
+fun ToolGroupRow(group: ChatRow.ToolGroup) {
     var open by rememberSaveable(group.key) { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(INSIDE_TURN_GAP.dp)) {
         Surface(

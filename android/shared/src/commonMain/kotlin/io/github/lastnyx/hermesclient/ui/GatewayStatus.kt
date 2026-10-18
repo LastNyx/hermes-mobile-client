@@ -8,7 +8,7 @@ enum class StatusTone { Normal, Good, Warning, Error }
 
 data class GatewayStatus(val text: String, val tone: StatusTone)
 
-internal fun gatewayStatusLine(state: SignInState, testResult: String?): GatewayStatus {
+fun gatewayStatusLine(state: SignInState, testResult: String?): GatewayStatus {
     val base = when (state) {
         is SignInState.SignedIn ->
             GatewayStatus(

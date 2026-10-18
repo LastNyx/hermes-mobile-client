@@ -40,4 +40,4 @@ fun ScreenTopBar(
 }
 
 // Same style as the chat's top bar.
-internal fun screenTitleStyle(typography: Typography): TextStyle = typography.titleSmall
+fun screenTitleStyle(typography: Typography): TextStyle = typography.titleSmall

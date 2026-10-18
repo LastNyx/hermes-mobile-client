@@ -25,7 +25,7 @@ import io.github.lastnyx.hermesclient.data.insights.toolRows
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun RangeChips(selectedDays: Int, onSelect: (Int) -> Unit) {
+fun RangeChips(selectedDays: Int, onSelect: (Int) -> Unit) {
     Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
         INSIGHT_DAYS.forEach { days ->
             val selected = days == selectedDays
@@ -40,7 +40,7 @@ internal fun RangeChips(selectedDays: Int, onSelect: (Int) -> Unit) {
 }
 
 @Composable
-internal fun InsightRows(rows: List<InsightRow>) {
+fun InsightRows(rows: List<InsightRow>) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
         rows.forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(ROW_PADDING.dp)) {
@@ -52,7 +52,7 @@ internal fun InsightRows(rows: List<InsightRow>) {
 }
 
 @Composable
-internal fun UsageCards(u: UsageInsights) {
+fun UsageCards(u: UsageInsights) {
     Section("Totals") { InsightRows(summaryStats(u)) }
     listOf("Models" to modelRows(u), "Tools" to toolRows(u), "Skills" to skillRows(u), "Days" to dayRows(u))
         .filter { it.second.isNotEmpty() }

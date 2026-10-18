@@ -29,7 +29,7 @@ import io.github.lastnyx.hermesclient.data.sessions.sessionStatus
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun SessionRow(session: Session, onOpen: (String?) -> Unit, onMenu: () -> Unit, divider: Boolean = false) {
+fun SessionRow(session: Session, onOpen: (String?) -> Unit, onMenu: () -> Unit, divider: Boolean = false) {
     Column(Modifier.fillMaxWidth()) {
         Column(
             Modifier.fillMaxWidth()
@@ -84,7 +84,7 @@ internal fun SessionRow(session: Session, onOpen: (String?) -> Unit, onMenu: () 
     }
 }
 
-internal fun relativeTime(epochSeconds: Double, nowMs: Long = System.currentTimeMillis()): String {
+fun relativeTime(epochSeconds: Double, nowMs: Long = System.currentTimeMillis()): String {
     if (epochSeconds <= 0) return ""
     val seconds = (nowMs / 1000 - epochSeconds.toLong()).coerceAtLeast(0)
     return when {
