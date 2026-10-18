@@ -3,6 +3,9 @@
 | Term | Meaning |
 |---|---|
 | **Gateway** | One Hermes backend (`hermes serve`) the app can reach, identified by its base URL (path prefix allowed). |
+| **Hub** | The overview of every registered gateway at once: which ones answer, which are busy, and what needs the user. |
+| **Needs me** | The list of sessions, on any gateway, that are waiting on the user (an approval or a question). |
+| **Unreachable** | A gateway the app cannot reach right now, e.g. because it sits on another network; not an error the user must fix. |
 | **Gateway registry** | The app's list of gateways: name, base URL, which one is **active**. Mirrors Hermes Desktop's "Registered gateways". |
 | **Native sign-in** | RFC 8252 flow: Custom Tab to `/auth/native/authorize` with PKCE, loopback redirect, code exchanged at `/auth/native/token`. |
 | **Loopback receiver** | The one-shot HTTP listener on `127.0.0.1:<random port>` that catches the sign-in redirect. |
