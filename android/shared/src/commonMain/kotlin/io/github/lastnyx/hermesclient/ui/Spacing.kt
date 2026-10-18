@@ -42,3 +42,5 @@ const val TOOL_DETAIL_MAX_HEIGHT = 200
 const val TITLE_START_NO_BACK = 4
 const val MEDIA_MAX_WIDTH = 280
 const val MEDIA_MAX_HEIGHT = 320
+
+const val WIDE_SCREEN_DP = 720

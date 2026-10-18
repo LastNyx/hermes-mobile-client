@@ -48,6 +48,7 @@ import io.github.lastnyx.hermesclient.ui.GatewaysScreen
 import io.github.lastnyx.hermesclient.ui.SessionsHost
 import io.github.lastnyx.hermesclient.ui.SettingsScreen
 import io.github.lastnyx.hermesclient.ui.TextScaleStore
+import io.github.lastnyx.hermesclient.ui.rememberAndroidPlatform
 import io.github.lastnyx.hermesclient.ui.scaledTypography
 import kotlinx.coroutines.Dispatchers
 import okhttp3.OkHttpClient
@@ -151,7 +152,7 @@ class MainActivity : ComponentActivity() {
                             updateStatus = updateUi.status,
                         )
                     } else {
-                        SessionsHost(active, http, signIn, onGateways = { showGateways = true }, openSessionId = requestedSession, share = shareRequest, profile = profileStore.selected(active.id))
+                        SessionsHost(active, http, signIn, rememberAndroidPlatform(), onGateways = { showGateways = true }, openSessionId = requestedSession, share = shareRequest, profile = profileStore.selected(active.id))
                     }
                 }
             }
