@@ -26,6 +26,18 @@ kotlin {
             implementation(libs.json)
             implementation(libs.kotlinx.coroutines.core)
         }
+        androidMain.dependencies {
+            implementation(libs.androidx.core.ktx)
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.lifecycle.runtime.compose)
+            implementation(libs.kotlinx.coroutines.android)
+        }
+        val desktopMain by getting {
+            dependencies {
+                implementation(compose.desktop.common)
+                implementation(libs.kotlinx.coroutines.swing)
+            }
+        }
         commonTest.dependencies {
             implementation(libs.junit)
             implementation(libs.kotlinx.coroutines.test)
