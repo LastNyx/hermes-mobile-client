@@ -37,7 +37,23 @@ adb shell dumpsys package io.github.lastnyx.hermesclient | grep lastUpdateTime  
 
 `.scratch/runs*` (worker logs and costs), the APK and `~/tools` stay on the old machine; nothing needs copying.
 
-## Where we are
+## Feature hub (branch `feature/hub`, started 2026-10-18)
+
+Desktop app (Windows, Linux) + Hub over every gateway: design `docs/HUB-DESIGN.md`, tickets `.scratch/hub/issues`, batches
+`.scratch/hub/batches.md`. **Never merge `feature/hub` to main until the user says so.**
+
+### Module layout (ticket 01)
+- `android/` holds three Gradle modules: `:shared` (Kotlin Multiplatform, targets `androidTarget()` and `jvm("desktop")`),
+  `:app` (the Android app, path kept so CI still finds the APK) and `:desktopApp` (Compose Desktop JVM app, window "Hermes").
+- **Answered:** `commonMain` CAN use JVM-only libraries (OkHttp, org.json, `java.*`) because both targets are JVM; proven by
+  `SharedProbeTest` on both targets. No `jvmShared` intermediate set is needed.
+- Compose: Compose Multiplatform plugin 1.7.3. The app keeps the androidx Compose BOM 2024.12.01; both resolve to androidx
+  Compose 1.7.6 at runtime (checked with `:app:dependencies`), so the phone's Compose is unchanged.
+- `./build.sh test` = `:shared:desktopTest :shared:testDebugUnitTest :app:testDebugUnitTest :desktopApp:test :app:assembleDebug
+  :desktopApp:compileKotlin`, and it retries Gradle's Windows "Could not move temporary workspace" cache race (not a test failure).
+- Run the desktop app: `cd android && ./gradlew :desktopApp:run`.
+
+## Where we are (v1)
 
 - `feature/v1` was merged to `main` (PR #1, `cc64aab`) and tagged **v0.2.0** on 2026-10-16. The repo is public. Keep working on `feature/v1`
   (or a new branch); merging and tagging stay the user's call.
