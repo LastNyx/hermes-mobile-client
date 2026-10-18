@@ -40,6 +40,19 @@ class DesktopShellState(
         gateways = registry.list()
     }
 
+    /** Session the chat pane should open next; cleared by [sessionOpened] once SessionsHost has it. */
+    var pendingSession by mutableStateOf<String?>(null)
+        private set
+
+    fun openSession(gatewayId: String, sessionId: String) {
+        select(gatewayId)
+        pendingSession = sessionId
+    }
+
+    fun sessionOpened() {
+        pendingSession = null
+    }
+
     fun openManage() {
         manageOpen = true
     }

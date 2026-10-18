@@ -23,6 +23,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.auth.SignInController
 import io.github.lastnyx.hermesclient.data.auth.SignInState
@@ -73,8 +74,36 @@ fun DesktopWindow(
     }
     LaunchedEffect(signStates, state.gateways) { hub.refresh() }
     val hubStates by hub.states.collectAsState()
+    val waiting by hub.needsMe.collectAsState()
+    val pending = state.pendingSession
+    LaunchedEffect(pending) { if (pending != null) state.sessionOpened() }
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.width(GATEWAY_COLUMN_DP.dp).fillMaxHeight()) {
+            if (waiting.isNotEmpty()) {
+                Text(
+                    "Needs me",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(horizontal = CARD_PADDING_H.dp, vertical = ROW_PADDING.dp),
+                )
+                waiting.forEach { item ->
+                    Column(
+                        Modifier.fillMaxWidth().clickable { state.openSession(item.gateway.id, item.sessionId) }
+                            .padding(horizontal = CARD_PADDING_H.dp, vertical = ROW_PADDING.dp),
+                    ) {
+                        Text(
+                            item.title ?: "Untitled chat",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            "${item.gateway.name} · waiting",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
                 items(hubStates, key = { it.gateway.id }) { gatewayState ->
                     val gateway = gatewayState.gateway
@@ -100,7 +129,7 @@ fun DesktopWindow(
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when (val right = signStates.let { state.right }) {
                 is RightSide.Sessions -> key(right.gateway.id) {
-                    SessionsHost(right.gateway, http, signIn, platform, onGateways = state::openManage)
+                    SessionsHost(right.gateway, http, signIn, platform, onGateways = state::openManage, openSessionId = pending)
                 }
                 RightSide.Manage, is RightSide.SignIn -> Column(Modifier.fillMaxSize()) {
                     if (state.gateways.isNotEmpty()) {

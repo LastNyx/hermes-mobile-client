@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.json.JSONArray
 import org.json.JSONObject
 
 interface HubLink {
@@ -66,6 +67,9 @@ class HubModel(
     private val current = MutableStateFlow<Map<String, GatewayState>>(emptyMap())
     private val _states = MutableStateFlow<List<GatewayState>>(emptyList())
     val states: StateFlow<List<GatewayState>> = _states
+    private val lists = MutableStateFlow<Map<Gateway, JSONArray>>(emptyMap())
+    private val _needsMe = MutableStateFlow<List<NeedsMeItem>>(emptyList())
+    val needsMe: StateFlow<List<NeedsMeItem>> = _needsMe
 
     fun start() = refresh()
 
@@ -78,6 +82,8 @@ class HubModel(
         wanted.values.filter { it.id !in entries }.forEach { entries[it.id] = open(it) }
         val kept = current.value.filterKeys { it in wanted }
         current.value = kept
+        lists.update { l -> l.filterKeys { it.id in wanted } }
+        publishNeedsMe()
         publish(gateways)
     }
 
@@ -114,6 +120,8 @@ class HubModel(
         suspend fun refreshBusy() {
             val sessions = runCatching { link.call("session.active_list").optJSONArray("sessions") }.getOrNull() ?: return
             busy = (0 until sessions.length()).count { sessions.optJSONObject(it)?.optString("status") in BUSY }
+            lists.update { it + (gateway to sessions) }
+            publishNeedsMe()
             set(GatewayState.Online(gateway, v, busy))
         }
         launch { link.events.filter { it.type == "sessions.changed" }.collect { refreshBusy() } }
@@ -125,7 +133,15 @@ class HubModel(
 
     private fun set(state: GatewayState) {
         current.update { it + (state.gateway.id to state) }
+        if (state !is GatewayState.Online) lists.update { it - state.gateway }
+        publishNeedsMe()
         publish(registry.list())
+    }
+
+    /** Only Online gateways that are still wanted keep their rows. */
+    private fun publishNeedsMe() {
+        val online = current.value.filterValues { it is GatewayState.Online }
+        _needsMe.value = needsMe(lists.value.filterKeys { it.id in online })
     }
 
     private fun publish(gateways: List<Gateway>) {
