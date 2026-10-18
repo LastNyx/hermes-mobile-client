@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -48,7 +49,7 @@ fun GatewayState.line(): String = when (this) {
     is GatewayState.Unreachable -> "Unreachable (other network?)"
 }
 
-private val BUSY =setOf("starting", "working", "streaming", "resuming", "waiting")
+private val BUSY = setOf("starting", "working", "streaming", "resuming", "waiting")
 private const val BUSY_REFRESH_MS = 10_000L
 
 /** One live link per signed-in gateway; LiveLink does its own reconnect backoff, this only maps its state. */
@@ -89,11 +90,15 @@ class HubModel(
         val link = linkFor(gateway)
         set(GatewayState.Connecting(gateway))
         val job = scope.launch {
+            // LiveLink starts as Offline before its first attempt: stay Connecting until it has tried once.
+            var tried = false
             link.state.collectLatest { s ->
+                if (s != LinkState.Offline) tried = true
                 when (s) {
                     LinkState.Connecting -> set(GatewayState.Connecting(gateway))
                     LinkState.SignedOut -> set(GatewayState.SignedOut(gateway))
-                    LinkState.Offline, is LinkState.Error -> set(GatewayState.Unreachable(gateway))
+                    LinkState.Offline -> if (tried) set(GatewayState.Unreachable(gateway))
+                    is LinkState.Error -> set(GatewayState.Unreachable(gateway))
                     LinkState.Connected -> watchBusy(gateway, link)
                 }
             }
@@ -119,7 +124,7 @@ class HubModel(
     }
 
     private fun set(state: GatewayState) {
-        current.value = current.value + (state.gateway.id to state)
+        current.update { it + (state.gateway.id to state) }
         publish(registry.list())
     }
 
