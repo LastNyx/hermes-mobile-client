@@ -16,16 +16,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.auth.SignInController
 import io.github.lastnyx.hermesclient.data.auth.SignInState
 import io.github.lastnyx.hermesclient.data.gateway.GatewayClient
 import io.github.lastnyx.hermesclient.data.gateway.GatewayRegistry
+import io.github.lastnyx.hermesclient.data.hub.HubModel
+import io.github.lastnyx.hermesclient.data.hub.LiveHubLink
+import io.github.lastnyx.hermesclient.data.hub.line
+import io.github.lastnyx.hermesclient.data.live.LiveLink
+import io.github.lastnyx.hermesclient.ui.AlwaysOnline
 import io.github.lastnyx.hermesclient.ui.CARD_PADDING_H
 import io.github.lastnyx.hermesclient.ui.GatewaysScreen
 import io.github.lastnyx.hermesclient.ui.HostPlatform
@@ -33,6 +40,8 @@ import io.github.lastnyx.hermesclient.ui.LIST_GAP
 import io.github.lastnyx.hermesclient.ui.ROW_PADDING
 import io.github.lastnyx.hermesclient.ui.SCREEN_EDGE
 import io.github.lastnyx.hermesclient.ui.SessionsHost
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 
 const val GATEWAY_COLUMN_DP = 220
@@ -52,17 +61,38 @@ fun DesktopWindow(
 ) {
     val state = remember { DesktopShellState(registry) { signIn.stateOf(it) is SignInState.SignedIn } }
     val signStates by signIn.states.collectAsState()
+    val scope = rememberCoroutineScope()
+    val hub = remember {
+        HubModel(
+            registry = registry,
+            signedIn = { signIn.stateOf(it) is SignInState.SignedIn },
+            linkFor = { g -> LiveHubLink(LiveLink(http, signIn.authed(g.id, g.url), g.url, scope, AlwaysOnline)) },
+            version = { g -> withContext(Dispatchers.IO) { client.status(g.url).getOrNull()?.version } },
+            scope = scope,
+        )
+    }
+    LaunchedEffect(signStates, state.gateways) { hub.refresh() }
+    val hubStates by hub.states.collectAsState()
     Row(Modifier.fillMaxSize()) {
         Column(Modifier.width(GATEWAY_COLUMN_DP.dp).fillMaxHeight()) {
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(LIST_GAP.dp)) {
-                items(state.gateways, key = { it.id }) { gateway ->
+                items(hubStates, key = { it.gateway.id }) { gatewayState ->
+                    val gateway = gatewayState.gateway
                     val chosen = !state.manageOpen && state.selected?.id == gateway.id
-                    Text(
-                        gateway.name,
-                        style = if (chosen) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.fillMaxWidth().clickable { state.select(gateway.id) }
+                    Column(
+                        Modifier.fillMaxWidth().clickable { state.select(gateway.id) }
                             .padding(horizontal = CARD_PADDING_H.dp, vertical = ROW_PADDING.dp),
-                    )
+                    ) {
+                        Text(
+                            gateway.name,
+                            style = if (chosen) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            gatewayState.line(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
             TextButton(onClick = state::openManage, modifier = Modifier.padding(SCREEN_EDGE.dp)) { Text("Manage gateways") }
