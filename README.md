@@ -26,6 +26,18 @@ What is and is not checked on a real device is listed in [docs/work/HANDOFF.md](
 3. Open the file on the phone and allow installing from that source when Android asks.
 4. Open the app, add your gateway URL and sign in.
 
+### Desktop app (Windows, Linux)
+
+The same chat plus the **Hub**: every gateway in one window, with each one's state and a **Needs me** list of
+chats waiting on you on any gateway (`docs/HUB-DESIGN.md`). Java is bundled; nothing else to install.
+
+- Windows: `HermesClient-<version>.msi` from the release. It installs for your user only. The MSI is not code-signed,
+  so SmartScreen may warn ("More info", "Run anyway").
+- Linux: `HermesClient-<version>-x86_64.AppImage`: `chmod +x` it and run it.
+- Data (gateways, tokens) lives in `%APPDATA%\HermesClient` or `~/.local/share/hermes-client`, readable only by your
+  user. No self-update yet: download a new release by hand.
+- To reach a machine's Hermes over Tailscale, follow [docs/hub-gateway-setup.md](docs/hub-gateway-setup.md).
+
 Settings has **Check for updates**; the app also checks once at startup. It downloads the APK, verifies its
 SHA-256 against the published digest and refuses on a mismatch. Android installs an update only if it is signed
 with the same key as the installed app.
@@ -47,7 +59,8 @@ scripts/setup-toolchain.sh   # JDK 17 + Android SDK into ~/tools (or C:/home/too
 ```
 
 A release is a pushed `v*` tag: [`.github/workflows/release.yml`](.github/workflows/release.yml) runs the tests,
-builds a signed APK and publishes it as a GitHub Release.
+builds a signed APK, the Windows MSI and the Linux AppImage, and publishes them as one GitHub Release.
+Run the desktop app from source with `cd android && ./gradlew :desktopApp:run`.
 
 ## Docs
 

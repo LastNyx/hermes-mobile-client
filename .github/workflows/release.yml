@@ -1,15 +1,18 @@
 name: release
 
-# Push a tag like v0.2.0: tests, build a signed APK, publish it as a GitHub Release of this repo.
+# Push a tag like v0.3.0: tests, then the signed APK (Ubuntu), the Windows MSI (Windows) and the Linux AppImage
+# (Ubuntu) are built and published together as one GitHub Release of this repo.
+# workflow_dispatch builds the desktop packages as workflow artifacts without publishing (a dry run before a tag).
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  apk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,19 +22,21 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Unit tests
+      - name: Unit tests (every module)
         working-directory: android
-        run: ./gradlew --no-daemon -q testDebugUnitTest
+        run: ./gradlew --no-daemon -q :shared:desktopTest :shared:testDebugUnitTest :app:testDebugUnitTest :desktopApp:test
 
       - name: Decode keystore
+        if: github.event_name == 'push'
         run: |
           echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
       - name: Build signed APK
+        if: github.event_name == 'push'
         working-directory: android
-        run: ./gradlew --no-daemon -q assembleRelease
+        run: ./gradlew --no-daemon -q :app:assembleRelease
         env:
           APP_VERSION: ${{ github.ref_name }}
           ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/release.jks
@@ -40,15 +45,104 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - name: Name the asset and write its checksum
+        if: github.event_name == 'push'
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk HermesClient.apk
-          sha256sum HermesClient.apk | awk '{print $1"  HermesClient.apk"}' > HermesClient.apk.sha256
-          cat HermesClient.apk.sha256
+          mkdir -p out
+          cp android/app/build/outputs/apk/release/app-release.apk out/HermesClient.apk
+          (cd out && sha256sum HermesClient.apk > HermesClient.apk.sha256 && cat HermesClient.apk.sha256)
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: apk
+          path: out/*
+
+  desktop-windows:
+    needs: apk
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build the MSI
+        working-directory: android
+        shell: bash
+        run: ./gradlew --no-daemon -q :desktopApp:packageMsi
+        env:
+          APP_VERSION: ${{ github.event_name == 'push' && github.ref_name || '0.0.0' }}
+
+      - name: Name the asset and write its checksum
+        shell: bash
+        run: |
+          mkdir -p out
+          v="${GITHUB_REF_NAME#v}"; [ "$GITHUB_EVENT_NAME" = push ] || v=dev
+          cp android/desktopApp/build/compose/binaries/main/msi/*.msi "out/HermesClient-$v.msi"
+          (cd out && sha256sum "HermesClient-$v.msi" | sed 's/ \*/  /' > "HermesClient-$v.msi.sha256" && cat *.sha256)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: msi
+          path: out/*
+
+  desktop-linux:
+    needs: apk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Build the app folder
+        working-directory: android
+        run: ./gradlew --no-daemon -q :desktopApp:packageAppImage
+        env:
+          APP_VERSION: ${{ github.event_name == 'push' && github.ref_name || '0.0.0' }}
+
+      # Compose writes an AppImage-layout folder; appimagetool packs it into one runnable file.
+      - name: Pack the AppImage
+        run: |
+          set -euo pipefail
+          sudo apt-get update -q && sudo apt-get install -y -q libfuse2
+          v="${GITHUB_REF_NAME#v}"; [ "$GITHUB_EVENT_NAME" = push ] || v=dev
+          dir=$(find android/desktopApp/build/compose/binaries/main/app -mindepth 1 -maxdepth 1 -type d | head -1)
+          printf '[Desktop Entry]\nType=Application\nName=Hermes Client\nExec=HermesClient\nIcon=HermesClient\nCategories=Development;\n' > "$dir/HermesClient.desktop"
+          if [ -f "$dir/lib/HermesClient.png" ]; then cp "$dir/lib/HermesClient.png" "$dir/HermesClient.png"; else
+            python3 -c "import base64,sys;open(sys.argv[1],'wb').write(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='))" "$dir/HermesClient.png"; fi
+          printf '#!/bin/sh\nexec "$(dirname "$(readlink -f "$0")")/bin/HermesClient" "$@"\n' > "$dir/AppRun"
+          chmod +x "$dir/AppRun"
+          curl -fsSL -o appimagetool https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool
+          mkdir -p out
+          ARCH=x86_64 ./appimagetool "$dir" "out/HermesClient-$v-x86_64.AppImage"
+          (cd out && sha256sum "HermesClient-$v-x86_64.AppImage" > "HermesClient-$v-x86_64.AppImage.sha256" && cat *.sha256)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: out/*
+
+  publish:
+    if: github.event_name == 'push'
+    needs: [apk, desktop-windows, desktop-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
 
       - name: Publish the release
         run: |
-          gh release create "$GITHUB_REF_NAME" HermesClient.apk HermesClient.apk.sha256 \
+          ls -la assets
+          gh release create "$GITHUB_REF_NAME" assets/* \
             --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" \
-            --notes "Signed build of Hermes Mobile Client $GITHUB_REF_NAME. See CHANGELOG.md in the repo for what changed. SHA-256 is in the asset digest and in HermesClient.apk.sha256."
+            --notes "Signed Android build plus the desktop app for Windows (MSI, unsigned: SmartScreen may warn) and Linux (AppImage). See CHANGELOG.md in the repo for what changed. Each file has a .sha256 next to it."
         env:
           GH_TOKEN: ${{ github.token }}

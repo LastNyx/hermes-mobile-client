@@ -30,9 +30,22 @@ compose.desktop {
     application {
         mainClass = "io.github.lastnyx.hermesclient.desktop.MainKt"
         nativeDistributions {
+            targetFormats(
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi,
+                org.jetbrains.compose.desktop.application.dsl.TargetFormat.AppImage,
+            )
             packageName = "HermesClient"
+            description = "Hermes client: every Hermes gateway in one window"
+            vendor = "LastNyx"
+            modules("java.net.http", "jdk.crypto.ec")
+            windows {
+                menu = true
+                shortcut = true
+                perUserInstall = true
+                upgradeUuid = "6f1c2b8e-4d1a-4f3b-9a2e-7c5d0e8b1a47"
+            }
             packageVersion = (System.getenv("APP_VERSION")?.removePrefix("v") ?: "0.1.0")
-                .split('-').first().let { if (it.startsWith("0.")) "1.$it" else it }
+                .split('-').first()
         }
     }
 }
