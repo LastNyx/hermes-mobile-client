@@ -24,23 +24,25 @@ import okhttp3.OkHttpClient
 const val WINDOW_TITLE = "Hermes"
 
 fun main() = application {
-    val files = DesktopFiles(dataFolder(System.getProperty("os.name"), System.getenv(), System.getProperty("user.home")))
-    val registry = GatewayRegistry(files.gateways)
-    val rest = restClient(OkHttpClient())
-    val client = GatewayClient(rest)
-    val tokens = TokenStore(files.tokens, PlainCipher)
+    val files = remember {
+        DesktopFiles(dataFolder(System.getProperty("os.name"), System.getenv(), System.getProperty("user.home")))
+    }
+    val registry = remember { GatewayRegistry(files.gateways) }
+    val rest = remember { restClient(OkHttpClient()) }
+    val client = remember { GatewayClient(rest) }
+    val tokens = remember { TokenStore(files.tokens, PlainCipher) }
     var manualUrl by remember { mutableStateOf<String?>(null) }
-    var window: java.awt.Window? = null
+    val windowRef = remember { arrayOfNulls<java.awt.Window>(1) }
     val signIn = remember {
         SignInController(
             rest,
             tokens,
             DesktopBrowserLauncher(showUrl = { manualUrl = it }),
-            onFinished = { window?.toFront() },
+            onFinished = { windowRef[0]?.toFront() },
         )
     }
     Window(onCloseRequest = ::exitApplication, title = WINDOW_TITLE) {
-        window = this.window
+        windowRef[0] = window
         MaterialTheme {
             Surface {
                 GatewaysScreen(registry, client, signIn)
