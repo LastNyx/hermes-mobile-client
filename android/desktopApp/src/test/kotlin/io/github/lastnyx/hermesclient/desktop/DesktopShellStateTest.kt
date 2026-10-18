@@ -1,0 +1,42 @@
+package io.github.lastnyx.hermesclient.desktop
+
+import io.github.lastnyx.hermesclient.data.gateway.GatewayRegistry
+import io.github.lastnyx.hermesclient.data.gateway.GatewayStorage
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class DesktopShellStateTest {
+    private class Memory : GatewayStorage {
+        var text: String? = null
+        override fun load() = text
+        override fun save(text: String) {
+            this.text = text
+        }
+    }
+
+    private fun shell(vararg names: String, signedOut: Set<String> = emptySet()): Pair<DesktopShellState, List<String>> {
+        val registry = GatewayRegistry(Memory())
+        val ids = names.map { registry.add(it, "https://$it.example.com").getOrThrow().id }
+        return DesktopShellState(registry) { it !in signedOut.map { n -> ids[names.indexOf(n)] } } to ids
+    }
+
+    @Test
+    fun selectionManageSignInAndRemoval() {
+        val (state, ids) = shell("a", "b", signedOut = setOf("b"))
+        state.select(ids[0])
+        state.openManage()
+        assertTrue(state.right is RightSide.Manage)
+        state.select(ids[0])
+        assertEquals(ids[0], (state.right as RightSide.Sessions).gateway.id)
+
+        state.select(ids[1])
+        assertEquals(ids[1], (state.right as RightSide.SignIn).gateway.id)
+
+        state.remove(ids[1])
+        assertEquals(ids[0], (state.right as RightSide.Sessions).gateway.id)
+        state.remove(ids[0])
+        assertTrue(state.right is RightSide.Manage)
+        assertEquals(null, state.selected)
+    }
+}
