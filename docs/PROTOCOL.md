@@ -800,6 +800,27 @@ Query: `limit` (≤500; omitted → latest 500), `offset`, `order` = `oldest`|`l
 ```
 Includes compression-ancestor messages (matches `session.resume`).
 
+Display typing of rows (read 2026-10-19 from `/opt/hermes-agent`, local install without git history, not checked on
+WorkLab). Rows are raw DB rows passed through `_project_for_display` (`sessions.py:655-721`):
+- `display_kind: "hidden"`: never shown (scaffolding, heartbeat wakes: `tools/process_registry_notifications.py`
+  `HEARTBEAT_DISPLAY_KIND`, untyped `[System: …]` notices).
+- `display_kind: "steer"` (`agent/prompt_builder.py` `STEER_DISPLAY_KIND`): a mid-turn message the user typed while the
+  agent was busy. `content` is the model-facing wrapper `[OUT-OF-BAND USER MESSAGE …]\n<text>\n[/OUT-OF-BAND USER MESSAGE]`;
+  the projection adds `display_content` = the user's own words. Show `display_content`.
+- `display_kind: "process_complete"` (`tools/process_registry_notifications.py` `PROCESS_COMPLETE_DISPLAY_KIND`):
+  role=user row whose `content` is the raw `[IMPORTANT: Background process …]` wake text for the model. `display_metadata`
+  (object or JSON string) carries `display_text`, a one-line title such as `Background Process Finished: <cmd>` or
+  `Background Process Failed (exit 1): <cmd>` (`tui_gateway/session_notifications.py:622-624`). Show it as a notice, not a
+  user bubble.
+- `display_kind: "async_delegation_complete"`: same shape for finished subagents (`display_metadata.display_text`).
+- `display_kind: "internal_notification"` (`gateway/response_filters.py`): a self-injected notification turn; not
+  something the user wrote.
+- Older rows may be untyped: Desktop also hides a role=user row starting `[Background process <id> heartbeat #N `
+  (`apps/desktop/src/lib/chat-messages/hydration.ts` `LEGACY_HEARTBEAT_ROW_RE`) and paints a role=user row matching
+  `^\[IMPORTANT: Background process [\s\S]*\]$` as a compact process notice (`thread/content.ts` `PROCESS_NOTIFICATION_RE`).
+- The same `display_kind` values reach `session.resume` (`TranscriptMessage.display_kind`, steer `text` already
+  replaced by the user's words in `tui_gateway/session_history.py:318-321`).
+
 ### `PATCH /api/sessions/{session_id}` — `sessions.py:892-922`, body model `hermes_cli/web_models.py:268-275`
 Body: `{"title"?: str, "archived"?: bool, "hidden"?: bool, "pinned"?: bool, "unread"?: bool, "profile"?: str}` →
 `{"ok":true,"title":"…", "<flag>": bool…}`. 400 if nothing to update or invalid title.
