@@ -15,6 +15,13 @@ class HistoryPagingTest {
     }
 
     @Test
+    fun overlappingNoticeRowIsNotDuplicated() {
+        val notice = HistoryMessage("user", "Background Process Finished", 5L, notice = true)
+        val merged = mergeHistory(listOf(m("d", 6), notice), listOf(m("a", 1), notice))
+        assertEquals(listOf("a", "d", "Background Process Finished"), merged.map { it.text })
+    }
+
+    @Test
     fun nullIdRowsAreKeptAndEmptyInputsWork() {
         assertEquals(listOf("x", "y"), mergeHistory(listOf(m("y", null)), listOf(m("x", null))).map { it.text })
         assertEquals(emptyList<HistoryMessage>(), mergeHistory(emptyList(), emptyList()))

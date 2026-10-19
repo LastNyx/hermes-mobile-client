@@ -23,24 +23,24 @@ fun historyRow(row: JSONObject): HistoryMessage? {
                 val shown = row.stringOrNull("display_content")?.takeIf { it.isNotBlank() } ?: unwrapSteer(text)
                 return HistoryMessage(role, shown, rowId)
             }
-            kind == "process_complete" -> return notice(row, "Background process finished")
-            kind == "async_delegation_complete" -> return notice(row, "Background agent finished")
+            kind == "process_complete" -> return notice(row, "Background process finished", rowId)
+            kind == "async_delegation_complete" -> return notice(row, "Background agent finished", rowId)
             trimmed.startsWith("[Background process ") && " heartbeat #" in trimmed.lineSequence().first() -> return null
             trimmed.startsWith(IMPORTANT) ->
-                return HistoryMessage(role, trimmed.lineSequence().first().removePrefix("[IMPORTANT: ").trimEnd('.', ']'), null, notice = true)
+                return HistoryMessage(role, trimmed.lineSequence().first().removePrefix("[IMPORTANT: ").trimEnd('.', ']'), rowId, notice = true)
         }
     }
     return if (text.isBlank()) null else HistoryMessage(role, text, rowId)
 }
 
-private fun notice(row: JSONObject, fallback: String): HistoryMessage {
+private fun notice(row: JSONObject, fallback: String, rowId: Long?): HistoryMessage {
     val metadata = when (val raw = row.opt("display_metadata")) {
         is JSONObject -> raw
         is String -> try { JSONObject(raw) } catch (e: Exception) { null }
         else -> null
     }
     val text = metadata?.stringOrNull("display_text")?.takeIf { it.isNotBlank() } ?: fallback
-    return HistoryMessage("user", text, null, notice = true)
+    return HistoryMessage("user", text, rowId, notice = true)
 }
 
 private fun unwrapSteer(text: String): String {
