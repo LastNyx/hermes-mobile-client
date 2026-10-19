@@ -55,6 +55,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -397,13 +403,51 @@ fun ChatScreen(
                     )
                 }
             }
+            val sendable = canSend(draft, tray, state.running)
+            fun submit() {
+                val text = draft
+                if (sendable && !tray.isEmpty && parseSlashLine(text) == null) {
+                    if (!sending) {
+                        sending = true
+                        attachError = null
+                        following = true
+                        scope.launch {
+                            try {
+                                beforeSend()
+                                when (val r = controller.sendWithAttachments(text, tray.items)) {
+                                    AttachSendResult.Sent -> { tray = tray.clear(); setDraft("") }
+                                    is AttachSendResult.Failed -> { setDraft(r.text); attachError = r.message }
+                                }
+                            } finally {
+                                sending = false
+                            }
+                        }
+                    }
+                } else if (sendable) {
+                    setDraft("")
+                    following = true
+                    if (parseSlashLine(text) != null) {
+                        scope.launch { slash.runLine(text)?.let { setDraft(it) } }
+                    } else {
+                        scope.launch { if (!onSend(text) && field.text.isEmpty()) setDraft(text) }
+                    }
+                } else if (state.running) scope.launch { controller.stop() }
+            }
             OutlinedTextField(
-                field, { field = it }, modifier = Modifier.weight(1f).heightIn(min = COMPOSER_MIN_HEIGHT.dp),
+                field, { field = it },
+                modifier = Modifier.weight(1f).heightIn(min = COMPOSER_MIN_HEIGHT.dp).onPreviewKeyEvent { e ->
+                    if (e.key != Key.Enter && e.key != Key.NumPadEnter) return@onPreviewKeyEvent false
+                    val down = e.type == KeyEventType.KeyDown
+                    when (enterAction(e.isShiftPressed, enterSendsMessage)) {
+                        EnterAction.Send -> { if (down && sendable) submit(); true }
+                        EnterAction.Newline -> { if (down) field = withNewline(field); true }
+                        EnterAction.Default -> false
+                    }
+                },
                 shape = RoundedCornerShape(COMPOSER_CORNER.dp),
                 maxLines = 6,
                 placeholder = { Text(if (state.running) "Redirect the reply" else "Message") },
             )
-            val sendable = canSend(draft, tray, state.running)
             val icon = if (!sendable && state.running) Icons.Filled.Stop else Icons.AutoMirrored.Filled.Send
             val label = if (sendable) (if (state.running) "Redirect" else "Send") else if (state.running) "Stop" else "Send"
             var queueMenu by remember { mutableStateOf(false) }
@@ -416,35 +460,7 @@ fun ChatScreen(
                         enabled = sendable || state.running,
                         role = Role.Button,
                         onLongClick = { if (sendable && state.running) queueMenu = true },
-                        onClick = {
-                            val text = draft
-                            if (sendable && !tray.isEmpty && parseSlashLine(text) == null) {
-                                if (!sending) {
-                                    sending = true
-                                    attachError = null
-                                    following = true
-                                    scope.launch {
-                                        try {
-                                            beforeSend()
-                                            when (val r = controller.sendWithAttachments(text, tray.items)) {
-                                                AttachSendResult.Sent -> { tray = tray.clear(); setDraft("") }
-                                                is AttachSendResult.Failed -> { setDraft(r.text); attachError = r.message }
-                                            }
-                                        } finally {
-                                            sending = false
-                                        }
-                                    }
-                                }
-                            } else if (sendable) {
-                                setDraft("")
-                                following = true
-                                if (parseSlashLine(text) != null) {
-                                    scope.launch { slash.runLine(text)?.let { setDraft(it) } }
-                                } else {
-                                    scope.launch { if (!onSend(text) && field.text.isEmpty()) setDraft(text) }
-                                }
-                            } else if (state.running) scope.launch { controller.stop() }
-                        },
+                        onClick = { submit() },
                     ),
                 ) {
                     Box(contentAlignment = Alignment.Center) { Icon(icon, contentDescription = label) }

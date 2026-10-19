@@ -30,4 +30,6 @@ actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) = Unit
 
 actual fun elapsedMs(): Long = System.nanoTime() / NANOS_PER_MILLI
 
+actual val enterSendsMessage: Boolean = true
+
 private const val NANOS_PER_MILLI = 1_000_000L

@@ -16,3 +16,6 @@ expect fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit)
 
 /** Monotonic milliseconds for tap guards. */
 expect fun elapsedMs(): Long
+
+/** True where a hardware Enter key sends the message (desktop); the phone's soft Enter adds a line. */
+expect val enterSendsMessage: Boolean

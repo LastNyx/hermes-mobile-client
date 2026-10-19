@@ -32,3 +32,5 @@ actual fun screenSizeDp(): DpSize {
 actual fun PlatformBackHandler(enabled: Boolean, onBack: () -> Unit) = BackHandler(enabled = enabled, onBack = onBack)
 
 actual fun elapsedMs(): Long = SystemClock.elapsedRealtime()
+
+actual val enterSendsMessage: Boolean = false
