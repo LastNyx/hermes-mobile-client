@@ -10,7 +10,14 @@ sealed interface RightSide {
     data object Manage : RightSide
     data class SignIn(val gateway: Gateway) : RightSide
     data class Sessions(val gateway: Gateway) : RightSide
+    data class Settings(val gateway: Gateway?) : RightSide
+    data class Capabilities(val gateway: Gateway) : RightSide
 }
+
+private enum class Overlay { None, Settings, Capabilities }
+
+/** The packaged launcher sets the version; `gradle run` does not, so it is a development build. */
+fun desktopVersionLine(appVersion: String?): String = appVersion?.takeIf { it.isNotBlank() } ?: "development build"
 
 /** Which gateway is selected and what the area right of the gateway column shows. */
 class DesktopShellState(
@@ -24,18 +31,36 @@ class DesktopShellState(
 
     val selected: Gateway? get() = registry.active()
 
+    private var overlay by mutableStateOf(Overlay.None)
+
     val right: RightSide
         get() {
             val gateway = selected
+            val signed = gateway?.takeIf { signedIn(it.id) }
             return when {
+                overlay == Overlay.Capabilities && signed != null -> RightSide.Capabilities(signed)
+                overlay != Overlay.None -> RightSide.Settings(signed)
                 manageOpen || gateway == null -> RightSide.Manage
-                !signedIn(gateway.id) -> RightSide.SignIn(gateway)
+                signed == null -> RightSide.SignIn(gateway)
                 else -> RightSide.Sessions(gateway)
             }
         }
 
+    fun openSettings() {
+        overlay = Overlay.Settings
+    }
+
+    fun openCapabilities() {
+        if (overlay == Overlay.Settings && selected?.let { signedIn(it.id) } == true) overlay = Overlay.Capabilities
+    }
+
+    fun back() {
+        overlay = if (overlay == Overlay.Capabilities) Overlay.Settings else Overlay.None
+    }
+
     fun select(id: String) {
         registry.setActive(id)
+        overlay = Overlay.None
         manageOpen = false
         gateways = registry.list()
     }
@@ -54,6 +79,7 @@ class DesktopShellState(
     }
 
     fun openManage() {
+        overlay = Overlay.None
         manageOpen = true
     }
 

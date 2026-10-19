@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -21,6 +22,9 @@ import io.github.lastnyx.hermesclient.data.auth.TokenStore
 import io.github.lastnyx.hermesclient.data.gateway.GatewayClient
 import io.github.lastnyx.hermesclient.data.gateway.GatewayRegistry
 import io.github.lastnyx.hermesclient.data.gateway.restClient
+import io.github.lastnyx.hermesclient.data.profiles.ProfileStore
+import io.github.lastnyx.hermesclient.ui.TextScaleStore
+import io.github.lastnyx.hermesclient.ui.scaledTypography
 import okhttp3.OkHttpClient
 
 const val WINDOW_TITLE = "Hermes"
@@ -35,6 +39,9 @@ fun main() = application {
     val http = remember { OkHttpClient() }
     val platform = remember { desktopPlatform(files) }
     val tokens = remember { TokenStore(files.tokens, PlainCipher) }
+    val textScaleStore = remember { TextScaleStore(files.textScale) }
+    val profileStore = remember { ProfileStore(files.profiles) }
+    var textScale by remember { mutableStateOf(textScaleStore.current()) }
     var manualUrl by remember { mutableStateOf<String?>(null) }
     val windowRef = remember { arrayOfNulls<java.awt.Window>(1) }
     val signIn = remember {
@@ -49,9 +56,14 @@ fun main() = application {
     Window(onCloseRequest = ::exitApplication, title = WINDOW_TITLE, state = windowState) {
         windowRef[0] = window
         window.minimumSize = java.awt.Dimension(MIN_WINDOW_WIDTH_PX, MIN_WINDOW_HEIGHT_PX)
-        MaterialTheme {
+        MaterialTheme(typography = scaledTypography(Typography(), textScale)) {
             Surface {
-                DesktopWindow(registry, client, signIn, http, platform)
+                DesktopWindow(
+                    registry, client, signIn, http, platform,
+                    textScale = textScale,
+                    onTextScale = { textScale = it; textScaleStore.set(it) },
+                    profileStore = profileStore,
+                )
                 manualUrl?.let { url ->
                     val clipboard = LocalClipboardManager.current
                     AlertDialog(

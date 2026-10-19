@@ -39,4 +39,39 @@ class DesktopShellStateTest {
         assertTrue(state.right is RightSide.Manage)
         assertEquals(null, state.selected)
     }
+
+    @Test
+    fun settingsAndCapabilitiesOpenAndGoBack() {
+        val (state, ids) = shell("a", "b", signedOut = setOf("b"))
+        state.select(ids[0])
+        state.openSettings()
+        assertEquals(ids[0], (state.right as RightSide.Settings).gateway?.id)
+        state.openCapabilities()
+        assertEquals(ids[0], (state.right as RightSide.Capabilities).gateway.id)
+        state.back()
+        assertTrue(state.right is RightSide.Settings)
+        state.back()
+        assertEquals(ids[0], (state.right as RightSide.Sessions).gateway.id)
+
+        state.openSettings()
+        state.select(ids[1])
+        assertTrue(state.right is RightSide.SignIn)
+        state.openSettings()
+        assertEquals(null, (state.right as RightSide.Settings).gateway)
+        state.openCapabilities()
+        assertTrue(state.right is RightSide.Settings)
+        state.back()
+        assertTrue(state.right is RightSide.SignIn)
+
+        state.openSettings()
+        state.openSession(ids[0], "s1")
+        assertTrue(state.right is RightSide.Sessions)
+
+        state.openSettings()
+        state.openManage()
+        assertTrue(state.right is RightSide.Manage)
+        state.openSettings()
+        state.back()
+        assertTrue(state.right is RightSide.Manage)
+    }
 }

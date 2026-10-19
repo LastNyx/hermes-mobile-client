@@ -18,7 +18,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,7 +30,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
-    updates: UpdateController,
+    updates: UpdateController?,
     versionName: String,
     textScale: TextScale,
     onTextScale: (TextScale) -> Unit,
@@ -39,7 +38,7 @@ fun SettingsScreen(
     onOpenCapabilities: (() -> Unit)? = null,
     profiles: ProfilesModel? = null,
 ) {
-    val ui by updates.state.collectAsState()
+    val ui = updates?.state?.collectAsState()?.value
     val scope = rememberCoroutineScope()
     Column(
         Modifier.verticalScroll(rememberScrollState()).padding(horizontal = SCREEN_EDGE.dp),
@@ -75,15 +74,17 @@ fun SettingsScreen(
         if (profiles != null) ProfileSection(profiles)
         Section("About") {
             Text("Version $versionName", style = roles.body)
-            Button(enabled = !ui.busy, onClick = { scope.launch { updates.check(silent = false) } }) {
-                Text("Check for updates")
-            }
-            if (ui.available != null) {
-                Button(enabled = !ui.busy, onClick = { scope.launch { updates.installAvailable() } }) {
-                    Text("Install ${ui.available?.version}")
+            if (updates != null && ui != null) {
+                Button(enabled = !ui.busy, onClick = { scope.launch { updates.check(silent = false) } }) {
+                    Text("Check for updates")
                 }
+                if (ui.available != null) {
+                    Button(enabled = !ui.busy, onClick = { scope.launch { updates.installAvailable() } }) {
+                        Text("Install ${ui.available?.version}")
+                    }
+                }
+                if (ui.status.isNotEmpty()) Text(ui.status, style = roles.body)
             }
-            if (ui.status.isNotEmpty()) Text(ui.status, style = roles.body)
         }
     }
 }

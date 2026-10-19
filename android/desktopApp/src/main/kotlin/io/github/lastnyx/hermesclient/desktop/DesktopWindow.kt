@@ -12,6 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -22,25 +26,34 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.lastnyx.hermesclient.data.auth.SignInController
 import io.github.lastnyx.hermesclient.data.auth.SignInState
+import io.github.lastnyx.hermesclient.data.capabilities.CapabilitiesModel
+import io.github.lastnyx.hermesclient.data.capabilities.CapabilitiesRepository
 import io.github.lastnyx.hermesclient.data.gateway.GatewayClient
 import io.github.lastnyx.hermesclient.data.gateway.GatewayRegistry
 import io.github.lastnyx.hermesclient.data.hub.HubModel
 import io.github.lastnyx.hermesclient.data.hub.LiveHubLink
 import io.github.lastnyx.hermesclient.data.hub.line
 import io.github.lastnyx.hermesclient.data.live.LiveLink
+import io.github.lastnyx.hermesclient.data.profiles.ProfileStore
+import io.github.lastnyx.hermesclient.data.profiles.ProfilesModel
+import io.github.lastnyx.hermesclient.data.profiles.ProfilesRepository
 import io.github.lastnyx.hermesclient.ui.AlwaysOnline
 import io.github.lastnyx.hermesclient.ui.CARD_PADDING_H
+import io.github.lastnyx.hermesclient.ui.CapabilitiesScreen
 import io.github.lastnyx.hermesclient.ui.GatewaysScreen
 import io.github.lastnyx.hermesclient.ui.HostPlatform
 import io.github.lastnyx.hermesclient.ui.LIST_GAP
 import io.github.lastnyx.hermesclient.ui.ROW_PADDING
 import io.github.lastnyx.hermesclient.ui.SCREEN_EDGE
 import io.github.lastnyx.hermesclient.ui.SessionsHost
+import io.github.lastnyx.hermesclient.ui.SettingsScreen
+import io.github.lastnyx.hermesclient.ui.TextScale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -59,6 +72,9 @@ fun DesktopWindow(
     signIn: SignInController,
     http: OkHttpClient,
     platform: HostPlatform,
+    textScale: TextScale,
+    onTextScale: (TextScale) -> Unit,
+    profileStore: ProfileStore,
 ) {
     val state = remember { DesktopShellState(registry) { signIn.stateOf(it) is SignInState.SignedIn } }
     val signStates by signIn.states.collectAsState()
@@ -124,18 +140,53 @@ fun DesktopWindow(
                     }
                 }
             }
-            TextButton(onClick = state::openManage, modifier = Modifier.padding(SCREEN_EDGE.dp)) { Text("Manage gateways") }
+            Row(Modifier.padding(SCREEN_EDGE.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = state::openManage) { Text("Manage gateways") }
+                IconButton(onClick = state::openSettings) { Icon(Icons.Filled.Settings, contentDescription = "Settings") }
+            }
         }
         Box(Modifier.weight(1f).fillMaxHeight()) {
             when (val right = signStates.let { state.right }) {
                 is RightSide.Sessions -> key(right.gateway.id) {
-                    SessionsHost(right.gateway, http, signIn, platform, onGateways = state::openManage, openSessionId = pending)
+                    SessionsHost(
+                        right.gateway, http, signIn, platform,
+                        onGateways = state::openManage,
+                        openSessionId = pending,
+                        profile = profileStore.selected(right.gateway.id),
+                    )
+                }
+                is RightSide.Settings -> {
+                    val gateway = right.gateway
+                    val capabilities = remember(gateway?.id, gateway?.url) {
+                        gateway?.let { CapabilitiesModel(CapabilitiesRepository(signIn.authed(it.id, it.url), it.url), Dispatchers.IO) }
+                    }
+                    val profiles = remember(gateway?.id, gateway?.url) {
+                        gateway?.let {
+                            ProfilesModel(ProfilesRepository(signIn.authed(it.id, it.url), it.url), Dispatchers.IO, profileStore, it.id)
+                        }
+                    }
+                    SettingsScreen(
+                        updates = null,
+                        versionName = desktopVersionLine(System.getProperty("jpackage.app-version")),
+                        textScale = textScale,
+                        onTextScale = onTextScale,
+                        onBack = state::back,
+                        onOpenCapabilities = capabilities?.let { state::openCapabilities },
+                        profiles = profiles,
+                    )
+                }
+                is RightSide.Capabilities -> {
+                    val gateway = right.gateway
+                    val capabilities = remember(gateway.id, gateway.url) {
+                        CapabilitiesModel(CapabilitiesRepository(signIn.authed(gateway.id, gateway.url), gateway.url), Dispatchers.IO)
+                    }
+                    CapabilitiesScreen(capabilities, onBack = state::back)
                 }
                 RightSide.Manage, is RightSide.SignIn -> Column(Modifier.fillMaxSize()) {
                     if (state.gateways.isNotEmpty()) {
                         TextButton(onClick = state::closeManage, modifier = Modifier.padding(SCREEN_EDGE.dp)) { Text("Close") }
                     }
-                    GatewaysScreen(registry, client, signIn, onOpenSessions = state::closeManage)
+                    GatewaysScreen(registry, client, signIn, onOpenSessions = state::closeManage, onOpenSettings = state::openSettings)
                 }
             }
         }
