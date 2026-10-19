@@ -75,6 +75,39 @@ class HubModelTest {
     }
 
     @Test
+    fun editedGatewayGetsNewLinkAndNewName() = runTest {
+        val registry = GatewayRegistry(Memory())
+        val laptop = registry.add("Laptop", "http://laptop").getOrThrow()
+        val made = mutableListOf<Pair<String, FakeLink>>()
+        val model = HubModel(
+            registry = registry,
+            signedIn = { true },
+            linkFor = { g: Gateway -> FakeLink().also { made += g.url to it } },
+            version = { "0.22.2" },
+            scope = backgroundScope,
+        )
+        model.start()
+        runCurrent()
+        made[0].second.waiting = listOf("a")
+        made[0].second.state.value = LinkState.Connected
+        runCurrent()
+
+        val edited = registry.update(laptop.id, "Desk", "http://desk").getOrThrow()
+        model.refresh()
+        runCurrent()
+        assertTrue(!made[0].second.running)
+        assertEquals(listOf("http://laptop", "http://desk"), made.map { it.first })
+        assertTrue(made[1].second.running)
+        assertEquals(listOf<GatewayState>(GatewayState.Connecting(edited)), model.states.value)
+
+        made[1].second.waiting = listOf("a")
+        made[1].second.state.value = LinkState.Connected
+        runCurrent()
+        assertEquals(listOf("Desk"), model.needsMe.value.map { it.gateway.name })
+        assertEquals(listOf("a"), model.needsMe.value.map { it.sessionId })
+    }
+
+    @Test
     fun linksFollowSignInAndStatesMapFromLinks() = runTest {
         val registry = GatewayRegistry(Memory())
         val laptop = registry.add("Laptop", "http://laptop").getOrThrow()

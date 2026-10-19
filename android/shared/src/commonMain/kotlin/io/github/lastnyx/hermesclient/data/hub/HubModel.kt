@@ -61,13 +61,14 @@ class HubModel(
     private val version: suspend (Gateway) -> String?,
     private val scope: CoroutineScope,
 ) {
-    private class Entry(val link: HubLink, val job: Job)
+    private class Entry(val gateway: Gateway, val link: HubLink, val job: Job)
 
     private val entries = mutableMapOf<String, Entry>()
     private val current = MutableStateFlow<Map<String, GatewayState>>(emptyMap())
     private val _states = MutableStateFlow<List<GatewayState>>(emptyList())
     val states: StateFlow<List<GatewayState>> = _states
-    private val lists = MutableStateFlow<Map<Gateway, JSONArray>>(emptyMap())
+    // Keyed by id so an edited gateway replaces its rows instead of adding a second key.
+    private val lists = MutableStateFlow<Map<String, Pair<Gateway, JSONArray>>>(emptyMap())
     private val _needsMe = MutableStateFlow<List<NeedsMeItem>>(emptyList())
     val needsMe: StateFlow<List<NeedsMeItem>> = _needsMe
 
@@ -78,10 +79,10 @@ class HubModel(
     fun refresh() {
         val gateways = registry.list()
         val wanted = gateways.filter { signedIn(it.id) }.associateBy { it.id }
-        entries.keys.filter { it !in wanted }.forEach { id -> entries.remove(id)?.let { close(it) } }
+        entries.filter { (id, e) -> wanted[id] != e.gateway }.keys.toList().forEach { id -> entries.remove(id)?.let { close(it) } }
         wanted.values.filter { it.id !in entries }.forEach { entries[it.id] = open(it) }
         current.update { c -> c.filterKeys { it in wanted } }
-        lists.update { l -> l.filterKeys { it.id in wanted } }
+        lists.update { l -> l.filterKeys { it in wanted } }
         publishNeedsMe()
         publish(gateways)
     }
@@ -109,7 +110,7 @@ class HubModel(
             }
         }
         link.start()
-        return Entry(link, job)
+        return Entry(gateway, link, job)
     }
 
     private suspend fun watchBusy(gateway: Gateway, link: HubLink) = coroutineScope {
@@ -119,7 +120,7 @@ class HubModel(
         suspend fun refreshBusy() {
             val sessions = runCatching { link.call("session.active_list").optJSONArray("sessions") }.getOrNull() ?: return
             busy = (0 until sessions.length()).count { sessions.optJSONObject(it)?.optString("status") in BUSY }
-            lists.update { it + (gateway to sessions) }
+            lists.update { it + (gateway.id to (gateway to sessions)) }
             publishNeedsMe()
             set(GatewayState.Online(gateway, v, busy))
         }
@@ -132,7 +133,7 @@ class HubModel(
 
     private fun set(state: GatewayState) {
         current.update { it + (state.gateway.id to state) }
-        if (state !is GatewayState.Online) lists.update { it - state.gateway }
+        if (state !is GatewayState.Online) lists.update { it - state.gateway.id }
         publishNeedsMe()
         publish(registry.list())
     }
@@ -140,7 +141,7 @@ class HubModel(
     /** Only Online gateways that are still wanted keep their rows. */
     private fun publishNeedsMe() {
         val online = current.value.filterValues { it is GatewayState.Online }
-        _needsMe.value = needsMe(lists.value.filterKeys { it.id in online })
+        _needsMe.value = needsMe(lists.value.filterKeys { it in online }.values.toMap())
     }
 
     private fun publish(gateways: List<Gateway>) {
