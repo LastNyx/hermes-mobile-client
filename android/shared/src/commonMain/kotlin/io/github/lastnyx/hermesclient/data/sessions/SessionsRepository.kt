@@ -34,7 +34,7 @@ internal fun List<Session>.pinnedFirst(): List<Session> =
 
 const val HISTORY_PAGE = 120
 
-data class HistoryMessage(val role: String, val text: String, val rowId: Long? = null)
+data class HistoryMessage(val role: String, val text: String, val rowId: Long? = null, val notice: Boolean = false)
 
 /** [returned] is the raw row count of the reply, before tool/hidden/empty rows were dropped. */
 data class HistoryPage(val messages: List<HistoryMessage>, val returned: Int)
@@ -106,14 +106,7 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String, profile:
         ).build(),
     ) { body ->
         val rows = body.getJSONArray("messages")
-        val kept = (0 until rows.length()).map { rows.getJSONObject(it) }.mapNotNull { row ->
-            val role = row.optString("role")
-            val text = rowText(row)
-            val hidden = row.optString("display_kind") == "hidden"
-            // optLong would turn a missing or null id into 0.
-            val rowId = if (row.isNull("id")) null else row.optLong("id")
-            if (!hidden && (role == "user" || role == "assistant") && text.isNotBlank()) HistoryMessage(role, text, rowId) else null
-        }
+        val kept = (0 until rows.length()).map { rows.getJSONObject(it) }.mapNotNull(::historyRow)
         // Rows are filtered above, so paging must go by the raw count.
         HistoryPage(kept, body.optJSONObject("pagination")?.optInt("returned", rows.length()) ?: rows.length())
     }
@@ -133,23 +126,6 @@ class SessionsRepository(private val http: AuthedHttp, baseUrl: String, profile:
             messageCount = row.optInt("message_count", 1),
             cwd = if (row.isNull("cwd")) null else row.optString("cwd").ifBlank { null },
         )
-    }
-
-    /** REST rows are raw DB rows: the body is `content` (string or list of parts); `text` only exists on RPC snapshots. */
-    private fun rowText(row: JSONObject): String {
-        if (!row.isNull("text")) return row.optString("text")
-        return when (val content = row.opt("content")) {
-            is String -> content
-            is JSONArray -> (0 until content.length()).joinToString("\n") { i ->
-                val part = content.optJSONObject(i)
-                when (part?.optString("type")) {
-                    "text", "input_text", "output_text" -> part.optString("text")
-                    "image_url", "input_image", "image" -> "[image]"
-                    else -> ""
-                }
-            }.trim()
-            else -> ""
-        }
     }
 
     private fun <T> call(request: Request, map: (JSONObject) -> T): Result<T> = try {

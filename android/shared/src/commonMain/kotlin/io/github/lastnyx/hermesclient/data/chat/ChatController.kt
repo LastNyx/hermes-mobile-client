@@ -429,8 +429,9 @@ class ChatController(
     private val loadingOlder = AtomicBoolean(false)
 
     /** [fromEnd] counts back from the newest history row: prepending older rows never shifts it, so id-less keys stay unique. */
-    private fun historyItem(m: HistoryMessage, fromEnd: Int): ChatItem.Message {
+    private fun historyItem(m: HistoryMessage, fromEnd: Int): ChatItem {
         val key = m.rowId?.let { "h$it" } ?: "h-$fromEnd"
+        if (m.notice) return ChatItem.Note(key, m.text)
         if (m.role != "user") return ChatItem.Message(key, m.role, m.text, rowId = m.rowId)
         val parts = historyParts(m.text)
         return ChatItem.Message(key, m.role, parts.text, rowId = m.rowId, images = parts.imagePaths)
