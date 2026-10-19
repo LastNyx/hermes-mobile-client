@@ -41,6 +41,19 @@ class DesktopShellStateTest {
     }
 
     @Test
+    fun openSessionSelectsGatewayAndSetsThenClearsPendingSession() {
+        val (state, ids) = shell("a", "b")
+        state.select(ids[0])
+        state.openManage()
+        state.openSession(ids[1], "s9")
+        assertEquals(ids[1], state.selected?.id)
+        assertEquals(ids[1], (state.right as RightSide.Sessions).gateway.id)
+        assertEquals("s9", state.pendingSession)
+        state.sessionOpened()
+        assertEquals(null, state.pendingSession)
+    }
+
+    @Test
     fun settingsAndCapabilitiesOpenAndGoBack() {
         val (state, ids) = shell("a", "b", signedOut = setOf("b"))
         state.select(ids[0])

@@ -30,15 +30,48 @@ class HubModelTest {
         override val events = MutableSharedFlow<LinkEvent>(extraBufferCapacity = 16)
         var running = false
         var busy = 0
+        var waiting = emptyList<String>()
         override fun start() { running = true }
         override fun stop() { running = false }
         override suspend fun call(method: String, params: JSONObject): JSONObject {
             assertEquals("session.active_list", method)
             val items = JSONArray()
             repeat(busy) { items.put(JSONObject().put("status", "working")) }
+            waiting.forEach { items.put(JSONObject().put("status", "waiting").put("session_key", it)) }
             items.put(JSONObject().put("status", "idle"))
             return JSONObject().put("sessions", items)
         }
+    }
+
+    @Test
+    fun needsMeDropsUnreachableAndRemovedGateways() = runTest {
+        val registry = GatewayRegistry(Memory())
+        val laptop = registry.add("Laptop", "http://laptop").getOrThrow()
+        val work = registry.add("WorkLab", "http://work").getOrThrow()
+        val links = mutableMapOf<String, FakeLink>()
+        val model = HubModel(
+            registry = registry,
+            signedIn = { true },
+            linkFor = { g: Gateway -> FakeLink().also { links[g.id] = it } },
+            version = { "0.22.2" },
+            scope = backgroundScope,
+        )
+        model.start()
+        runCurrent()
+        links[laptop.id]!!.waiting = listOf("a")
+        links[work.id]!!.waiting = listOf("b")
+        links.values.forEach { it.state.value = LinkState.Connected }
+        runCurrent()
+        assertEquals(setOf("a" to laptop.id, "b" to work.id), model.needsMe.value.map { it.sessionId to it.gateway.id }.toSet())
+
+        links[laptop.id]!!.state.value = LinkState.Offline
+        runCurrent()
+        assertEquals(listOf("b"), model.needsMe.value.map { it.sessionId })
+
+        registry.remove(work.id)
+        model.refresh()
+        runCurrent()
+        assertEquals(emptyList<NeedsMeItem>(), model.needsMe.value)
     }
 
     @Test
