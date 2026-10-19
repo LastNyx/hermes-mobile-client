@@ -76,13 +76,14 @@ fun DesktopWindow(
     onTextScale: (TextScale) -> Unit,
     profileStore: ProfileStore,
 ) {
-    val state = remember { DesktopShellState(registry) { signIn.stateOf(it) is SignInState.SignedIn } }
+    val signedIn: (String) -> Boolean = { signIn.stateOf(it) is SignInState.SignedIn }
+    val state = remember { DesktopShellState(registry, signedIn) }
     val signStates by signIn.states.collectAsState()
     val scope = rememberCoroutineScope()
     val hub = remember {
         HubModel(
             registry = registry,
-            signedIn = { signIn.stateOf(it) is SignInState.SignedIn },
+            signedIn = signedIn,
             linkFor = { g -> LiveHubLink(LiveLink(http, signIn.authed(g.id, g.url), g.url, scope, AlwaysOnline)) },
             version = { g -> withContext(Dispatchers.IO) { client.status(g.url).getOrNull()?.version } },
             scope = scope,

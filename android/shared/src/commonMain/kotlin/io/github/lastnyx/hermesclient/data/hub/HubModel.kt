@@ -80,8 +80,7 @@ class HubModel(
         val wanted = gateways.filter { signedIn(it.id) }.associateBy { it.id }
         entries.keys.filter { it !in wanted }.forEach { id -> entries.remove(id)?.let { close(it) } }
         wanted.values.filter { it.id !in entries }.forEach { entries[it.id] = open(it) }
-        val kept = current.value.filterKeys { it in wanted }
-        current.value = kept
+        current.update { c -> c.filterKeys { it in wanted } }
         lists.update { l -> l.filterKeys { it.id in wanted } }
         publishNeedsMe()
         publish(gateways)
